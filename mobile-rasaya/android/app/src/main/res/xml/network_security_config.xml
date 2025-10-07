@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- MODE DEV: izinkan HTTP ke host lokal saja -->
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Android Emulator host ke PC -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <!-- Genymotion emulator -->
+        <domain includeSubdomains="false">10.0.3.2</domain>
+        <!-- Jika test di device fisik: ganti 192.168.1.100 dgn IP laptop/PC kamu -->
+        <domain includeSubdomains="false">192.168.1.100</domain>
+        <!-- Opsional: localhost untuk kasus tertentu -->
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>
