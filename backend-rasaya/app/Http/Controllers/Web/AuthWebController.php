@@ -20,18 +20,36 @@ class AuthWebController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (
-            \Illuminate\Support\Facades\Auth::attempt([
-                'identifier' => $cred['identifier'],
-                'password' => $cred['password'],
-            ], $request->boolean('remember'))
-        ) {
+        if (Auth::attempt($cred, $request->boolean('remember'))) {
             $request->session()->regenerate();
-            return redirect()->intended('/dashboard');
+
+            $user = Auth::user();
+
+            // tentukan tujuan redirect
+            if ($user->role === 'admin') {
+                return redirect()->route('admin.dashboard');
+            }
+
+            if ($user->role === 'guru') {
+                $jenis = optional($user->guru)->jenis; // 'bk' atau 'wali_kelas'
+                if ($jenis === 'bk')
+                    return redirect()->route('guru.guru_bk.dashboard');
+                if ($jenis === 'wali_kelas')
+                    return redirect()->route('guru.wali_kelas.dashboard');
+                Auth::logout();
+                return back()->withErrors(['identifier' => 'Akun guru belum punya jenis (bk/wali_kelas).'])
+                    ->onlyInput('identifier');
+            }
+
+            if ($user->role === 'siswa') {
+                return redirect()->route('siswa.dashboard');
+            }
+
+            // fallback
+            return redirect('/login');
         }
 
-        return back()->withErrors(['identifier' => 'Kredensial tidak valid.'])
-            ->onlyInput('identifier');
+        return back()->withErrors(['identifier' => 'Kredensial tidak valid.'])->onlyInput('identifier');
     }
 
     public function logout(Request $request)

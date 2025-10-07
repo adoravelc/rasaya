@@ -10,9 +10,9 @@
 
 <body>
     <main>
-        <h1>Login Nyoba xixi</h1>
+        <h1>Nyoba login bang</h1>
         @if ($errors->any())
-            <p style="color:red">{{ $errors->first() }}</p>
+            <p style="color:pink">{{ $errors->first() }}</p>
         @endif
         <form method="post" action="/login">
             @csrf
@@ -23,7 +23,7 @@
                 <input type="password" name="password" required>
             </label>
             <label><input type="checkbox" name="remember"> Remember me</label>
-            <button type="submit">Masuk</button>
+            <button type="submit">Login yaa</button>
         </form>
     </main>
 </body>
