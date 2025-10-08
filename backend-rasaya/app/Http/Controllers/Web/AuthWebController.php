@@ -31,11 +31,11 @@ class AuthWebController extends Controller
             }
 
             if ($user->role === 'guru') {
-                $jenis = optional($user->guru)->jenis; // 'bk' atau 'wali_kelas'
+                $jenis = optional($user->guru)->jenis;
                 if ($jenis === 'bk')
-                    return redirect()->route('guru.guru_bk.dashboard');
+                    return redirect()->route('guru.bk.dashboard'); // /guru/bk
                 if ($jenis === 'wali_kelas')
-                    return redirect()->route('guru.wali_kelas.dashboard');
+                    return redirect()->route('guru.wk.dashboard'); // /guru/wk
                 Auth::logout();
                 return back()->withErrors(['identifier' => 'Akun guru belum punya jenis (bk/wali_kelas).'])
                     ->onlyInput('identifier');

@@ -8,7 +8,7 @@ class AdminDashboardController extends Controller
 {
     public function index()
     {
-        return view('roles.admin.dashboard'); // resources/views/dashboards/admin.blade.php
+        return view('roles.admin.dashboard');
     }
 }
 

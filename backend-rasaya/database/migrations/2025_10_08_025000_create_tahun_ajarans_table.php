@@ -10,8 +10,12 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::create('siswas', function (Blueprint $table) {
-            $table->foreignId('user_id')->primary()->constrained('users')->cascadeOnDelete();
+        Schema::create('tahun_ajarans', function (Blueprint $table) {
+            $table->id();
+            $table->string('nama')->unique();        // ex: 2024/2025
+            $table->date('mulai')->nullable();
+            $table->date('selesai')->nullable();
+            $table->boolean('is_active')->default(false);
             $table->timestamps();
             $table->softDeletes();
         });
@@ -22,6 +26,6 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('siswas');
+        Schema::dropIfExists('tahun_ajarans');
     }
 };
