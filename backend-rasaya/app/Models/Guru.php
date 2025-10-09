@@ -9,10 +9,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Guru extends Model
 {
     use SoftDeletes;
-    protected $fillable = ['user_id','jenis'];
+    protected $fillable = ['user_id', 'jenis'];
 
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+    public function kelasDiwalikan()
+    {
+        return $this->hasMany(Kelas::class, 'wali_guru_id');
     }
 }

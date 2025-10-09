@@ -37,4 +37,11 @@ class Kelas extends Model
         $parts[] = (string) $this->rombel;
         return implode(' ', $parts);
     }
+
+    public function siswas()
+    {
+        return $this->belongsToMany(Siswa::class, 'siswa_kelas', 'kelas_id', 'siswa_id')
+            ->withPivot(['tahun_ajaran_id', 'is_active', 'joined_at', 'left_at'])
+            ->withTimestamps();
+    }
 }
