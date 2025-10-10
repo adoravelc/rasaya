@@ -1,6 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart';
-import 'api_client.dart';
+import '../api/api_client.dart';
 
 class AuthRepository {
   final ApiClient _client;
@@ -8,17 +8,26 @@ class AuthRepository {
 
   static const _kTokenKey = 'token';
 
-  Future<String> login(
-      {required String identifier, required String password}) async {
-    final res = await _client.dio.post('/login', data: {
-      'identifier': identifier,
-      'password': password,
-      'device_name': 'flutter',
-    });
-    final token = res.data['token'] as String;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kTokenKey, token);
-    return token;
+  Future<String> login({
+    required String identifier,
+    required String password,
+  }) async {
+    try {
+      final res = await _client.dio.post('/login', data: {
+        'identifier': identifier,
+        'password': password,
+        'device_name': 'flutter',
+      });
+      final token = res.data['token'] as String;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kTokenKey, token);
+      return token;
+    } on DioException catch (e) {
+      final msg = e.response?.data is Map && e.response?.data['message'] != null
+          ? e.response!.data['message'].toString()
+          : 'Gagal login. Periksa identifier/password.';
+      throw Exception(msg);
+    }
   }
 
   Future<Map<String, dynamic>> me(String token) async {
@@ -31,7 +40,7 @@ class AuthRepository {
     final authed = _client.withToken(token);
     try {
       await authed.dio.post('/logout');
-    } catch (_) {/* ignore, we’ll still clear local token */}
+    } catch (_) {}
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kTokenKey);
   }

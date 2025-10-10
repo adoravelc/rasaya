@@ -1,24 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../auth_controller.dart';
+import '../auth/auth_controller.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
+
+  Future<void> _doLogout(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Keluar?'),
+        content: const Text('Anda yakin ingin logout dari aplikasi?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Batal')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Logout')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await ref.read(authControllerProvider.notifier).logout();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Berhasil logout')));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(authControllerProvider);
     final me = state.me ?? {};
 
+    if (state.loading && me.isEmpty) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: [
           IconButton(
+            tooltip: 'Logout',
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await ref.read(authControllerProvider.notifier).logout();
-            },
+            onPressed: () => _doLogout(context, ref),
           ),
         ],
       ),
@@ -41,6 +69,16 @@ class HomePage extends ConsumerWidget {
                     Text('Identifier: ${me['identifier'] ?? '-'}'),
                     Text('Email: ${me['email'] ?? '-'}'),
                   ]),
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Tombol logout yang gede di konten
+          SizedBox(
+            width: 200,
+            child: FilledButton.icon(
+              icon: const Icon(Icons.logout),
+              label: const Text('Logout'),
+              onPressed: () => _doLogout(context, ref),
             ),
           ),
           const SizedBox(height: 12),
