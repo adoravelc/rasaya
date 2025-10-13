@@ -14,18 +14,19 @@ class InputSiswaController extends Controller
         $user = $r->user();
 
         if ($user->role === 'siswa') {
-            $siswaId = optional($user->siswa)->id;    // <- ini id? Di relasi kamu, yg dipakai user_id
             $siswaUserId = optional($user->siswa)->user_id;
-            abort_if(!$siswaUserId, 403);
+            abort_if(!$siswaUserId, 403, 'Unauthorized access');
 
-            return InputSiswa::with(['kategoris', 'siswaDilapor'])
-                ->where('siswa_id', $siswaUserId)     // pelapor = saya
-                ->orderByDesc('tanggal')
-                ->paginate(20);
+            return response()->json([
+                'data' => InputSiswa::with(['kategoris', 'siswaDilapor.user:id,name'])
+                    ->where('siswa_id', $siswaUserId)
+                    ->orderByDesc('tanggal')
+                    ->paginate(20)
+            ]);
         }
 
         // admin/guru
-        $q = InputSiswa::with(['kategoris', 'siswa', 'siswaDilapor']);
+        $q = InputSiswa::with(['kategoris', 'siswa.user:id,name', 'siswaDilapor.user:id,name']);
         if ($r->filled('siswa_id')) {
             $q->where('siswa_id', (int) $r->input('siswa_id'));
         }
@@ -56,7 +57,7 @@ class InputSiswaController extends Controller
             'teks' => $data['teks'],
             'avg_emosi' => $data['avg_emosi'] ?? null,
             'gambar' => $data['gambar'] ?? null,
-            'status_upload' => $data['status_upload'] ?? 0,
+            'status_upload' => (int) ($data['status_upload'] ?? 1),
             'meta' => $data['meta'] ?? null,
         ]);
 

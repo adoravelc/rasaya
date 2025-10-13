@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart'
-    show kIsWeb, defaultTargetPlatform, TargetPlatform;
+    show kIsWeb, defaultTargetPlatform, TargetPlatform, kDebugMode;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiResponse {
@@ -37,11 +37,32 @@ class ApiClient {
             if (token != null) 'Authorization': 'Bearer $token',
           },
         )) {
+    // Add logging interceptor for debugging
+    if (kDebugMode) {
+      _dio.interceptors.add(LogInterceptor(
+        requestBody: true,
+        responseBody: true,
+      ));
+    }
+
+    // Handle 401 errors
     _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        // Get latest token if not provided in constructor
+        if (token == null) {
+          final prefs = await SharedPreferences.getInstance();
+          final savedToken = prefs.getString(_kTokenKey);
+          if (savedToken != null) {
+            options.headers['Authorization'] = 'Bearer $savedToken';
+          }
+        }
+        handler.next(options);
+      },
       onError: (e, handler) async {
         if (e.response?.statusCode == 401) {
-          final sp = await SharedPreferences.getInstance();
-          await sp.remove(_kTokenKey);
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove(_kTokenKey);
+          // You might want to trigger a logout event here
         }
         handler.next(e);
       },
@@ -52,10 +73,10 @@ class ApiClient {
     try {
       final response = await _dio.post(path, data: data);
       return ApiResponse(ok: true, data: response.data);
-    } on DioError catch (e) {
+    } on DioException catch (e) {
       return ApiResponse(
         ok: false,
-        errorMessage: e.response?.data['message'] ?? e.message,
+        errorMessage: _formatErrorMessage(e),
       );
     }
   }
@@ -64,11 +85,34 @@ class ApiClient {
     try {
       final response = await _dio.get(path, queryParameters: query);
       return ApiResponse(ok: true, data: response.data);
-    } on DioError catch (e) {
+    } on DioException catch (e) {
       return ApiResponse(
         ok: false,
-        errorMessage: e.response?.data['message'] ?? e.message,
+        errorMessage: _formatErrorMessage(e),
       );
+    }
+  }
+
+  // Helper untuk format error message yang lebih konsisten
+  String _formatErrorMessage(DioException e) {
+    if (e.response?.data is Map) {
+      final Map data = e.response!.data;
+      if (data.containsKey('message')) {
+        return data['message'].toString();
+      }
+      if (data.containsKey('error')) {
+        return data['error'].toString();
+      }
+    }
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return 'Koneksi timeout. Periksa internet Anda.';
+      case DioExceptionType.badResponse:
+        return 'Server error (${e.response?.statusCode})';
+      default:
+        return e.message ?? 'Terjadi kesalahan';
     }
   }
 

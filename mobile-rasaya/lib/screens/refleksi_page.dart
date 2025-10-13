@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mobile_rasaya/auth/auth_controller.dart';
+
+import '../auth/auth_controller.dart';
 import '../api/api_client.dart';
 
 class RefleksiPage extends ConsumerStatefulWidget {
@@ -16,7 +17,8 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
   final _teksCtrl = TextEditingController();
   DateTime _tanggal = DateTime.now();
   String _jenis = 'pribadi'; // 'pribadi' | 'laporan'
-  int? _laporSiswaId; // muncul hanya saat laporan teman
+  int? _laporSiswaId; // siswa yang dilaporkan (opsional)
+  String? _laporSiswaNama;
   bool loading = false;
 
   // mock upload (belum implementasi file picker)
@@ -37,7 +39,7 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
       context: context,
       initialDate: _tanggal,
       firstDate: DateTime.now().subtract(const Duration(days: 60)),
-      lastDate: DateTime.now().add(const Duration(days: 0)),
+      lastDate: DateTime.now(),
     );
     if (picked != null) setState(() => _tanggal = picked);
   }
@@ -47,84 +49,84 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
     setState(() => _loadingSiswa = true);
     try {
       final api = ref.read(apiClientProvider);
-      // ganti sesuai endpoint kamu; kalau belum ada, tetap aman (empty list)
-      final res = await api.get('/siswa?per_page=100'); // contoh
-      if (res.ok && res.data is List) {
-        _siswa = (res.data as List)
+      // Debug: print request
+      print('Loading siswa list...');
+
+      final res = await api.get('/siswas'); // Sesuaikan dengan route di backend
+      print('Response: ${res.data}'); // Debug response
+
+      if (res.ok && res.data is Map && res.data['data'] is List) {
+        final me = ref.read(authControllerProvider).me ?? {};
+        final myUserId = me['id'];
+        _siswa = (res.data['data'] as List)
             .cast<Map>()
             .map((e) => {
-                  'id': e['id'] as int?,
-                  'nama': (e['nama'] ?? e['name'] ?? 'Tanpa Nama').toString(),
+                  'id': e['user_id'] ?? e['id'],
+                  'nama': (e['name'] ?? e['nama'] ?? 'Tanpa Nama').toString(),
                 })
+            .where((m) => m['id'] != myUserId)
             .toList();
+
+        print('Loaded ${_siswa.length} siswa'); // Debug hasil
       }
-    } catch (_) {
-      // biarkan kosong kalau gagal
+    } catch (e) {
+      print('Error loading siswa: $e'); // Debug error
     } finally {
       if (mounted) setState(() => _loadingSiswa = false);
     }
   }
 
   String _fmtTanggal(DateTime d) {
-    // tanpa package intl, gunakan lokal Material
     final loc = MaterialLocalizations.of(context);
     return loc.formatFullDate(d);
   }
 
-  Future<void> _saveDraft() async {
-    if (_teksCtrl.text.trim().isEmpty) {
+  // === SUBMIT KE SERVER ===================================================
+
+  Future<void> _submit({required int statusUpload}) async {
+    // validasi minimal teks
+    if (!_formKey.currentState!.validate()) return;
+
+    // validasi laporan: harus pilih siswa
+    if (_jenis == 'laporan' && _laporSiswaId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Isi refleksi masih kosong.')),
+        const SnackBar(content: Text('Pilih siswa yang ingin dilaporkan.')),
       );
       return;
     }
-    // simpan sederhana via shared_prefs (opsional)
-    try {
-      // ignore: avoid_dynamic_calls
-      final sp = await SharedPreferencesAsync.getInstance();
-      await sp.setString('refleksi_draft_text', _teksCtrl.text.trim());
-      await sp.setString('refleksi_draft_jenis', _jenis);
-      await sp.setString('refleksi_draft_tanggal', _tanggal.toIso8601String());
-      if (_laporSiswaId != null) {
-        await sp.setInt('refleksi_draft_lapor_id', _laporSiswaId!);
-      } else {
-        await sp.remove('refleksi_draft_lapor_id');
-      }
-      // filename mock tidak disimpan
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Draft tersimpan.')));
-    } catch (_) {
-      // kalau package shared_preferences belum ada, fallback notice
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Draft belum diaktifkan (shared_preferences).')));
-    }
-  }
 
-  Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => loading = true);
     try {
       final api = ref.read(apiClientProvider);
       final payload = <String, dynamic>{
-        'tanggal': _tanggal.toIso8601String().substring(0, 10),
+        'tanggal': _tanggal.toIso8601String().split('T').first,
         'teks': _teksCtrl.text.trim(),
-        'jenis': _jenis, // backend boleh abaikan jika belum dipakai
+        'status_upload': statusUpload, // 0=draft, 1=final
+        if (_jenis == 'laporan' && _laporSiswaId != null)
+          'siswa_dilapor_id': _laporSiswaId,
         'meta': {
           'src': 'flutter',
           if (_mockFilename != null) 'mock_file': _mockFilename,
-          if (_laporSiswaId != null) 'lapor_siswa_id': _laporSiswaId,
+          'jenis': _jenis,
         },
       };
 
       final res = await api.post('/input-siswa', payload);
+
       if (!mounted) return;
       if (res.ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Refleksi terkirim')),
-        );
+        // reset minimal
         _teksCtrl.clear();
-        context.push('/refleksi/history');
+        _laporSiswaId = null;
+        _laporSiswaNama = null;
+
+        final msg = statusUpload == 0
+            ? 'Draft tersimpan.'
+            : 'Refleksi berhasil terkirim.';
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(msg)));
+
+        context.go('/home');
       } else {
         showDialog(
           context: context,
@@ -139,8 +141,120 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
     }
   }
 
+  // === PICKER SISWA DENGAN SEARCH ========================================
+
+  Future<void> _pickSiswa() async {
+    // pastikan data ada
+    await _loadSiswaIfNeeded();
+    if (!mounted) return;
+
+    final selected = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        // state lokal untuk search & filter
+        final searchCtrl = TextEditingController();
+        List<Map<String, dynamic>> filtered = List.of(_siswa);
+
+        void applyFilter(String q) {
+          final qq = q.trim().toLowerCase();
+          if (qq.isEmpty) {
+            filtered = List.of(_siswa);
+          } else {
+            filtered = _siswa
+                .where((m) =>
+                    (m['nama'] ?? '').toString().toLowerCase().contains(qq))
+                .toList();
+          }
+        }
+
+        return DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          minChildSize: 0.6,
+          maxChildSize: 0.95,
+          builder: (ctx, scrollController) {
+            return StatefulBuilder(builder: (ctx, setBS) {
+              return Material(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(16)),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    // header
+                    Container(
+                      height: 48,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      alignment: Alignment.centerLeft,
+                      child: const Text('Pilih Siswa',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600)),
+                    ),
+                    // search box
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      child: TextField(
+                        controller: searchCtrl,
+                        decoration: const InputDecoration(
+                          prefixIcon: Icon(Icons.search),
+                          hintText: 'Cari nama siswa…',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (q) => setBS(() {
+                          applyFilter(q);
+                        }),
+                      ),
+                    ),
+                    if (_loadingSiswa)
+                      const LinearProgressIndicator(minHeight: 2),
+
+                    // list hasil
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(
+                              child: Text('Tidak ada hasil'),
+                            )
+                          : ListView.separated(
+                              controller: scrollController,
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (_, i) {
+                                final m = filtered[i];
+                                return ListTile(
+                                  leading: const Icon(Icons.person_outline),
+                                  title: Text(m['nama'].toString()),
+                                  subtitle: Text('ID: ${m['id']}'),
+                                  onTap: () => Navigator.pop(ctx, m),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              );
+            });
+          },
+        );
+      },
+    );
+
+    if (selected != null) {
+      setState(() {
+        _laporSiswaId = selected['id'] as int?;
+        _laporSiswaNama = selected['nama']?.toString();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hintText = _jenis == 'laporan'
+        ? 'Ceritakan apa yang kamu ketahui tentang keadaan temanmu, '
+            'kronologi singkat, dan hal penting yang perlu diketahui guru BK.'
+        : 'Ceritakan perasaan, pengalaman, atau hal penting yang kamu alami hari ini…';
+
     final left = _FormKiri(
       formKey: _formKey,
       tanggal: _tanggal,
@@ -152,20 +266,29 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
         if (v == 'laporan') {
           await _loadSiswaIfNeeded();
         } else {
-          setState(() => _laporSiswaId = null);
+          setState(() {
+            _laporSiswaId = null;
+            _laporSiswaNama = null;
+          });
         }
       },
-      siswaList: _siswa,
+      // gunakan field pilih siswa dengan search (custom picker)
+      siswaPickerLabel: _laporSiswaNama ?? '— Pilih Siswa —',
+      onTapPilihSiswa: _jenis == 'laporan' ? _pickSiswa : null,
       siswaLoading: _loadingSiswa && _jenis == 'laporan',
-      laporSiswaId: _laporSiswaId,
-      onSiswaChanged: (id) => setState(() => _laporSiswaId = id),
+
       teksCtrl: _teksCtrl,
+      isiHint: hintText,
+
       onPickMock: () => setState(() =>
           _mockFilename = 'bukti_${DateTime.now().millisecondsSinceEpoch}.jpg'),
       onResetMock: () => setState(() => _mockFilename = null),
       loading: loading,
-      onSaveDraft: _saveDraft,
-      onSubmit: _submit,
+
+      // tombol
+      onSaveDraft: () => _submit(statusUpload: 0),
+      onSubmit: () => _submit(statusUpload: 1),
+
       fmtTanggal: _fmtTanggal,
     );
 
@@ -189,7 +312,6 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
               ),
             );
           }
-          // mobile: stack
           return ListView(
             padding: const EdgeInsets.all(12),
             children: [
@@ -213,11 +335,11 @@ class _FormKiri extends StatelessWidget {
     required this.jenis,
     required this.onPickTanggal,
     required this.onJenisChanged,
-    required this.siswaList,
+    required this.siswaPickerLabel,
+    required this.onTapPilihSiswa,
     required this.siswaLoading,
-    required this.laporSiswaId,
-    required this.onSiswaChanged,
     required this.teksCtrl,
+    required this.isiHint,
     required this.mockFilename,
     required this.onPickMock,
     required this.onResetMock,
@@ -231,15 +353,17 @@ class _FormKiri extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   final DateTime tanggal;
   final String jenis;
+
   final VoidCallback onPickTanggal;
   final ValueChanged<String> onJenisChanged;
 
-  final List<Map<String, dynamic>> siswaList;
+  // picker siswa (dengan search)
+  final String siswaPickerLabel;
+  final VoidCallback? onTapPilihSiswa;
   final bool siswaLoading;
-  final int? laporSiswaId;
-  final ValueChanged<int?> onSiswaChanged;
 
   final TextEditingController teksCtrl;
+  final String isiHint;
 
   final String? mockFilename;
   final VoidCallback onPickMock;
@@ -259,164 +383,171 @@ class _FormKiri extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Form(
           key: formKey,
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Form Refleksi',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Form Refleksi',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
 
-            // Tanggal + Jenis
-            Row(children: [
-              Expanded(
-                child: _FieldGroup(
-                  label: 'Tanggal',
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: loading ? null : onPickTanggal,
-                    child: InputDecorator(
+              // Tanggal + Jenis
+              Row(children: [
+                Expanded(
+                  child: _FieldGroup(
+                    label: 'Tanggal',
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: loading ? null : onPickTanggal,
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(fmtTanggal(tanggal))),
+                            const Icon(Icons.calendar_today, size: 18),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _FieldGroup(
+                    label: 'Jenis Refleksi',
+                    child: DropdownButtonFormField<String>(
+                      value: jenis,
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'pribadi', child: Text('Pribadi')),
+                        DropdownMenuItem(
+                            value: 'laporan', child: Text('Laporan Teman')),
+                      ],
+                      onChanged: loading
+                          ? null
+                          : (v) => onJenisChanged(v ?? 'pribadi'),
                       decoration:
                           const InputDecoration(border: OutlineInputBorder()),
+                    ),
+                  ),
+                ),
+              ]),
+
+              const SizedBox(height: 12),
+
+              // Pilih siswa (hanya saat laporan) — via picker search
+              if (jenis == 'laporan') ...[
+                _FieldGroup(
+                  label: 'Pilih Siswa (opsional jika melaporkan teman)',
+                  helper:
+                      'Jika refleksi bersifat pribadi, bagian ini dikosongkan.',
+                  child: InkWell(
+                    onTap: loading ? null : onTapPilihSiswa,
+                    borderRadius: BorderRadius.circular(8),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: '— Pilih Siswa —',
+                      ),
                       child: Row(
                         children: [
-                          Expanded(child: Text(fmtTanggal(tanggal))),
-                          const Icon(Icons.calendar_today, size: 18),
+                          Expanded(child: Text(siswaPickerLabel)),
+                          const Icon(Icons.arrow_drop_down),
                         ],
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _FieldGroup(
-                  label: 'Jenis Refleksi',
-                  child: DropdownButtonFormField<String>(
-                    value: jenis,
-                    items: const [
-                      DropdownMenuItem(
-                          value: 'pribadi', child: Text('Pribadi')),
-                      DropdownMenuItem(
-                          value: 'laporan', child: Text('Laporan Teman')),
-                    ],
-                    onChanged:
-                        loading ? null : (v) => onJenisChanged(v ?? 'pribadi'),
-                    decoration:
-                        const InputDecoration(border: OutlineInputBorder()),
+                if (siswaLoading)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: LinearProgressIndicator(minHeight: 2),
                   ),
-                ),
-              ),
-            ]),
+                const SizedBox(height: 12),
+              ],
 
-            const SizedBox(height: 12),
-
-            // Pilih siswa (muncul kalau laporan)
-            if (jenis == 'laporan') ...[
+              // Isi refleksi
               _FieldGroup(
-                label: 'Pilih Siswa (opsional jika melaporkan teman)',
+                label: 'Isi Refleksi',
                 helper:
-                    'Jika refleksi bersifat pribadi, bagian ini dapat dikosongkan.',
-                child: DropdownButtonFormField<int>(
-                  value: laporSiswaId,
-                  isExpanded: true,
-                  items: siswaList
-                      .map((e) => DropdownMenuItem<int>(
-                            value: e['id'] as int?,
-                            child: Text(e['nama'].toString()),
-                          ))
-                      .toList(),
-                  onChanged: loading ? null : onSiswaChanged,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: '— Pilih Siswa —',
+                    'Saran: tulis jujur dan spesifik. (contoh: apa yang membuat senang/tertekan, bagaimana responsmu, apa yang ingin dilakukan besok)',
+                child: TextFormField(
+                  controller: teksCtrl,
+                  maxLines: 6,
+                  minLines: 4,
+                  decoration: InputDecoration(
+                    hintText: isiHint,
+                    border: const OutlineInputBorder(),
                   ),
+                  validator: (v) {
+                    final s = (v ?? '').trim();
+                    if (s.isEmpty) return 'Isi refleksi tidak boleh kosong';
+                    if (s.length < 5) return 'Minimal 5 karakter';
+                    return null;
+                  },
                 ),
               ),
-              if (siswaLoading)
-                const Padding(
-                  padding: EdgeInsets.only(top: 6),
-                  child: LinearProgressIndicator(minHeight: 2),
-                ),
+
               const SizedBox(height: 12),
-            ],
 
-            // Isi refleksi
-            _FieldGroup(
-              label: 'Isi Refleksi',
-              helper:
-                  'Saran: tulis jujur dan spesifik. (contoh: apa yang membuat senang/tertekan, bagaimana responsmu, apa yang ingin dilakukan besok)',
-              child: TextFormField(
-                controller: teksCtrl,
-                maxLines: 6,
-                minLines: 4,
-                decoration: const InputDecoration(
-                  hintText:
-                      'Ceritakan perasaan, pengalaman, atau hal penting yang kamu alami hari ini...',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) {
-                  final s = (v ?? '').trim();
-                  if (s.isEmpty) return 'Isi refleksi tidak boleh kosong';
-                  if (s.length < 5) return 'Minimal 5 karakter';
-                  return null;
-                },
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // Upload mock
-            _FieldGroup(
-              label: 'Unggah Gambar (opsional)',
-              helper: 'Gunakan untuk bukti pendukung bila diperlukan.',
-              child: InputDecorator(
-                decoration: const InputDecoration(border: OutlineInputBorder()),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        mockFilename ?? 'Pilih file... (mockup)',
-                        style: TextStyle(
-                          color: mockFilename == null ? Colors.grey[600] : null,
+              // Upload mock
+              _FieldGroup(
+                label: 'Unggah Gambar (opsional)',
+                helper: 'Gunakan untuk bukti pendukung bila diperlukan.',
+                child: InputDecorator(
+                  decoration:
+                      const InputDecoration(border: OutlineInputBorder()),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          mockFilename ?? 'Pilih file... (mockup)',
+                          style: TextStyle(
+                            color:
+                                mockFilename == null ? Colors.grey[600] : null,
+                          ),
                         ),
                       ),
-                    ),
-                    if (mockFilename != null)
-                      IconButton(
-                        tooltip: 'Hapus',
-                        onPressed: loading ? null : onResetMock,
-                        icon: const Icon(Icons.close),
+                      if (mockFilename != null)
+                        IconButton(
+                          tooltip: 'Hapus',
+                          onPressed: loading ? null : onResetMock,
+                          icon: const Icon(Icons.close),
+                        ),
+                      ElevatedButton.icon(
+                        onPressed: loading ? null : onPickMock,
+                        icon: const Icon(Icons.upload_file),
+                        label: const Text('Pilih'),
                       ),
-                    ElevatedButton.icon(
-                      onPressed: loading ? null : onPickMock,
-                      icon: const Icon(Icons.upload_file),
-                      label: const Text('Pilih'),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Buttons
-            Wrap(spacing: 12, runSpacing: 8, children: [
-              OutlinedButton.icon(
-                onPressed: loading ? null : onSaveDraft,
-                icon: const Icon(Icons.save_outlined),
-                label: const Text('Simpan Draft'),
-              ),
-              FilledButton.icon(
-                onPressed: loading ? null : onSubmit,
-                icon: loading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.send),
-                label: const Text('Kirim Refleksi'),
-              ),
-            ]),
-          ]),
+              // Buttons
+              Wrap(spacing: 12, runSpacing: 8, children: [
+                OutlinedButton.icon(
+                  onPressed: loading ? null : onSaveDraft,
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Simpan Draft'),
+                ),
+                FilledButton.icon(
+                  onPressed: loading ? null : onSubmit,
+                  icon: loading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send),
+                  label: const Text('Kirim Refleksi'),
+                ),
+              ]),
+            ],
+          ),
         ),
       ),
     );
@@ -433,16 +564,17 @@ class _PanduanMenulis extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text('Panduan Penulisan',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              SizedBox(height: 12),
-              _Bullet('Apa perasaan utama hari ini dan penyebabnya?'),
-              _Bullet('Kejadian penting yang kamu alami? (positif/negatif)'),
-              _Bullet('Bagaimana kamu merespons situasi tersebut?'),
-              _Bullet('Apa yang kamu syukuri dan rencanakan untuk besok?'),
-            ]),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text('Panduan Penulisan',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            SizedBox(height: 12),
+            _Bullet('Apa perasaan utama hari ini dan penyebabnya?'),
+            _Bullet('Kejadian penting yang kamu alami? (positif/negatif)'),
+            _Bullet('Bagaimana kamu merespons situasi tersebut?'),
+            _Bullet('Apa yang kamu syukuri dan rencanakan untuk besok?'),
+          ],
+        ),
       ),
     );
   }
@@ -488,19 +620,4 @@ class _FieldGroup extends StatelessWidget {
       ]
     ]);
   }
-}
-
-/* ===== helper mini buat draft tanpa nambah dependency publik =====
-   Kalau kamu sudah pakai package shared_preferences, hapus kelas ini
-   dan ganti dengan import shared_preferences normal. */
-
-class SharedPreferencesAsync {
-  static Future<_DummyPrefs> getInstance() async => _DummyPrefs();
-}
-
-class _DummyPrefs {
-  final Map<String, Object> _m = {};
-  Future<void> setString(String k, String v) async => _m[k] = v;
-  Future<void> setInt(String k, int v) async => _m[k] = v;
-  Future<void> remove(String k) async => _m.remove(k);
 }
