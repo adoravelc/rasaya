@@ -1,11 +1,19 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'auth/auth_controller.dart';
 import 'screens/login_page.dart';
 import 'screens/home_page.dart';
+import 'screens/refleksi_page.dart';
+
+// (opsional) siapkan halaman history sederhana sementara
+class RefleksiHistoryPage extends StatelessWidget {
+  const RefleksiHistoryPage({super.key});
+  @override
+  Widget build(BuildContext context) =>
+      const Scaffold(body: Center(child: Text('History Refleksi (todo)')));
+}
 
 void main() => runApp(const ProviderScope(child: App()));
 
@@ -21,13 +29,17 @@ class _AppState extends ConsumerState<App> {
   @override
   void initState() {
     super.initState();
-    // bootstrap token -> /me
     ref.read(authControllerProvider.notifier).bootstrap();
 
     _router = GoRouter(
       routes: [
         GoRoute(path: '/', builder: (_, __) => const LoginPage()),
         GoRoute(path: '/home', builder: (_, __) => const HomePage()),
+        GoRoute(
+            path: '/refleksi', builder: (_, __) => const RefleksiPage()), // NEW
+        GoRoute(
+            path: '/refleksi/history',
+            builder: (_, __) => const RefleksiHistoryPage()), // NEW (stub)
       ],
       redirect: (context, state) {
         final st = ref.read(authControllerProvider);
@@ -37,8 +49,6 @@ class _AppState extends ConsumerState<App> {
         if (loggedIn && atLogin) return '/home';
         return null;
       },
-      // biar router tau ada perubahan & evaluasi redirect lagi
-      // (cukup rebuild App saat state auth berubah)
       refreshListenable: GoRouterRefreshStream(
         ref.read(authControllerProvider.notifier).stream,
       ),
@@ -48,15 +58,13 @@ class _AppState extends ConsumerState<App> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'RASAYA',
+      title: 'Rasaya',
       theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
       routerConfig: _router,
     );
   }
 }
 
-/// Helper: konversi Stream ke Listenable buat GoRouter.
-/// (Sederhana, cukup untuk trigger refresh)
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Stream<dynamic> stream) {
     _sub = stream.asBroadcastStream().listen((_) => notifyListeners());

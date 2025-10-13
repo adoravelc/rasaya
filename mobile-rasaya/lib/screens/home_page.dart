@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/auth_controller.dart';
+import 'package:go_router/go_router.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -30,6 +31,7 @@ class HomePage extends ConsumerWidget {
     }
   }
 
+  @override
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(authControllerProvider);
@@ -72,7 +74,28 @@ class HomePage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
-          // Tombol logout yang gede di konten
+
+          // ===== Navigasi Refleksi (NEW) =====
+          Row(children: [
+            SizedBox(
+              width: 220,
+              child: FilledButton.icon(
+                icon: const Icon(Icons.edit_note),
+                label: const Text('Tulis Refleksi Hari Ini'),
+                onPressed: () => context.push('/refleksi'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.history),
+              label: const Text('Riwayat Refleksi'),
+              onPressed: () => context.push('/refleksi/history'),
+            ),
+          ]),
+          const SizedBox(height: 24),
+          // ===================================
+
+          // Tombol logout besar (tetap)
           SizedBox(
             width: 200,
             child: FilledButton.icon(

@@ -9,49 +9,62 @@ use App\Http\Requests\StoreInputSiswaRequest;
 
 class InputSiswaController extends Controller
 {
-    // Siswa melihat riwayat pribadinya
     public function index(Request $r)
     {
         $user = $r->user();
+
         if ($user->role === 'siswa') {
-            $siswaId = optional($user->siswa)->id;
-            abort_if(!$siswaId, 403);
-            return InputSiswa::with('kategoris')
-                ->where('siswa_id', $siswaId)
+            $siswaId = optional($user->siswa)->id;    // <- ini id? Di relasi kamu, yg dipakai user_id
+            $siswaUserId = optional($user->siswa)->user_id;
+            abort_if(!$siswaUserId, 403);
+
+            return InputSiswa::with(['kategoris', 'siswaDilapor'])
+                ->where('siswa_id', $siswaUserId)     // pelapor = saya
                 ->orderByDesc('tanggal')
                 ->paginate(20);
         }
-        // admin/guru: filter by siswa_id (opsional)
-        $q = InputSiswa::with(['kategoris', 'siswa.user']);
-        if ($r->filled('siswa_id'))
-            $q->where('siswa_id', $r->integer('siswa_id'));
-        if ($r->filled('tanggal'))
+
+        // admin/guru
+        $q = InputSiswa::with(['kategoris', 'siswa', 'siswaDilapor']);
+        if ($r->filled('siswa_id')) {
+            $q->where('siswa_id', (int) $r->input('siswa_id'));
+        }
+        if ($r->filled('tanggal')) {
             $q->whereDate('tanggal', $r->date('tanggal'));
+        }
         return $q->orderByDesc('tanggal')->paginate(20);
     }
 
     public function store(StoreInputSiswaRequest $r)
     {
         $user = $r->user();
-        // siswa hanya boleh create untuk dirinya sendiri
-        $siswaId = $r->input('siswa_id');
-        if ($user->role === 'siswa')
-            $siswaId = optional($user->siswa)->id;
-        abort_if(!$siswaId, 403);
-
         $data = $r->validated();
+
+        // tentukan siswa_id (pelapor)
+        $siswaUserId = $data['siswa_id'] ?? optional($user->siswa)->user_id;
+        abort_if(!$siswaUserId, 403);
+
+        // kalau laporan teman, pastikan bukan diri sendiri
+        if (!empty($data['siswa_dilapor_id']) && (int) $data['siswa_dilapor_id'] === (int) $siswaUserId) {
+            return response()->json(['message' => 'Tidak boleh melaporkan diri sendiri.'], 422);
+        }
+
         $row = InputSiswa::create([
-            'siswa_id' => $siswaId,
+            'siswa_id' => $siswaUserId,
+            'siswa_dilapor_id' => $data['siswa_dilapor_id'] ?? null,
             'tanggal' => $data['tanggal'] ?? now()->toDateString(),
             'teks' => $data['teks'],
-            'avg_emosi' => $data['avg_emosi'],
+            'avg_emosi' => $data['avg_emosi'] ?? null,
+            'gambar' => $data['gambar'] ?? null,
+            'status_upload' => $data['status_upload'] ?? 0,
             'meta' => $data['meta'] ?? null,
         ]);
 
         if (!empty($data['kategori_ids'])) {
             $row->kategoris()->sync($data['kategori_ids']);
         }
-        return response()->json($row->load('kategoris'), 201);
+
+        return response()->json($row->load(['kategoris', 'siswa', 'siswaDilapor']), 201);
     }
 
     public function show(InputSiswa $inputSiswa)

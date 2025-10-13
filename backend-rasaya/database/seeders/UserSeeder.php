@@ -54,5 +54,15 @@ class UserSeeder extends Seeder
             'email_verified_at' => now(),
         ]);
         Siswa::updateOrCreate(['user_id' => $siswaUser->id], []);
+
+        // Siswa2
+        $siswaUser2 = User::updateOrCreate(['email' => 'siswa2@rasaya.id'], [
+            'identifier' => '5678',
+            'role' => 'siswa',
+            'name' => 'Rich Chigga',
+            'password' => Hash::make('4njaysiswa'),
+            'email_verified_at' => now(),
+        ]);
+        Siswa::updateOrCreate(['user_id' => $siswaUser2->id], []);
     }
 }

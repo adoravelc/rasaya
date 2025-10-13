@@ -47,7 +47,7 @@ Route::middleware('auth:sanctum')->group(function () {
         //INPUT SISWA
         Route::get('input-siswa', [InputSiswaController::class, 'index']);
         // create/update/delete
-        Route::post('input-siswa', [InputSiswaController::class, 'store']);          // siswa: hanya dirinya
+        Route::post('input-siswa', [InputSiswaController::class, 'store']);
         Route::put('input-siswa/{inputSiswa}', [InputSiswaController::class, 'update']);
         Route::delete('input-siswa/{inputSiswa}', [InputSiswaController::class, 'destroy']);
         Route::get('input-siswa/{inputSiswa}', [InputSiswaController::class, 'show']);

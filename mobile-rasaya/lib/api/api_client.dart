@@ -1,14 +1,20 @@
-// api_client.dart
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:shared_preferences/shared_preferences.dart';
 
+class ApiResponse {
+  final bool ok;
+  final dynamic data;
+  final String errorMessage;
+
+  ApiResponse({required this.ok, this.data, this.errorMessage = ''});
+}
+
 class ApiClient {
   final Dio _dio;
   static const _kTokenKey = 'token';
 
-  // Ganti ke IP LAN backend kamu kalau test di device fisik.
   static const String _lanBase = 'http://192.168.1.10:8000/api'; // <- EDIT
   static const String _webBase = 'http://localhost:8000/api';
   static const String _androidEmuBase = 'http://10.0.2.2:8000/api';
@@ -17,7 +23,6 @@ class ApiClient {
   static String _resolveBaseUrl() {
     if (kIsWeb) return _webBase;
     if (defaultTargetPlatform == TargetPlatform.android) return _androidEmuBase;
-    // untuk device fisik (Android/iOS) ubah ke _lanBase manual saat perlu
     return _iosSimBase;
   }
 
@@ -34,7 +39,6 @@ class ApiClient {
         )) {
     _dio.interceptors.add(InterceptorsWrapper(
       onError: (e, handler) async {
-        // optional: auto-logout kalau 401
         if (e.response?.statusCode == 401) {
           final sp = await SharedPreferences.getInstance();
           await sp.remove(_kTokenKey);
@@ -42,6 +46,30 @@ class ApiClient {
         handler.next(e);
       },
     ));
+  }
+
+  Future<ApiResponse> post(String path, Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.post(path, data: data);
+      return ApiResponse(ok: true, data: response.data);
+    } on DioError catch (e) {
+      return ApiResponse(
+        ok: false,
+        errorMessage: e.response?.data['message'] ?? e.message,
+      );
+    }
+  }
+
+  Future<ApiResponse> get(String path, {Map<String, dynamic>? query}) async {
+    try {
+      final response = await _dio.get(path, queryParameters: query);
+      return ApiResponse(ok: true, data: response.data);
+    } on DioError catch (e) {
+      return ApiResponse(
+        ok: false,
+        errorMessage: e.response?.data['message'] ?? e.message,
+      );
+    }
   }
 
   Dio get dio => _dio;
