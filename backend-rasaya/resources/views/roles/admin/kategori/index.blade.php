@@ -1,4 +1,4 @@
-{{-- resources/views/roles/admin/kelas/index.blade.php --}}
+{{-- resources/views/roles/admin/kategori/index.blade.php --}}
 <!doctype html>
 <html lang="id">
 
@@ -6,31 +6,29 @@
     <meta charset="utf-8">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Manajemen Kelas — Admin</title>
+    <title>Manajemen Kategori — Admin</title>
     @vite(['resources/js/app.js'])
     <style>
         .sidebar {
             min-height: 100vh;
             border-right: 1px solid #e5e7eb;
-            background: #f8f9fa;
+            background: #f8f9fa
         }
 
         .sidebar .nav-link.active {
             background: #e9ecef;
-            font-weight: 600;
+            font-weight: 600
         }
     </style>
 </head>
 
 <body>
-
     <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
         <div class="container-fluid">
             <a class="navbar-brand fw-bold" href="{{ route('admin.dashboard') }}">RASAYA Admin</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topbar">
                 <span class="navbar-toggler-icon"></span>
             </button>
-
             <div class="collapse navbar-collapse" id="topbar">
                 <ul class="navbar-nav ms-auto align-items-lg-center">
                     <li class="nav-item me-3 text-muted small">
@@ -57,8 +55,8 @@
                     <div class="text-uppercase text-muted fw-semibold small mb-2">Menu</div>
                     <nav class="nav nav-pills flex-column gap-1">
                         <a class="nav-link" href="{{ route('admin.dashboard') }}">🏠 Dashboard</a>
-                        <a class="nav-link active" href="{{ route('admin.kelas.index') }}">📚 Manajemen Kelas</a>
-                        <a class="nav-link" href="{{ route('admin.kategori.index') }}">🗂️ Manajemen Kategori</a>
+                        <a class="nav-link" href="{{ route('admin.kelas.index') }}">📚 Manajemen Kelas</a>
+                        <a class="nav-link active" href="{{ route('admin.kategori.index') }}">🗂️ Manajemen Kategori</a>
                         <a class="nav-link disabled">👩‍🏫 Data Guru (segera)</a>
                         <a class="nav-link disabled">🧑‍🎓 Data Siswa (segera)</a>
                     </nav>
@@ -69,26 +67,18 @@
             <main class="col-12 col-md-9 col-lg-10 p-4">
                 <div class="d-flex align-items-center justify-content-between mb-3">
                     <div>
-                        <h3 class="mb-1">Manajemen Kelas</h3>
-                        <div class="text-muted">Kelola tingkat, penjurusan, rombel, dan wali kelas.</div>
+                        <h3 class="mb-1">Manajemen Kategori</h3>
+                        <div class="text-muted">Kelola kode unik, nama, deskripsi, dan status aktif.</div>
                     </div>
-
-                    <div class="d-flex gap-2 align-items-center">
-                        {{-- Filter Tahun Ajaran --}}
-                        <form method="get" class="d-flex">
-                            <select name="tahun_ajaran_id" class="form-select form-select-sm" style="width: 220px"
-                                onchange="this.form.submit()">
-                                @foreach ($tahunAjarans as $ta)
-                                    <option value="{{ $ta->id }}" {{ $activeTa == $ta->id ? 'selected' : '' }}>
-                                        {{ $ta->nama }} {{ $ta->is_active ? '(aktif)' : '' }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </form>
-
-                        <button class="btn btn-primary" onclick="openCreate()">
-                            + Tambah Kelas
-                        </button>
+                    <div class="d-flex gap-2">
+                        <select class="form-select form-select-sm" onchange="location.href='?aktif='+this.value"
+                            style="width:180px">
+                            <option value="" {{ request('aktif') === null ? 'selected' : '' }}>Semua status
+                            </option>
+                            <option value="1" {{ request('aktif') === '1' ? 'selected' : '' }}>Aktif</option>
+                            <option value="0" {{ request('aktif') === '0' ? 'selected' : '' }}>Nonaktif</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="openCreate()">+ Tambah Kategori</button>
                     </div>
                 </div>
 
@@ -100,39 +90,39 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th style="width:64px">#</th>
-                                        <th>Label</th>
-                                        <th>Tingkat</th>
-                                        <th>Penjurusan</th>
-                                        <th>Rombel</th>
-                                        <th>Wali Guru</th>
+                                        <th>Kode</th>
+                                        <th>Nama</th>
+                                        <th>Deskripsi</th>
+                                        <th>Status</th>
                                         <th style="width:160px">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody id="rows">
-                                    @forelse ($kelas as $i => $k)
+                                    @forelse ($rows as $i => $k)
                                         <tr data-id="{{ $k->id }}">
-                                            <td>{{ $kelas->firstItem() + $i }}</td>
-                                            <td class="td-label">{{ $k->label }}</td>
-                                            <td class="td-tingkat">{{ $k->tingkat }}</td>
-                                            <td class="td-jur">{{ $k->penjurusan ?? '-' }}</td>
-                                            <td class="td-rombel">{{ $k->rombel }}</td>
-                                            <td class="td-wali">{{ $k->waliGuru->name ?? '-' }}</td>
+                                            <td>{{ $rows->firstItem() + $i }}</td>
+                                            <td class="td-kode">{{ $k->kode }}</td>
+                                            <td class="td-nama">{{ $k->nama }}</td>
+                                            <td class="td-deskripsi">{{ $k->deskripsi ?? '—' }}</td>
+                                            <td class="td-is_active">
+                                                <div class="form-check form-switch m-0">
+                                                    <input class="form-check-input toggle-active" type="checkbox"
+                                                        role="switch" data-id="{{ $k->id }}"
+                                                        {{ $k->is_active ? 'checked' : '' }}>
+                                                </div>
+                                            </td>
                                             <td class="actions">
                                                 <div class="btn-group btn-group-sm">
                                                     <button class="btn btn-outline-secondary"
-                                                        onclick="openEdit({{ $k->id }})">
-                                                        Edit
-                                                    </button>
+                                                        onclick="openEdit({{ $k->id }})">Edit</button>
                                                     <button class="btn btn-outline-danger"
-                                                        onclick="doDelete({{ $k->id }})">
-                                                        Hapus
-                                                    </button>
+                                                        onclick="doDelete({{ $k->id }})">Hapus</button>
                                                 </div>
                                             </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="7" class="text-center py-4 text-muted">Belum ada data.</td>
+                                            <td colspan="6" class="text-center py-4 text-muted">Belum ada data.</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -142,7 +132,7 @@
                 </div>
 
                 <div class="mt-3">
-                    {{ $kelas->withQueryString()->links() }}
+                    {{ $rows->withQueryString()->links() }}
                 </div>
 
                 {{-- Trashed --}}
@@ -154,7 +144,7 @@
                         <ul class="list-group" id="trashed">
                             @foreach ($trashed as $t)
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    {{ $t->label }}
+                                    {{ $t->kode }} — {{ $t->nama }}
                                     <div class="btn-group btn-group-sm">
                                         <button class="btn btn-outline-success"
                                             onclick="restore({{ $t->id }})">Pulihkan</button>
@@ -170,61 +160,36 @@
         </div>
     </div>
 
-    {{-- Modal Bootstrap --}}
+    {{-- Modal --}}
     <div class="modal fade" id="modal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 id="m-title" class="modal-title">Form Kelas</h5>
+                    <h5 id="m-title" class="modal-title">Form Kategori</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
                 <div class="modal-body">
                     <form id="m-form" onsubmit="submitForm(event)">
                         <input type="hidden" id="m-id">
-
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Tahun Ajaran</label>
-                                <select id="m-ta" class="form-select" required>
-                                    @foreach ($tahunAjarans as $ta)
-                                        <option value="{{ $ta->id }}">{{ $ta->nama }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <div class="col-md-6">
-                                <label class="form-label">Tingkat</label>
-                                <select id="m-tingkat" class="form-select" required>
-                                    <option>X</option>
-                                    <option>XI</option>
-                                    <option>XII</option>
-                                </select>
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label">Penjurusan (opsional)</label>
-                                <select id="m-penjurusan" class="form-select">
-                                    <option value="">—</option>
-                                    <option>IPA</option>
-                                    <option>IPS</option>
-                                </select>
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label">Rombel (nomor)</label>
-                                <input id="m-rombel" type="number" min="1" class="form-control" required>
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label">Wali Guru (User ID)</label>
-                                <input id="m-wali" type="number" class="form-control" placeholder="opsional">
-                            </div>
-
-                            <div class="col-12">
-                                <pre id="m-error" class="text-danger small mb-0" style="white-space:pre-wrap"></pre>
-                            </div>
+                        <div class="mb-3">
+                            <label class="form-label">Kode</label>
+                            <input id="m-kode" class="form-control" maxlength="10" required>
+                            <div class="form-text">Huruf/angka tanpa spasi (mis: AKD, EMO).</div>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nama</label>
+                            <input id="m-nama" class="form-control" maxlength="100" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Deskripsi (opsional)</label>
+                            <textarea id="m-deskripsi" class="form-control" rows="2" maxlength="255"></textarea>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="m-active" checked>
+                            <label class="form-check-label" for="m-active">Aktif</label>
+                        </div>
+                        <pre id="m-error" class="text-danger small mb-0" style="white-space:pre-wrap"></pre>
                     </form>
                 </div>
 
@@ -238,40 +203,37 @@
 
     <script>
         const token = document.querySelector('meta[name="csrf-token"]').content;
-        const base = '/admin/kelas';
+        const base = '/admin/kategori';
         const modalEl = document.getElementById('modal');
-        let bsModal; // instance Bootstrap Modal
+        let bsModal;
 
         document.addEventListener('DOMContentLoaded', () => {
-            // window.bootstrap is available from Vite import 'bootstrap'
             bsModal = new bootstrap.Modal(modalEl, {
                 backdrop: 'static'
             });
         });
 
         function openCreate() {
-            document.getElementById('m-title').innerText = 'Tambah Kelas';
+            document.getElementById('m-title').innerText = 'Tambah Kategori';
             document.getElementById('m-id').value = '';
-            document.getElementById('m-ta').value = '{{ $activeTa }}';
-            document.getElementById('m-tingkat').value = 'X';
-            document.getElementById('m-penjurusan').value = '';
-            document.getElementById('m-rombel').value = '';
-            document.getElementById('m-wali').value = '';
+            document.getElementById('m-kode').value = '';
+            document.getElementById('m-nama').value = '';
+            document.getElementById('m-deskripsi').value = '';
+            document.getElementById('m-active').checked = true;
             document.getElementById('m-error').innerText = '';
             bsModal.show();
         }
 
         function openEdit(id) {
             const tr = document.querySelector(`tr[data-id="${id}"]`);
-            document.getElementById('m-title').innerText = 'Edit Kelas';
+            document.getElementById('m-title').innerText = 'Edit Kategori';
             document.getElementById('m-id').value = id;
-            document.getElementById('m-ta').value = '{{ $activeTa }}';
-            document.getElementById('m-tingkat').value = tr.querySelector('.td-tingkat').innerText.trim();
-            document.getElementById('m-penjurusan').value =
-                (tr.querySelector('.td-jur').innerText.trim() === '-' ? '' :
-                    tr.querySelector('.td-jur').innerText.trim());
-            document.getElementById('m-rombel').value = tr.querySelector('.td-rombel').innerText.trim();
-            document.getElementById('m-wali').value = '';
+            document.getElementById('m-kode').value = tr.querySelector('.td-kode').innerText.trim();
+            document.getElementById('m-nama').value = tr.querySelector('.td-nama').innerText.trim();
+            document.getElementById('m-deskripsi').value = tr.querySelector('.td-deskripsi').innerText.trim() === '—' ? '' :
+                tr.querySelector('.td-deskripsi').innerText.trim();
+            document.getElementById('m-active').checked = tr.querySelector('.td-is_active .badge')?.classList.contains(
+                'text-bg-success');
             document.getElementById('m-error').innerText = '';
             bsModal.show();
         }
@@ -279,13 +241,11 @@
         async function submitForm(e) {
             e.preventDefault();
             const id = document.getElementById('m-id').value;
-
             const payload = {
-                tahun_ajaran_id: document.getElementById('m-ta').value,
-                tingkat: document.getElementById('m-tingkat').value,
-                penjurusan: document.getElementById('m-penjurusan').value || null,
-                rombel: Number(document.getElementById('m-rombel').value),
-                wali_guru_id: document.getElementById('m-wali').value || null,
+                kode: document.getElementById('m-kode').value.trim(),
+                nama: document.getElementById('m-nama').value.trim(),
+                deskripsi: document.getElementById('m-deskripsi').value.trim() || null,
+                is_active: document.getElementById('m-active').checked ? 1 : 0,
             };
 
             const res = await fetch(id ? `${base}/${id}` : base, {
@@ -308,7 +268,7 @@
         }
 
         async function doDelete(id) {
-            if (!confirm('Hapus kelas?')) return;
+            if (!confirm('Hapus kategori?')) return;
             const res = await fetch(`${base}/${id}`, {
                 method: 'DELETE',
                 headers: {
@@ -341,6 +301,37 @@
             });
             if (res.ok) location.reload();
         }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            bsModal = new bootstrap.Modal(modalEl, {
+                backdrop: 'static'
+            });
+
+            // toggle aktif/nonaktif
+            document.querySelectorAll('.toggle-active').forEach(el => {
+                el.addEventListener('change', async (e) => {
+                    const id = e.target.dataset.id;
+                    const is_active = e.target.checked ? 1 : 0;
+
+                    const res = await fetch(`${base}/${id}/active`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': token,
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            is_active
+                        })
+                    });
+
+                    if (!res.ok) {
+                        alert('Gagal mengubah status. Coba lagi.');
+                        e.target.checked = !e.target.checked; // rollback UI
+                    }
+                });
+            });
+        });
     </script>
 </body>
 

@@ -65,6 +65,7 @@
 
                         <a class="nav-link {{ request()->routeIs('admin.kelas.*') ? 'active' : '' }}"
                             href="{{ route('admin.kelas.index') }}">📚 Manajemen Kelas</a>
+                            <a class="nav-link" href="{{ route('admin.kategori.index') }}">🗂️ Manajemen Kategori</a>
 
                         {{-- contoh menu lain (disabled dulu) --}}
                         <a class="nav-link disabled">👩‍🏫 Data Guru (segera)</a>

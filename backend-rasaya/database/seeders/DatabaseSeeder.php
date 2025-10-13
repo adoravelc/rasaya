@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             UserSeeder::class,   // seeder punyamu yg sudah isi identifier & role
             TahunAjaranSeeder::class,
+            KategoriMasalahSeeder::class,
         ]);
     }
 }
