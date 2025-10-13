@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\GuruController;
 use App\Http\Controllers\Api\SiswaController;
 use App\Http\Controllers\Api\SiswaKelasController;
 use App\Http\Controllers\Api\KategoriMasalahController;
+use App\Http\Controllers\Api\InputSiswaController;
 
 Route::get('/health', fn() => response()->json(['ok' => true, 'ts' => now()]));
 
@@ -32,6 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('siswa-kelas', [SiswaKelasController::class, 'store']);
         Route::delete('siswa-kelas', [SiswaKelasController::class, 'destroy']);
 
+        //KATEGORI
         Route::post('kategori-masalah', [KategoriMasalahController::class, 'store']);
         Route::get('kategori-masalah/{kategoriMasalah}', [KategoriMasalahController::class, 'show']);
         Route::put('kategori-masalah/{kategoriMasalah}', [KategoriMasalahController::class, 'update']);
@@ -41,6 +43,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('kategori-masalah-trashed', [KategoriMasalahController::class, 'trashed']);
         Route::post('kategori-masalah/{id}/restore', [KategoriMasalahController::class, 'restore']);
         Route::delete('kategori-masalah/{id}/force', [KategoriMasalahController::class, 'forceDelete']);
+
+        //INPUT SISWA
+        Route::get('input-siswa', [InputSiswaController::class, 'index']);
+        // create/update/delete
+        Route::post('input-siswa', [InputSiswaController::class, 'store']);          // siswa: hanya dirinya
+        Route::put('input-siswa/{inputSiswa}', [InputSiswaController::class, 'update']);
+        Route::delete('input-siswa/{inputSiswa}', [InputSiswaController::class, 'destroy']);
+        Route::get('input-siswa/{inputSiswa}', [InputSiswaController::class, 'show']);
     });
 
     // index (lihat roster) boleh admin & guru
