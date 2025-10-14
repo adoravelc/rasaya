@@ -1,173 +1,100 @@
 {{-- resources/views/roles/admin/kelas/index.blade.php --}}
-<!doctype html>
-<html lang="id">
+@extends('layouts.admin')
 
-<head>
-    <meta charset="utf-8">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Manajemen Kelas — Admin</title>
-    @vite(['resources/js/app.js'])
-    <style>
-        .sidebar {
-            min-height: 100vh;
-            border-right: 1px solid #e5e7eb;
-            background: #f8f9fa;
-        }
+@section('title', 'Manajemen Kelas')
 
-        .sidebar .nav-link.active {
-            background: #e9ecef;
-            font-weight: 600;
-        }
-    </style>
-</head>
+@section('page-header')
+    <div>
+        <h3 class="mb-1">Manajemen Kelas</h3>
+        <div class="text-muted">Kelola tingkat, penjurusan, rombel, dan wali kelas.</div>
+    </div>
 
-<body>
+    <div class="d-flex gap-2 align-items-center">
+        {{-- Filter Tahun Ajaran --}}
+        <form method="get" class="d-flex">
+            <select name="tahun_ajaran_id" class="form-select form-select-sm" style="width:220px" onchange="this.form.submit()">
+                @foreach ($tahunAjarans as $ta)
+                    <option value="{{ $ta->id }}" {{ $activeTa == $ta->id ? 'selected' : '' }}>
+                        {{ $ta->nama }} {{ $ta->is_active ? '(aktif)' : '' }}
+                    </option>
+                @endforeach
+            </select>
+        </form>
 
-    <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
-        <div class="container-fluid">
-            <a class="navbar-brand fw-bold" href="{{ route('admin.dashboard') }}">RASAYA Admin</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topbar">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+        <button class="btn btn-primary" onclick="openCreate()">+ Tambah Kelas</button>
+    </div>
+@endsection
 
-            <div class="collapse navbar-collapse" id="topbar">
-                <ul class="navbar-nav ms-auto align-items-lg-center">
-                    <li class="nav-item me-3 text-muted small">
-                        Halo, <strong>{{ auth()->user()->name }}</strong>
-                        <span class="d-none d-sm-inline">({{ auth()->user()->identifier }})</span>
-                    </li>
-                    <li class="nav-item">
-                        <form method="POST" action="{{ route('logout') }}"
-                            onsubmit="return confirm('Yakin ingin logout?')">
-                            @csrf
-                            <button class="btn btn-outline-danger btn-sm" type="submit">Logout</button>
-                        </form>
-                    </li>
-                </ul>
+@section('content')
+    {{-- Tabel --}}
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:64px">#</th>
+                            <th>Label</th>
+                            <th>Tingkat</th>
+                            <th>Penjurusan</th>
+                            <th>Rombel</th>
+                            <th>Wali Guru</th>
+                            <th style="width:160px">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rows">
+                        @forelse ($kelas as $i => $k)
+                            <tr data-id="{{ $k->id }}">
+                                <td>{{ $kelas->firstItem() + $i }}</td>
+                                <td class="td-label">{{ $k->label }}</td>
+                                <td class="td-tingkat">{{ $k->tingkat }}</td>
+                                <td class="td-jur">{{ $k->penjurusan ?? '-' }}</td>
+                                <td class="td-rombel">{{ $k->rombel }}</td>
+                                <td class="td-wali">{{ $k->waliGuru->name ?? '-' }}</td>
+                                <td class="actions">
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-secondary"
+                                            onclick="openEdit({{ $k->id }})">Edit</button>
+                                        <button class="btn btn-outline-danger"
+                                            onclick="doDelete({{ $k->id }})">Hapus</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">Belum ada data.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
         </div>
-    </nav>
+    </div>
 
-    <div class="container-fluid">
-        <div class="row">
-            {{-- Sidebar --}}
-            <aside class="col-12 col-md-3 col-lg-2 p-0 sidebar">
-                <div class="p-3">
-                    <div class="text-uppercase text-muted fw-semibold small mb-2">Menu</div>
-                    <nav class="nav nav-pills flex-column gap-1">
-                        <a class="nav-link" href="{{ route('admin.dashboard') }}">🏠 Dashboard</a>
-                        <a class="nav-link active" href="{{ route('admin.kelas.index') }}">📚 Manajemen Kelas</a>
-                        <a class="nav-link" href="{{ route('admin.kategori.index') }}">🗂️ Manajemen Kategori</a>
-                        <a class="nav-link disabled">👩‍🏫 Data Guru (segera)</a>
-                        <a class="nav-link disabled">🧑‍🎓 Data Siswa (segera)</a>
-                    </nav>
-                </div>
-            </aside>
+    <div class="mt-3">
+        {{ $kelas->withQueryString()->links() }}
+    </div>
 
-            {{-- Content --}}
-            <main class="col-12 col-md-9 col-lg-10 p-4">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <div>
-                        <h3 class="mb-1">Manajemen Kelas</h3>
-                        <div class="text-muted">Kelola tingkat, penjurusan, rombel, dan wali kelas.</div>
-                    </div>
-
-                    <div class="d-flex gap-2 align-items-center">
-                        {{-- Filter Tahun Ajaran --}}
-                        <form method="get" class="d-flex">
-                            <select name="tahun_ajaran_id" class="form-select form-select-sm" style="width: 220px"
-                                onchange="this.form.submit()">
-                                @foreach ($tahunAjarans as $ta)
-                                    <option value="{{ $ta->id }}" {{ $activeTa == $ta->id ? 'selected' : '' }}>
-                                        {{ $ta->nama }} {{ $ta->is_active ? '(aktif)' : '' }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </form>
-
-                        <button class="btn btn-primary" onclick="openCreate()">
-                            + Tambah Kelas
-                        </button>
-                    </div>
-                </div>
-
-                {{-- Tabel --}}
-                <div class="card shadow-sm border-0">
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-striped mb-0 align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width:64px">#</th>
-                                        <th>Label</th>
-                                        <th>Tingkat</th>
-                                        <th>Penjurusan</th>
-                                        <th>Rombel</th>
-                                        <th>Wali Guru</th>
-                                        <th style="width:160px">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="rows">
-                                    @forelse ($kelas as $i => $k)
-                                        <tr data-id="{{ $k->id }}">
-                                            <td>{{ $kelas->firstItem() + $i }}</td>
-                                            <td class="td-label">{{ $k->label }}</td>
-                                            <td class="td-tingkat">{{ $k->tingkat }}</td>
-                                            <td class="td-jur">{{ $k->penjurusan ?? '-' }}</td>
-                                            <td class="td-rombel">{{ $k->rombel }}</td>
-                                            <td class="td-wali">{{ $k->waliGuru->name ?? '-' }}</td>
-                                            <td class="actions">
-                                                <div class="btn-group btn-group-sm">
-                                                    <button class="btn btn-outline-secondary"
-                                                        onclick="openEdit({{ $k->id }})">
-                                                        Edit
-                                                    </button>
-                                                    <button class="btn btn-outline-danger"
-                                                        onclick="doDelete({{ $k->id }})">
-                                                        Hapus
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="7" class="text-center py-4 text-muted">Belum ada data.</td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
+    {{-- Trashed --}}
+    <div class="mt-4">
+        <h5 class="mb-2">Terhapus (soft delete)</h5>
+        @if ($trashed->isEmpty())
+            <div class="text-muted">Tidak ada data terhapus.</div>
+        @else
+            <ul class="list-group" id="trashed">
+                @foreach ($trashed as $t)
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ $t->label }}
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-success"
+                                onclick="restore({{ $t->id }})">Pulihkan</button>
+                            <button class="btn btn-outline-danger" onclick="forceDel({{ $t->id }})">Hapus
+                                Permanen</button>
                         </div>
-                    </div>
-                </div>
-
-                <div class="mt-3">
-                    {{ $kelas->withQueryString()->links() }}
-                </div>
-
-                {{-- Trashed --}}
-                <div class="mt-4">
-                    <h5 class="mb-2">Terhapus (soft delete)</h5>
-                    @if ($trashed->isEmpty())
-                        <div class="text-muted">Tidak ada data terhapus.</div>
-                    @else
-                        <ul class="list-group" id="trashed">
-                            @foreach ($trashed as $t)
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    {{ $t->label }}
-                                    <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-success"
-                                            onclick="restore({{ $t->id }})">Pulihkan</button>
-                                        <button class="btn btn-outline-danger"
-                                            onclick="forceDel({{ $t->id }})">Hapus Permanen</button>
-                                    </div>
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endif
-                </div>
-            </main>
-        </div>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
     </div>
 
     {{-- Modal Bootstrap --}}
@@ -235,15 +162,16 @@
             </div>
         </div>
     </div>
+@endsection
 
+@push('scripts')
     <script>
         const token = document.querySelector('meta[name="csrf-token"]').content;
         const base = '/admin/kelas';
         const modalEl = document.getElementById('modal');
-        let bsModal; // instance Bootstrap Modal
+        let bsModal;
 
         document.addEventListener('DOMContentLoaded', () => {
-            // window.bootstrap is available from Vite import 'bootstrap'
             bsModal = new bootstrap.Modal(modalEl, {
                 backdrop: 'static'
             });
@@ -268,8 +196,7 @@
             document.getElementById('m-ta').value = '{{ $activeTa }}';
             document.getElementById('m-tingkat').value = tr.querySelector('.td-tingkat').innerText.trim();
             document.getElementById('m-penjurusan').value =
-                (tr.querySelector('.td-jur').innerText.trim() === '-' ? '' :
-                    tr.querySelector('.td-jur').innerText.trim());
+                (tr.querySelector('.td-jur').innerText.trim() === '-' ? '' : tr.querySelector('.td-jur').innerText.trim());
             document.getElementById('m-rombel').value = tr.querySelector('.td-rombel').innerText.trim();
             document.getElementById('m-wali').value = '';
             document.getElementById('m-error').innerText = '';
@@ -279,7 +206,6 @@
         async function submitForm(e) {
             e.preventDefault();
             const id = document.getElementById('m-id').value;
-
             const payload = {
                 tahun_ajaran_id: document.getElementById('m-ta').value,
                 tingkat: document.getElementById('m-tingkat').value,
@@ -300,7 +226,7 @@
 
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                document.getElementById('m-error').innerText = JSON.stringify(data.errors ?? data, null, 2);
+                document.getElementById('m-error').innerText = JSON.stringify((data.errors ?? data), null, 2);
                 return;
             }
             bsModal.hide();
@@ -342,6 +268,4 @@
             if (res.ok) location.reload();
         }
     </script>
-</body>
-
-</html>
+@endpush
