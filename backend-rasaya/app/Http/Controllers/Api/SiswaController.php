@@ -19,6 +19,35 @@ class SiswaController extends Controller
         return Siswa::with('user:id,name,email,identifier')->paginate(20);
     }
 
+    // app/Http/Controllers/Api/SiswaController.php
+    public function listSimple(Request $r)
+    {
+        $me = $r->user();
+        $myUserId = $me->id;
+
+        // optional: filter q
+        $q = trim((string) $r->query('q'));
+
+        $rows = \App\Models\Siswa::with(['user:id,name'])
+            ->when($q !== '', function ($qq) use ($q) {
+                $qq->whereHas('user', function ($uq) use ($q) {
+                    $uq->where('name', 'like', "%{$q}%")
+                        ->orWhere('identifier', 'like', "%{$q}%");
+                });
+            })
+            ->limit(1000)
+            ->get()
+            ->map(fn($s) => [
+                'id' => $s->user_id,          // <- pk siswa = user_id di skema kamu
+                'nama' => $s->user->name ?? 'Tanpa Nama',
+            ])
+            ->filter(fn($m) => $m['id'] !== $myUserId) // exclude diri sendiri
+            ->values();
+
+        return response()->json(['data' => $rows]);
+    }
+
+
     public function store(Request $r)
     {
         $data = $r->validate([

@@ -49,28 +49,20 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
     setState(() => _loadingSiswa = true);
     try {
       final api = ref.read(apiClientProvider);
-      // Debug: print request
-      print('Loading siswa list...');
-
-      final res = await api.get('/siswas'); // Sesuaikan dengan route di backend
-      print('Response: ${res.data}'); // Debug response
-
+      final res = await api.get('/siswa-list'); // ganti dari /siswas
       if (res.ok && res.data is Map && res.data['data'] is List) {
         final me = ref.read(authControllerProvider).me ?? {};
         final myUserId = me['id'];
         _siswa = (res.data['data'] as List)
             .cast<Map>()
-            .map((e) => {
-                  'id': e['user_id'] ?? e['id'],
-                  'nama': (e['name'] ?? e['nama'] ?? 'Tanpa Nama').toString(),
-                })
+            .map((e) => {'id': e['id'], 'nama': e['nama'].toString()})
             .where((m) => m['id'] != myUserId)
             .toList();
-
-        print('Loaded ${_siswa.length} siswa'); // Debug hasil
+      } else {
+        debugPrint('GET /siswas gagal: ${res.errorMessage}');
       }
     } catch (e) {
-      print('Error loading siswa: $e'); // Debug error
+      debugPrint('load siswa error: $e');
     } finally {
       if (mounted) setState(() => _loadingSiswa = false);
     }
