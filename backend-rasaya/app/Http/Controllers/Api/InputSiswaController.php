@@ -14,26 +14,25 @@ class InputSiswaController extends Controller
         $user = $r->user();
 
         if ($user->role === 'siswa') {
+            // pakai user_id (bukan siswas.id)
             $siswaUserId = optional($user->siswa)->user_id;
-            abort_if(!$siswaUserId, 403, 'Unauthorized access');
+            abort_if(!$siswaUserId, 403);
 
-            return response()->json([
-                'data' => InputSiswa::with(['kategoris', 'siswaDilapor.user:id,name'])
-                    ->where('siswa_id', $siswaUserId)
-                    ->orderByDesc('tanggal')
-                    ->paginate(20)
-            ]);
+            return InputSiswa::with(['kategoris'])
+                ->where('siswa_id', $siswaUserId)   // ← ini kuncinya
+                ->orderByDesc('tanggal')
+                ->paginate(10);
         }
 
         // admin/guru
-        $q = InputSiswa::with(['kategoris', 'siswa.user:id,name', 'siswaDilapor.user:id,name']);
+        $q = InputSiswa::with(['kategoris', 'siswa.user']);
         if ($r->filled('siswa_id')) {
-            $q->where('siswa_id', (int) $r->input('siswa_id'));
+            $q->where('siswa_id', (int) $r->input('siswa_id')); // ini juga user_id
         }
         if ($r->filled('tanggal')) {
             $q->whereDate('tanggal', $r->date('tanggal'));
         }
-        return $q->orderByDesc('tanggal')->paginate(20);
+        return $q->orderByDesc('tanggal')->paginate(10);
     }
 
     public function store(StoreInputSiswaRequest $r)
@@ -41,18 +40,20 @@ class InputSiswaController extends Controller
         $user = $r->user();
         $data = $r->validated();
 
-        // tentukan siswa_id (pelapor)
+        // pelapor = user_id
         $siswaUserId = $data['siswa_id'] ?? optional($user->siswa)->user_id;
         abort_if(!$siswaUserId, 403);
 
-        // kalau laporan teman, pastikan bukan diri sendiri
-        if (!empty($data['siswa_dilapor_id']) && (int) $data['siswa_dilapor_id'] === (int) $siswaUserId) {
+        if (
+            !empty($data['siswa_dilapor_id']) &&
+            (int) $data['siswa_dilapor_id'] === (int) $siswaUserId
+        ) {
             return response()->json(['message' => 'Tidak boleh melaporkan diri sendiri.'], 422);
         }
 
         $row = InputSiswa::create([
-            'siswa_id' => $siswaUserId,
-            'siswa_dilapor_id' => $data['siswa_dilapor_id'] ?? null,
+            'siswa_id' => $siswaUserId,                 // ← user_id
+            'siswa_dilapor_id' => $data['siswa_dilapor_id'] ?? null, // juga user_id
             'tanggal' => $data['tanggal'] ?? now()->toDateString(),
             'teks' => $data['teks'],
             'avg_emosi' => $data['avg_emosi'] ?? null,
@@ -65,7 +66,7 @@ class InputSiswaController extends Controller
             $row->kategoris()->sync($data['kategori_ids']);
         }
 
-        return response()->json($row->load(['kategoris', 'siswa', 'siswaDilapor']), 201);
+        return response()->json($row->load(['kategoris', 'siswa.user']), 201);
     }
 
     public function show(InputSiswa $inputSiswa)

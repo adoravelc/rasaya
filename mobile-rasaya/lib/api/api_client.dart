@@ -81,6 +81,27 @@ class ApiClient {
     }
   }
 
+  Future<ApiResponse> postMood(int skor, {String? gambar, DateTime? tanggal}) {
+    final body = <String, dynamic>{
+      'skor': skor,
+      if (gambar != null) 'gambar': gambar,
+      if (tanggal != null)
+        'tanggal': tanggal.toIso8601String().split('T').first,
+    };
+    return post('/mood', body);
+  }
+
+  Future<ApiResponse> getMoodToday({DateTime? tanggal}) {
+    final q = tanggal == null
+        ? ''
+        : '?tanggal=${tanggal.toIso8601String().split('T').first}';
+    return get('/mood/today$q');
+  }
+
+  Future<ApiResponse> getMoodHistory({int page = 1, int perPage = 20}) {
+    return get('/mood/history?page=$page&per_page=$perPage');
+  }
+
   Future<ApiResponse> get(String path, {Map<String, dynamic>? query}) async {
     try {
       final response = await _dio.get(path, queryParameters: query);
@@ -91,6 +112,10 @@ class ApiClient {
         errorMessage: _formatErrorMessage(e),
       );
     }
+  }
+
+  Future<ApiResponse> getRefleksiHistory({int page = 1, int perPage = 10}) {
+    return get('/input-siswa?page=$page&per_page=$perPage');
   }
 
   // Helper untuk format error message yang lebih konsisten

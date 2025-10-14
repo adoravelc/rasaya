@@ -6,6 +6,8 @@ import 'auth/auth_controller.dart';
 import 'screens/login_page.dart';
 import 'screens/home_page.dart';
 import 'screens/refleksi_page.dart';
+import 'screens/mood_page.dart';
+import 'screens/history_page.dart';
 
 // (opsional) siapkan halaman history sederhana sementara
 class RefleksiHistoryPage extends StatelessWidget {
@@ -39,7 +41,10 @@ class _AppState extends ConsumerState<App> {
             path: '/refleksi', builder: (_, __) => const RefleksiPage()), // NEW
         GoRoute(
             path: '/refleksi/history',
-            builder: (_, __) => const RefleksiHistoryPage()), // NEW (stub)
+            builder: (_, __) => const RefleksiHistoryPage()),
+        GoRoute(
+            path: '/mood', builder: (_, __) => const MoodPage()), // NEW (stub)
+        GoRoute(path: '/history', builder: (_, __) => const HistoryPage()),
       ],
       redirect: (context, state) {
         final st = ref.read(authControllerProvider);

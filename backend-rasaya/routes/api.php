@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\SiswaController;
 use App\Http\Controllers\Api\SiswaKelasController;
 use App\Http\Controllers\Api\KategoriMasalahController;
 use App\Http\Controllers\Api\InputSiswaController;
+use App\Http\Controllers\Api\MoodController;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,6 +38,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('input-siswa/{inputSiswa}', [InputSiswaController::class, 'show']);
     Route::put('input-siswa/{inputSiswa}', [InputSiswaController::class, 'update']);
     Route::delete('input-siswa/{inputSiswa}', [InputSiswaController::class, 'destroy']);
+
+
+    // Mood tracker (siswa, guru, admin)
+    Route::post('/mood', [MoodController::class, 'store']);   // siswa submit
+    Route::get('/mood/today', [MoodController::class, 'today']);   // status hari ini
+    Route::get('/mood/history', [MoodController::class, 'history']); // riwayat
 
     // ==== Admin only ====
     Route::middleware('role:admin')->group(function () {
