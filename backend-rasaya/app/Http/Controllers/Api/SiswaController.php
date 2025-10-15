@@ -47,7 +47,6 @@ class SiswaController extends Controller
         return response()->json(['data' => $rows]);
     }
 
-
     public function store(Request $r)
     {
         $data = $r->validate([

@@ -14,7 +14,7 @@ class StoreMoodRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'skor' => ['required', 'integer', 'between:1,5'],
+            'skor' => ['required', 'integer'],
             'gambar' => ['nullable', 'string', 'max:255'],   // path/URL
             'tanggal' => ['nullable', 'date'],                // opsional (default: today)
         ];
@@ -24,13 +24,6 @@ class StoreMoodRequest extends FormRequest
     {
         return [
             'skor' => 'skor emoji',
-        ];
-    }
-
-    public function messages(): array
-    {
-        return [
-            'skor.between' => 'Skor harus 1 sampai 5.',
         ];
     }
 }

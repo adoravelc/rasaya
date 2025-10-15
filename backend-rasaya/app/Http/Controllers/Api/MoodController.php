@@ -96,7 +96,7 @@ class MoodController extends Controller
     {
         $local = $now->copy()->setTimezone(config('app.timezone')); // Asia/Makassar
         $hour = (int) $local->format('H'); // 0..23
-        // cutoff 13:00 → <=12 pagi, >=13 sore (silakan ubah batas)
+        // cutoff 13:00 → <=12 pagi, >=13 sore
         return $hour < 13 ? 'pagi' : 'sore';
     }
 }

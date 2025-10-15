@@ -81,7 +81,7 @@ class _MoodPageState extends ConsumerState<MoodPage> {
   Future<void> _submit() async {
     setState(() => _loading = true);
     final api = ref.read(apiClientProvider);
-    final score = _selected + 1; // 1..10
+    final score = _selected + 1;
     final res = await api.postMood(score, gambar: _mockFilename);
     setState(() => _loading = false);
 
