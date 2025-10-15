@@ -46,7 +46,8 @@ class User extends Authenticatable
 
     public function guru()
     {
-        return $this->hasOne(Guru::class);
+        // kalau kolom FK di tabel guru = user_id → ini sudah benar
+        return $this->hasOne(\App\Models\Guru::class, 'user_id', 'id');
     }
 
     public function siswa()

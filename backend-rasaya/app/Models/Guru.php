@@ -13,7 +13,7 @@ class Guru extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id', 'id'); // sesuaikan kalau pakai 'iduser_guru'
     }
     public function kelasDiwalikan()
     {
