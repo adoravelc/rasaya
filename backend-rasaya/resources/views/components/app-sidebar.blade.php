@@ -1,5 +1,8 @@
 @props(['role' => 'guest'])
-@php  $is = fn ($name) => request()->routeIs($name) ? 'active' : ''; @endphp
+@php
+    $is = fn($name) => request()->routeIs($name) ? 'active' : '';
+    $guruJenis = optional(auth()->user()->guru)->jenis; // 'bk' | 'wali_kelas' | null
+@endphp
 
 <aside class="col-12 col-md-3 col-lg-2 p-0 sidebar">
     <div class="p-3">
@@ -25,9 +28,15 @@
                     <a class="nav-link {{ $is('guru.bk.dashboard') }} {{ $is('guru.wk.dashboard') }}"
                         href="{{ url('/guru') }}">🏠 Dashboard</a>
 
-                    {{-- baru: input/observasi guru --}}
+                    {{-- Observasi / Input Guru --}}
                     <a class="nav-link {{ $is('guru.observasi.*') }}" href="{{ route('guru.observasi.index') }}">📝 Input Guru
                         (Observasi)</a>
+
+                    {{-- === BARU: Slot Konseling (hanya untuk Guru BK) === --}}
+                    @if ($guruJenis === 'bk')
+                        <a class="nav-link {{ $is('guru.bk.slots.view') }} {{ $is('guru.guru_bk.slots.*') }}"
+                            href="{{ route('guru.guru_bk.slots.view') }}">📅 Slot Konseling (BK)</a>
+                    @endif
 
                     <a class="nav-link disabled">📥 Laporan Siswa (segera)</a>
                     <a class="nav-link disabled">📊 Analitik Emosi (segera)</a>

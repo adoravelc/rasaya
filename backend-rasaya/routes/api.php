@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\SiswaKelasController;
 use App\Http\Controllers\Api\KategoriMasalahController;
 use App\Http\Controllers\Api\InputSiswaController;
 use App\Http\Controllers\Api\MoodController;
+use App\Http\Controllers\Api\SlotKonselingController;
+use App\Http\Controllers\Api\BookingKonselingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -45,6 +47,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/mood/today', [MoodController::class, 'today']);   // status hari ini
     Route::get('/mood/history', [MoodController::class, 'history']); // riwayat
 
+    // Booking konseling (siswa)
+    Route::get('/slots/available', [BookingKonselingController::class,'available']);
+    Route::post('/bookings',                [BookingKonselingController::class,'book']);      // {slot_id}
+    Route::get('/bookings/me',              [BookingKonselingController::class,'myBookings']);
+    Route::post('/bookings/{id}/cancel',    [BookingKonselingController::class,'cancelMine']);
+
     // ==== Admin only ====
     Route::middleware('role:admin')->group(function () {
         Route::apiResource('kelass', KelasController::class)
@@ -64,5 +72,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin,guru')->group(function () {
         Route::get('siswa-kelas', [SiswaKelasController::class, 'index']);
+        // Publish/generate slots
+        Route::post('/slots/publish', [SlotKonselingController::class, 'publish']);
+
+        // List & manage own slots
+        Route::get('/slots', [SlotKonselingController::class, 'index']);
+        Route::patch('/slots/{id}/cancel', [SlotKonselingController::class, 'cancel']);
+        Route::patch('/slots/{id}/archive', [SlotKonselingController::class, 'archive']);
     });
 });

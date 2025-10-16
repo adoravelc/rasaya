@@ -2,18 +2,33 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Web\AuthWebController;
+use Illuminate\Http\Request;
 use App\Http\Controllers\Web\AdminDashboardController;
 use App\Http\Controllers\Web\GuruBkDashboardController;
 use App\Http\Controllers\Web\GuruWkDashboardController;
 use App\Http\Controllers\Web\KelasWebController;
 use App\Http\Controllers\Web\KategoriWebController;
 use App\Http\Controllers\Web\InputGuruController;
+use App\Http\Controllers\Api\SlotKonselingController as SlotApi;
 
 Route::view('/', 'welcome');
 
 Route::get('/login', [AuthWebController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthWebController::class, 'doLogin']);
 Route::post('/logout', [AuthWebController::class, 'logout'])->name('logout');
+
+Route::get('/dashboard', function (Request $request) {
+    $user = $request->user(); // ✅ clean
+    if (!$user)
+        return redirect()->route('login');
+
+    if ($user->hasRole('admin'))
+        return redirect()->route('admin.dashboard');
+    if ($user->hasRole('guru'))
+        return redirect()->route('guru.dashboard');
+
+    return redirect('/');
+})->name('dashboard')->middleware('auth');
 
 /** ===================== ADMIN ===================== */
 Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
@@ -40,9 +55,9 @@ Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
 
 /** ===================== GURU (BK & WALI KELAS) ===================== */
 Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
-    // Dashboard generik (boleh redirect ke BK/WK sesuai jenis)
-    Route::get('/', fn() => view('roles.guru.dashboard'))->name('guru.dashboard'); // opsional
-    // Observasi (Input Guru) — kedua jenis guru boleh akses
+    Route::get('/', fn() => view('roles.guru.dashboard'))->name('guru.dashboard');
+
+    // Observasi (Input Guru)
     Route::get('/observasi', [InputGuruController::class, 'index'])->name('guru.observasi.index');
     Route::post('/observasi', [InputGuruController::class, 'store'])->name('guru.observasi.store');
     Route::get('/observasi/{observasi}', [InputGuruController::class, 'show'])->name('guru.observasi.show');
@@ -55,7 +70,15 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
     // BK
     Route::prefix('bk')->middleware('gurujenis:bk')->group(function () {
         Route::get('/', [GuruBkDashboardController::class, 'index'])->name('guru.bk.dashboard');
+
+        // Halaman Blade + JSON untuk Slot Konseling (reuse controller API)
+        Route::view('/slot-konseling', 'roles.guru.guru_bk.slot_konseling')->name('guru.guru_bk.slots.view');
+        Route::get('/slots', [SlotApi::class, 'index'])->name('guru.guru_bk.slots.index');
+        Route::post('/slots/publish', [SlotApi::class, 'publish'])->name('guru.guru_bk.slots.publish');
+        Route::patch('/slots/{id}/cancel', [SlotApi::class, 'cancel'])->name('guru.guru_bk.slots.cancel');
+        Route::patch('/slots/{id}/archive', [SlotApi::class, 'archive'])->name('guru.bk.slots.archive');
     });
+
     // Wali Kelas
     Route::prefix('wk')->middleware('gurujenis:wali_kelas')->group(function () {
         Route::get('/', [GuruWkDashboardController::class, 'index'])->name('guru.wk.dashboard');
