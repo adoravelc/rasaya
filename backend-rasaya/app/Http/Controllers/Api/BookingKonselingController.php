@@ -40,14 +40,14 @@ class BookingKonselingController extends Controller
     {
         // Default range: hari ini s/d +30 hari
         $from = $r->date('from') ?? now()->startOfDay();
-        $to   = $r->date('to')   ?? now()->addDays(30)->endOfDay();
+        $to = $r->date('to') ?? now()->addDays(30)->endOfDay();
         abort_if($from > $to, 422, 'Rentang tanggal tidak valid.');
 
         $q = SlotKonseling::query()
             ->with(['guru:user_id,nama']) // sesuaikan kolom model Guru
             ->where('status', 'published')
             ->whereBetween('start_at', [$from, $to])
-            ->whereColumn('booked_count', '<', 'capacity');
+            ->whereColumn('booked_count', '<', 1);
 
         if ($r->filled('guru_id')) {
             $q->where('guru_id', (int) $r->guru_id);
@@ -58,20 +58,17 @@ class BookingKonselingController extends Controller
 
         // Format output: jam lokal WITA (opsional)
         $tz = new CarbonTimeZone('Asia/Makassar');
-        $data = $rows->through(function (SlotKonseling $s) use ($tz) {
+        $data = $rows->through(function (SlotKonseling $s) {
             return [
-                'id'            => $s->id,
-                'guru'          => ['id' => $s->guru_id, 'nama' => $s->guru->nama ?? '-'],
-                'tanggal'       => $s->tanggal->toDateString(),
-                'start_at_utc'  => $s->start_at->toIso8601String(),
-                'end_at_utc'    => $s->end_at->toIso8601String(),
-                'start_local'   => $s->start_at->clone()->setTimezone($tz)->toIso8601String(),
-                'end_local'     => $s->end_at->clone()->setTimezone($tz)->toIso8601String(),
-                'durasi_menit'  => $s->durasi_menit,
-                'capacity'      => $s->capacity,
-                'booked_count'  => $s->booked_count,
-                'lokasi'        => $s->lokasi,
-                'notes'         => $s->notes,
+                'id' => $s->id,
+                'guru' => ['id' => $s->guru_id, 'nama' => $s->guru->nama ?? '-'],
+                'tanggal' => $s->tanggal->toDateString(),
+                'start_at' => $s->start_at->toIso8601String(),
+                'end_at' => $s->end_at->toIso8601String(),
+                'durasi_menit' => $s->durasi_menit,
+                'booked_count' => $s->booked_count,
+                'lokasi' => $s->lokasi,
+                'notes' => $s->notes,
             ];
         });
 
@@ -79,9 +76,9 @@ class BookingKonselingController extends Controller
             'data' => $data,
             'meta' => [
                 'current_page' => $rows->currentPage(),
-                'last_page'    => $rows->lastPage(),
-                'per_page'     => $rows->perPage(),
-                'total'        => $rows->total(),
+                'last_page' => $rows->lastPage(),
+                'per_page' => $rows->perPage(),
+                'total' => $rows->total(),
             ],
         ]);
     }
@@ -107,10 +104,10 @@ class BookingKonselingController extends Controller
                 $slot = SlotKonseling::find($slotId);
                 if ($slot) {
                     $q->whereBetween('start_at', [$slot->start_at->clone()->subMinutes(1), $slot->end_at->clone()->addMinutes(1)])
-                      ->where('status', 'published');
+                        ->where('status', 'published');
                 }
             })
-            ->whereIn('status', ['booked','held'])
+            ->whereIn('status', ['booked', 'held'])
             ->exists();
         abort_if($already, 422, 'Anda sudah memiliki booking pada waktu yang berdekatan.');
 
@@ -122,19 +119,19 @@ class BookingKonselingController extends Controller
             // Validasi ketersediaan
             abort_if($slot->status !== 'published', 422, 'Slot tidak tersedia.');
             abort_if($slot->start_at->isPast(), 422, 'Slot sudah berlalu.');
-            abort_if($slot->booked_count >= $slot->capacity, 422, 'Slot sudah penuh.');
+            abort_if($slot->booked_count >= 1, 422, 'Slot sudah penuh.');
 
             // Buat booking (unique: slot_id + siswa_kelas_id)
             $booking = SlotBooking::create([
-                'slot_id'        => $slot->id,
+                'slot_id' => $slot->id,
                 'siswa_kelas_id' => $rosterId,
-                'status'         => 'booked',
+                'status' => 'booked',
             ]);
 
             // Update counter
             $slot->increment('booked_count');
 
-            return $booking->load(['slot.guru','siswaKelas.siswa']);
+            return $booking->load(['slot.guru', 'siswaKelas.siswa']);
         });
 
         return response()->json($booking, 201);
@@ -168,7 +165,7 @@ class BookingKonselingController extends Controller
         $booking = SlotBooking::with('slot')->where('id', $id)
             ->where('siswa_kelas_id', $rosterId)->firstOrFail();
 
-        abort_if(!in_array($booking->status, ['booked','held']), 422, 'Booking tidak bisa dibatalkan.');
+        abort_if(!in_array($booking->status, ['booked', 'held']), 422, 'Booking tidak bisa dibatalkan.');
         abort_if($booking->slot->start_at->isPast(), 422, 'Slot sudah berlalu.');
 
         DB::transaction(function () use ($booking, $r) {

@@ -15,7 +15,6 @@ class SlotKonseling extends Model
         'start_at',
         'end_at',
         'durasi_menit',
-        'capacity',
         'booked_count',
         'status',
         'lokasi',

@@ -33,7 +33,7 @@
                 <div class="col-md-3">
                     <label class="form-label d-block">&nbsp;</label>
                     <button class="btn btn-outline-secondary me-2" id="btnClear">Reset</button>
-                    <button class="btn btn-success" id="btnFilter">Filter</button>
+                    <button id="btn-filter" class="btn btn-success">Filter</button>
                 </div>
             </div>
         </div>
@@ -80,37 +80,31 @@
                 </div>
                 <div class="modal-body">
                     <div class="row g-3">
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label">Tanggal Mulai</label>
                             <input type="date" class="form-control" name="date_start" required>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label">Tanggal Selesai</label>
                             <input type="date" class="form-control" name="date_end" required>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Hari (1=Senin … 7=Minggu)</label>
-                            <div class="d-flex gap-2 flex-wrap">
-                                @for ($i = 1; $i <= 7; $i++)
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" value="{{ $i }}"
-                                            id="d{{ $i }}" name="days[]">
-                                        <label class="form-check-label"
-                                            for="d{{ $i }}">{{ $i }}</label>
-                                    </div>
-                                @endfor
-                            </div>
-                        </div>
 
-                        <div class="col-md-3">
+                        <!-- Hidden input for days - default to all days -->
+                        <input type="hidden" name="days[]" value="1">
+                        <input type="hidden" name="days[]" value="2">
+                        <input type="hidden" name="days[]" value="3">
+                        <input type="hidden" name="days[]" value="4">
+                        <input type="hidden" name="days[]" value="5">
+
+                        <div class="col-md-4">
                             <label class="form-label">Jam Mulai</label>
                             <input type="time" class="form-control" name="start_time" required>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label">Jam Selesai</label>
                             <input type="time" class="form-control" name="end_time" required>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label">Interval (menit)</label>
                             <select class="form-select" name="interval" required>
                                 @foreach ([15, 20, 30, 45, 60] as $m)
@@ -118,7 +112,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label">Durasi (menit)</label>
                             <select class="form-select" name="durasi" required>
                                 @foreach ([15, 20, 30, 45, 60] as $m)
@@ -126,16 +120,11 @@
                                 @endforeach
                             </select>
                         </div>
-
-                        <div class="col-md-3">
-                            <label class="form-label">Kapasitas</label>
-                            <input type="number" class="form-control" name="capacity" min="1" value="1">
-                        </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label">Lokasi</label>
                             <input type="text" class="form-control" name="lokasi" placeholder="Ruang BK / Link">
                         </div>
-                        <div class="col-md-5">
+                        <div class="col-md-6">
                             <label class="form-label">Catatan</label>
                             <input type="text" class="form-control" name="notes" maxlength="255">
                         </div>
@@ -176,7 +165,13 @@
             modal = new bootstrap.Modal(document.getElementById('publishModal'));
             document.getElementById('btnPublish').addEventListener('click', () => modal.show());
             document.getElementById('publishForm').addEventListener('submit', onPublish);
-            document.getElementById('btnFilter').addEventListener('click', load);
+
+            // Fix the ID to match the HTML
+            document.getElementById('btn-filter').addEventListener('click', (e) => {
+                e.preventDefault();
+                load(); // This is fine when calling without arguments
+            });
+
             document.getElementById('btnClear').addEventListener('click', () => {
                 ['fFrom', 'fTo', 'fStatus'].forEach(id => document.getElementById(id).value = '');
                 load();
@@ -200,17 +195,45 @@
         async function load(url) {
             const tbody = document.getElementById('rows');
             tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">Memuat…</td></tr>`;
-            const res = await fetch(url || routes.list(q()), {
-                headers: {
-                    'Accept': 'application/json'
+
+            try {
+                const res = await fetch(url || routes.list(q()), {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!res.ok) {
+                    throw new Error(`HTTP error! status: ${res.status}`);
                 }
-            });
-            const j = await res.json();
-            const data = j.data ?? j; // paginate or array
-            pageUrl = j.path ? j.path : routes.list(); // for paginate
-            renderRows(data);
-            renderMeta(j);
+
+                const j = await res.json();
+                console.log('Response data:', j); // Debug to see what's coming back
+
+                const data = j.data ?? j; // paginate or array
+                console.log('Data to render:', data); // Debug to see what's being passed to renderRows
+
+                pageUrl = j.path ? j.path : routes.list(); // for paginate
+                renderRows(data);
+                renderMeta(j);
+            } catch (error) {
+                console.error('Error loading data:', error);
+                tbody.innerHTML =
+                    `<tr><td colspan="7" class="text-center py-4 text-danger">Error loading data: ${error.message}</td></tr>`;
+            }
         }
+
+        function wireUpPagination(paginated) {
+            const container = document.querySelector('#pagination');
+            container.querySelectorAll('a.page-link').forEach(a => {
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const href = a.getAttribute('href'); // string URL
+                    if (href) load(href); // <— kirim string URL
+                });
+            });
+        }
+
 
         function renderMeta(j) {
             const meta = document.getElementById('meta');
@@ -232,15 +255,14 @@
         }
 
         function toLocal(dt) {
-            // render start_at / end_at (UTC) ke lokal Asia/Makassar
+            // Format date as "Kamis, 16 Oktober 2025"
             const d = new Date(dt);
-            return d.toLocaleString('id-ID', {
+            return d.toLocaleDateString('id-ID', {
                 timeZone: 'Asia/Makassar',
-                hour: '2-digit',
-                minute: '2-digit',
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit'
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
             });
         }
 
@@ -261,35 +283,31 @@
                 return;
             }
             tbody.innerHTML = items.map(s => {
-                const tgl = s.tanggal ?? (s.start_at ? toLocal(s.start_at).slice(0, 10) : '-');
+                // If we have a tanggal property, format it. Otherwise, get it from start_at
+                let dateToFormat = s.tanggal ? new Date(s.tanggal) : (s.start_at ? new Date(s.start_at) : null);
+                const tgl = dateToFormat ? toLocal(dateToFormat) : '-';
+
                 const times = s.start_at && s.end_at ? `${hhmm(s.start_at)}–${hhmm(s.end_at)}` : '-';
                 const badge = s.status === 'published' ? 'info' : (s.status === 'archived' ? 'dark' : 'secondary');
                 return `<tr>
-      <td>${tgl}</td>
-      <td>${times}</td>
-      <td>${s.capacity ?? '-'}</td>
-      <td>${s.booked_count ?? 0}</td>
-      <td>${s.lokasi ?? '-'}</td>
-      <td><span class="badge bg-${badge}">${s.status}</span></td>
-      <td class="text-end">
-        <div class="btn-group btn-group-sm">
-          ${s.status==='published' ? `<button class="btn btn-outline-danger" onclick="doCancel(${s.id})">Cancel</button>` : ''}
-          ${s.status!=='archived' ? `<button class="btn btn-outline-dark" onclick="doArchive(${s.id})">Archive</button>` : ''}
-        </div>
-      </td>
-    </tr>`;
+<td>${tgl}</td>
+<td>${times}</td>
+<td>${s.booked_count ?? 0}</td>
+<td>${s.lokasi ?? '-'}</td>
+<td><span class="badge bg-${badge}">${s.status}</span></td>
+<td class="text-end">
+  <div class="btn-group btn-group-sm">
+    ${s.status==='published' ? `<button class="btn btn-outline-danger" onclick="doCancel(${s.id})">Cancel</button>` : ''}
+    ${s.status!=='archived' ? `<button class="btn btn-outline-dark" onclick="doArchive(${s.id})">Archive</button>` : ''}
+  </div>
+</td>
+</tr>`;
             }).join('');
         }
 
         function getCheckedDays() {
-            const days = [];
-            for (let i = 1; i <= 7; i++) {
-                const checkbox = document.getElementById(`d${i}`);
-                if (checkbox && checkbox.checked) {
-                    days.push(checkbox.value);
-                }
-            }
-            return days;
+            // Now just returns all weekdays (1-5) as default
+            return [1, 2, 3, 4, 5];
         }
 
         async function onPublish(e) {
@@ -310,21 +328,20 @@
             const body = {
                 date_start: f.date_start.value, // "2025-10-16"
                 date_end: f.date_end.value, // "2025-10-16"
-                days: getCheckedDays().map(n => parseInt(n, 10)), // [4]
+                days: [1, 2, 3, 4, 5], // Weekdays only, or use getCheckedDays() if you kept the function
                 start_time: to24(f.start_time.value), // "13:00"
                 end_time: to24(f.end_time.value), // "14:10"
                 interval: parseInt(f.interval.value, 10),
                 durasi: parseInt(f.durasi.value, 10),
-                capacity: parseInt(f.capacity.value || '1', 10),
                 lokasi: f.lokasi.value || null,
                 notes: f.notes.value || null,
             };
 
-            // pastikan ada minimal satu hari
-            if (!body.days.length) {
-                alert('Pilih minimal satu hari.');
-                return;
-            }
+            // No need to check days anymore
+            // if (!body.days.length) {
+            //     alert('Pilih minimal satu hari.');
+            //     return;
+            // }
 
             const fd = new FormData();
             for (const [key, value] of Object.entries(body)) {
@@ -337,6 +354,7 @@
                 }
             }
 
+            // Rest of the function remains the same
             const res = await fetch(routes.publish(), {
                 method: 'POST',
                 headers: {

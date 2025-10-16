@@ -19,7 +19,6 @@ return new class extends Migration {
             $t->dateTimeTz('start_at');
             $t->dateTimeTz('end_at');
             $t->unsignedSmallInteger('durasi_menit');
-            $t->unsignedTinyInteger('capacity')->default(1);  // biasanya 1
             $t->unsignedTinyInteger('booked_count')->default(0);
 
             $t->enum('status', ['draft', 'published', 'archived', 'canceled'])

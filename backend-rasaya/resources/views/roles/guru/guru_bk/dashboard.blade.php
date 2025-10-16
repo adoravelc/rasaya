@@ -44,7 +44,7 @@
                                     </div>
                                     <span class="display-6">📅</span>
                                 </div>
-                                <a href="{{ route('guru.bk.slots.view') }}"
+                                <a href="{{ route('guru.guru_bk.slots.view') }}"
                                     class="btn btn-primary btn-sm mt-3 stretched-link">Atur Slot</a>
                             </div>
                         </div>

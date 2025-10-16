@@ -38,13 +38,11 @@ class SlotKonselingController extends Controller
             'days' => ['required', 'array', 'min:1'],
             'days.*' => ['integer', 'between:1,7'],
 
-            // izinkan beberapa format waktu, nanti dinormalisasi manual
             'start_time' => ['required', 'string'],
             'end_time' => ['required', 'string'],
 
             'interval' => ['required', 'integer', 'in:15,20,30,45,60'],
             'durasi' => ['required', 'integer', 'in:15,20,30,45,60'],
-            'capacity' => ['nullable', 'integer', 'min:1', 'max:10'],
             'lokasi' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:255'],
         ]);
@@ -76,11 +74,10 @@ class SlotKonselingController extends Controller
 
         $interval = (int) $data['interval'];
         $durasi = (int) $data['durasi'];
-        $capacity = (int) ($data['capacity'] ?? 1);
 
         $generated = 0;
 
-        DB::transaction(function () use (&$generated, $d1, $d2, $data, $guruId, $tz, $startClock, $endClock, $interval, $durasi, $capacity) {
+        DB::transaction(function () use (&$generated, $d1, $d2, $data, $guruId, $tz, $startClock, $endClock, $interval, $durasi) {
             for ($d = $d1->copy(); $d->lte($d2); $d->addDay()) {
                 // 1=Mon..7=Sun
                 if (!in_array($d->dayOfWeekIso, $data['days'], false)) {
@@ -108,13 +105,12 @@ class SlotKonselingController extends Controller
                     $slot = SlotKonseling::firstOrCreate(
                         [
                             'guru_id' => $guruId,
-                            'start_at' => $slotStartLocal->copy()->utc(), // simpan UTC
+                            'start_at' => $slotStartLocal
                         ],
                         [
                             'tanggal' => $slotStartLocal->toDateString(), // tanggal lokal
-                            'end_at' => $slotEndLocal->copy()->utc(),
+                            'end_at' => $slotEndLocal,
                             'durasi_menit' => $durasi,
-                            'capacity' => $capacity,
                             'booked_count' => 0,
                             'status' => 'published',
                             'lokasi' => $data['lokasi'] ?? null,
