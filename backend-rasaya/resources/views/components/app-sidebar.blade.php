@@ -12,13 +12,13 @@
             {{-- ================= ADMIN ================= --}}
             @case('admin')
                 <nav class="nav nav-pills flex-column gap-1">
-                    <a class="nav-link {{ $is('admin.dashboard') }}" href="{{ route('admin.dashboard') }}">🏠 Dashboard</a>
-                    <a class="nav-link {{ $is('admin.kelas.index') }}" href="{{ route('admin.kelas.index') }}">📚 Manajemen
+                    <a class="nav-link {{ $is('admin.dashboard') }}" href="{{ route('admin.dashboard') }}">Dashboard</a>
+                    <a class="nav-link {{ $is('admin.kelas.index') }}" href="{{ route('admin.kelas.index') }}">Manajemen
                         Kelas</a>
-                    <a class="nav-link {{ $is('admin.kategori.index') }}" href="{{ route('admin.kategori.index') }}">🗂️ Manajemen
+                    <a class="nav-link {{ $is('admin.kategori.index') }}" href="{{ route('admin.kategori.index') }}">Manajemen
                         Kategori</a>
-                    <a class="nav-link disabled">👩‍🏫 Data Guru (segera)</a>
-                    <a class="nav-link disabled">🧑‍🎓 Data Siswa (segera)</a>
+                    <a class="nav-link disabled">Data Guru (segera)</a>
+                    <a class="nav-link disabled">Data Siswa (segera)</a>
                 </nav>
             @break
 
@@ -26,28 +26,28 @@
             @case('guru')
                 <nav class="nav nav-pills flex-column gap-1">
                     <a class="nav-link {{ $is('guru.bk.dashboard') }} {{ $is('guru.wk.dashboard') }}"
-                        href="{{ url('/guru') }}">🏠 Dashboard</a>
+                        href="{{ url('/guru') }}">Dashboard</a>
 
                     {{-- Observasi / Input Guru --}}
-                    <a class="nav-link {{ $is('guru.observasi.*') }}" href="{{ route('guru.observasi.index') }}">📝 Input Guru
+                    <a class="nav-link {{ $is('guru.observasi.*') }}" href="{{ route('guru.observasi.index') }}">Input Guru
                         (Observasi)</a>
 
                     {{-- === BARU: Slot Konseling (hanya untuk Guru BK) === --}}
                     @if ($guruJenis === 'bk')
                         <a class="nav-link {{ $is('guru.bk.slots.view') }} {{ $is('guru.guru_bk.slots.*') }}"
-                            href="{{ route('guru.guru_bk.slots.view') }}">📅 Slot Konseling (BK)</a>
+                            href="{{ route('guru.guru_bk.slots.view') }}">Slot Konseling (BK)</a>
                     @endif
 
-                    <a class="nav-link disabled">📥 Laporan Siswa (segera)</a>
-                    <a class="nav-link disabled">📊 Analitik Emosi (segera)</a>
+                    <a class="nav-link disabled">Laporan Siswa (segera)</a>
+                    <a class="nav-link disabled">Analitik Emosi (segera)</a>
                 </nav>
             @break
 
             {{-- ================= WALI KELAS (opsional bila role terpisah) ================= --}}
             @case('wali_kelas')
                 <nav class="nav nav-pills flex-column gap-1">
-                    <a class="nav-link" href="{{ url('/guru/wk') }}">🏠 Dashboard</a>
-                    <a class="nav-link {{ $is('guru.observasi.*') }}" href="{{ route('guru.observasi.index') }}">📝 Input Guru
+                    <a class="nav-link" href="{{ url('/guru/wk') }}">Dashboard</a>
+                    <a class="nav-link {{ $is('guru.observasi.*') }}" href="{{ route('guru.observasi.index') }}">Input Guru
                         (Observasi)</a>
                 </nav>
             @break

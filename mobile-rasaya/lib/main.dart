@@ -2,14 +2,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'auth/auth_controller.dart';
 import 'screens/login_page.dart';
 import 'screens/home_page.dart';
 import 'screens/refleksi_page.dart';
 import 'screens/mood_page.dart';
 import 'screens/history_page.dart';
+import 'screens/booking_page.dart';
+import 'screens/my_schedule_page.dart';
 
-// (opsional) siapkan halaman history sederhana sementara
 class RefleksiHistoryPage extends StatelessWidget {
   const RefleksiHistoryPage({super.key});
   @override
@@ -17,7 +20,17 @@ class RefleksiHistoryPage extends StatelessWidget {
       const Scaffold(body: Center(child: Text('History Refleksi (todo)')));
 }
 
-void main() => runApp(const ProviderScope(child: App()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Set default locale to Indonesian and load date symbols for intl
+  Intl.defaultLocale = 'id_ID';
+  try {
+    await initializeDateFormatting('id_ID');
+  } catch (_) {
+    // If initialization fails, the app will still run with default locale
+  }
+  runApp(const ProviderScope(child: App()));
+}
 
 class App extends ConsumerStatefulWidget {
   const App({super.key});
@@ -45,6 +58,10 @@ class _AppState extends ConsumerState<App> {
         GoRoute(
             path: '/mood', builder: (_, __) => const MoodPage()), // NEW (stub)
         GoRoute(path: '/history', builder: (_, __) => const HistoryPage()),
+        GoRoute(path: '/booking', builder: (_, __) => const BookingPage()),
+        GoRoute(
+            path: '/my-schedule', builder: (_, __) => const MySchedulePage()),
+        GoRoute(path: '/profile', builder: (_, __) => const _ProfilePage()),
       ],
       redirect: (context, state) {
         final st = ref.read(authControllerProvider);
@@ -62,9 +79,70 @@ class _AppState extends ConsumerState<App> {
 
   @override
   Widget build(BuildContext context) {
+    const brokenWhite = Color(0xFFF7F7F2);
+    const primary = Color(0xFF192653); // deep indigo-blue hint
+    const secondary = Color(0xFF0F6A49); // green hint
+
+    final colorScheme = const ColorScheme(
+      brightness: Brightness.light,
+      primary: primary,
+      onPrimary: Colors.white,
+      secondary: secondary,
+      onSecondary: Colors.white,
+      error: Color(0xFFB3261E),
+      onError: Colors.white,
+      background: brokenWhite,
+      onBackground: Color(0xFF1B1B1F),
+      surface: brokenWhite,
+      onSurface: Color(0xFF1B1B1F),
+    );
+
+    final theme = ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: brokenWhite,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: brokenWhite,
+        foregroundColor: primary,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      cardTheme: CardThemeData(
+        color: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      inputDecorationTheme: const InputDecorationTheme(
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12))),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: Colors.white,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: Colors.white,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        ),
+      ),
+      chipTheme: const ChipThemeData(
+        shape: StadiumBorder(),
+        labelStyle: TextStyle(fontSize: 12),
+      ),
+    );
+
     return MaterialApp.router(
       title: 'Rasaya',
-      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
+      theme: theme,
       routerConfig: _router,
     );
   }
@@ -79,5 +157,16 @@ class GoRouterRefreshStream extends ChangeNotifier {
   void dispose() {
     _sub.cancel();
     super.dispose();
+  }
+}
+
+class _ProfilePage extends StatelessWidget {
+  const _ProfilePage();
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Profil')),
+      body: const Center(child: Text('Halaman Profil (akan dikembangkan)')),
+    );
   }
 }

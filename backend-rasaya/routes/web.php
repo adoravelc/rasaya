@@ -55,7 +55,19 @@ Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
 
 /** ===================== GURU (BK & WALI KELAS) ===================== */
 Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
-    Route::get('/', fn() => view('roles.guru.dashboard'))->name('guru.dashboard');
+    // Alihkan root dashboard guru ke dashboard sesuai jenis (BK / Wali Kelas)
+    Route::get('/', function (Request $request) {
+        $user = $request->user();
+        $guru = \App\Models\Guru::where('user_id', $user->id)->first();
+        if ($guru && $guru->jenis === 'bk') {
+            return redirect()->route('guru.bk.dashboard');
+        }
+        if ($guru && $guru->jenis === 'wali_kelas') {
+            return redirect()->route('guru.wk.dashboard');
+        }
+        // Jika tidak terdeteksi jenisnya, kembalikan ke /dashboard umum
+        return redirect()->route('dashboard');
+    })->name('guru.dashboard');
 
     // Observasi (Input Guru)
     Route::get('/observasi', [InputGuruController::class, 'index'])->name('guru.observasi.index');

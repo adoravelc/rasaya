@@ -1,1 +1,60 @@
 @use "bootstrap/scss/bootstrap";
+
+/* RASAYA theme variables (Bootstrap CSS variables override) */
+:root {
+	--ras-broken-white: #F7F7F2;
+	--ras-primary: #192653; /* deep indigo-blue */
+	--ras-secondary: #0F6A49; /* green */
+
+	/* Bootstrap palette overrides */
+	--bs-body-bg: var(--ras-broken-white);
+	--bs-body-color: #1B1B1F;
+	--bs-primary: var(--ras-primary);
+	--bs-secondary: var(--ras-secondary);
+	--bs-link-color: var(--ras-primary);
+	--bs-border-radius: 12px;
+	--bs-border-radius-sm: 10px;
+	--bs-border-radius-lg: 14px;
+}
+
+/* App structural polish */
+body {
+	background-color: var(--ras-broken-white);
+}
+
+.navbar {
+	background-color: var(--ras-broken-white) !important;
+}
+
+.sidebar {
+	min-height: 100vh;
+	border-right: 1px solid #e5e7eb;
+	background: var(--ras-broken-white);
+}
+.sidebar .nav-link {
+	border-radius: 10px;
+}
+.sidebar .nav-link.active {
+	background: #e9ecef;
+	font-weight: 600;
+}
+
+.card {
+	background-color: #ffffff;
+}
+
+.btn-primary {
+	--bs-btn-bg: var(--ras-primary);
+	--bs-btn-border-color: var(--ras-primary);
+	--bs-btn-hover-bg: #111a3c;
+	--bs-btn-hover-border-color: #111a3c;
+}
+
+.btn-outline-secondary {
+	--bs-btn-color: var(--ras-primary);
+	--bs-btn-border-color: var(--ras-primary);
+	--bs-btn-hover-bg: var(--ras-primary);
+	--bs-btn-hover-border-color: var(--ras-primary);
+}
+
+/* Tables responsive already via .table-responsive wrappers */

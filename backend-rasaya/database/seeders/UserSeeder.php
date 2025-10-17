@@ -21,26 +21,26 @@ class UserSeeder extends Seeder
             'identifier' => 'adminrasaya',
             'role' => 'admin',
             'name' => 'Admin RASAYA',
-            'password' => Hash::make('4dmin4njay'),
+            'password' => Hash::make('1'),
             'email_verified_at' => now(),
         ]);
 
         // Guru BK
         $guruUser = User::updateOrCreate(['email' => 'gurubk@rasaya.id'], [
-            'identifier' => '1234567812345678',
+            'identifier' => 'bk',
             'role' => 'guru',
             'name' => 'Bu Natalia',
-            'password' => Hash::make('4njayguru'),
+            'password' => Hash::make('1'),
             'email_verified_at' => now(),
         ]);
         Guru::updateOrCreate(['user_id' => $guruUser->id], ['jenis' => 'bk']);
 
         // Guru Wali Kelas
         $guruUser = User::updateOrCreate(['email' => 'guruwk@rasaya.id'], [
-            'identifier' => '8765432187654321',
+            'identifier' => 'wk',
             'role' => 'guru',
             'name' => 'Pak Alfonsius',
-            'password' => Hash::make('4njayguru'),
+            'password' => Hash::make('1'),
             'email_verified_at' => now(),
         ]);
         Guru::updateOrCreate(['user_id' => $guruUser->id], ['jenis' => 'wali_kelas']);
@@ -49,8 +49,8 @@ class UserSeeder extends Seeder
         $siswaUser = User::updateOrCreate(['email' => 'siswa@rasaya.id'], [
             'identifier' => '1234',
             'role' => 'siswa',
-            'name' => 'Nicole Zefanya',
-            'password' => Hash::make('4njaysiswa'),
+            'name' => 'Bryan Tan',
+            'password' => Hash::make('1'),
             'email_verified_at' => now(),
         ]);
         Siswa::updateOrCreate(['user_id' => $siswaUser->id], []);
@@ -59,8 +59,8 @@ class UserSeeder extends Seeder
         $siswaUser2 = User::updateOrCreate(['email' => 'siswa2@rasaya.id'], [
             'identifier' => '5678',
             'role' => 'siswa',
-            'name' => 'Rich Chigga',
-            'password' => Hash::make('4njaysiswa'),
+            'name' => 'Jezebel Mae',
+            'password' => Hash::make('1'),
             'email_verified_at' => now(),
         ]);
         Siswa::updateOrCreate(['user_id' => $siswaUser2->id], []);

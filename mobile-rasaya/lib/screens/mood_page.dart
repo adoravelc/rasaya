@@ -1,9 +1,12 @@
-import 'dart:io';
+// import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_rasaya/auth/auth_controller.dart';
-import '../api/api_client.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import '../widgets/app_drawer.dart';
 
 class MoodPage extends ConsumerStatefulWidget {
   const MoodPage({super.key});
@@ -27,10 +30,11 @@ class _MoodPageState extends ConsumerState<MoodPage> {
   ];
   int _selected = 5; // default tengah (index 5 -> score 6)
   bool _loading = false;
+  final _catatanCtrl = TextEditingController();
 
   // optional image (mock filename by default)
-  File? _imageFile;
-  String? _mockFilename;
+  XFile? _imageFile;
+  PlatformFile? _webFile;
 
   // today & history (optional UI ringkas)
   Map<String, dynamic>? _today;
@@ -43,6 +47,12 @@ class _MoodPageState extends ConsumerState<MoodPage> {
     super.initState();
     _loadToday();
     _loadHistory();
+  }
+
+  @override
+  void dispose() {
+    _catatanCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadToday() async {
@@ -63,18 +73,34 @@ class _MoodPageState extends ConsumerState<MoodPage> {
     if (mounted) setState(() => _loadingHistory = false);
   }
 
-  // NOTE: kalau mau real upload, pasang image_picker & API multipart.
-  Future<void> _pickImageMock() async {
-    setState(() {
-      _imageFile = null;
-      _mockFilename = 'lampiran_${DateTime.now().millisecondsSinceEpoch}.jpg';
-    });
+  Future<void> _pickImage() async {
+    if (kIsWeb) {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true, // penting untuk dapat bytes
+      );
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _webFile = result.files.first;
+          _imageFile = null;
+        });
+      }
+    } else {
+      final picker = ImagePicker();
+      final x =
+          await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      if (x != null)
+        setState(() {
+          _imageFile = x;
+          _webFile = null;
+        });
+    }
   }
 
   Future<void> _removeImage() async {
     setState(() {
       _imageFile = null;
-      _mockFilename = null;
+      _webFile = null;
     });
   }
 
@@ -82,16 +108,20 @@ class _MoodPageState extends ConsumerState<MoodPage> {
     setState(() => _loading = true);
     final api = ref.read(apiClientProvider);
     final score = _selected + 1;
-    final res = await api.postMood(score, gambar: _mockFilename);
+    final catatan = _catatanCtrl.text.trim();
+
+    final res = await api.postMood(
+      score,
+      gambarFile: _imageFile,
+      webBytes: _webFile?.bytes,
+      webFilename: _webFile?.name,
+      catatan: catatan.isEmpty ? null : catatan,
+    );
     setState(() => _loading = false);
 
-    if (!mounted) return;
     if (res.ok) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Mood tersimpan.')));
-      await _loadToday();
-      await _loadHistory();
-      context.go('/home');
+      if (!mounted) return;
+      context.pop(true); // kembali ke Home dan trigger invalidate
     } else {
       showDialog(
         context: context,
@@ -123,6 +153,7 @@ class _MoodPageState extends ConsumerState<MoodPage> {
           ),
         ],
       ),
+      drawer: const AppDrawer(),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -191,11 +222,24 @@ class _MoodPageState extends ConsumerState<MoodPage> {
 
                     // attach image (opsional, mock)
                     _AttachRow(
-                      filename: _mockFilename,
-                      onPick: _loading ? null : _pickImageMock,
-                      onRemove: (_mockFilename == null || _loading)
-                          ? null
-                          : _removeImage,
+                      filename: _webFile?.name ?? _imageFile?.name,
+                      onPick: _loading ? null : _pickImage,
+                      onRemove:
+                          ((_webFile == null && _imageFile == null) || _loading)
+                              ? null
+                              : _removeImage,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Catatan opsional
+                    TextField(
+                      controller: _catatanCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Catatan (opsional)',
+                        hintText: 'Tulis perasaanmu secara singkat...',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
 
                     const SizedBox(height: 16),

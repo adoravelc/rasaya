@@ -10,8 +10,8 @@ class InputSiswa extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'siswa_id',
-        'siswa_dilapor_id',
+        'siswa_kelas_id',
+        'siswa_dilapor_kelas_id',
         'tanggal',
         'teks',
         'avg_emosi',
@@ -27,16 +27,16 @@ class InputSiswa extends Model
         'meta' => 'array',
     ];
 
-    // relasi ke Siswa yang mengisi (key = user_id)
-    public function siswa()
+    // Pelapor (roster aktif)
+    public function siswaKelas()
     {
-        return $this->belongsTo(Siswa::class, 'siswa_id', 'user_id');
+        return $this->belongsTo(SiswaKelas::class, 'siswa_kelas_id');
     }
 
-    // relasi ke Siswa yang DILAPORKAN (optional)
-    public function siswaDilapor()
+    // Yang dilaporkan (opsional)
+    public function siswaDilaporKelas()
     {
-        return $this->belongsTo(Siswa::class, 'siswa_dilapor_id', 'user_id');
+        return $this->belongsTo(SiswaKelas::class, 'siswa_dilapor_kelas_id');
     }
 
     public function kategoris()

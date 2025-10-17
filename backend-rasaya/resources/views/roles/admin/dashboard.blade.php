@@ -6,7 +6,7 @@
 @section('page-header')
     <div>
         <h3 class="mb-1">Dashboard</h3>
-        <div class="text-muted">Selamat datang kembali 👋</div>
+    <div class="text-muted">Selamat datang kembali</div>
     </div>
 @endsection
 

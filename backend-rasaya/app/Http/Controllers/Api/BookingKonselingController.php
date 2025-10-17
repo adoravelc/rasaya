@@ -22,13 +22,14 @@ class BookingKonselingController extends Controller
     {
         $user = $r->user();
         $roster = SiswaKelas::query()
-            ->where('siswa_id', optional($user->siswa)->user_id)   // kolom siswas.user_id
+            // siswa_kelass.siswa_id menyimpan siswas.user_id
+            ->where('siswa_id', optional($user->siswa)->user_id)
             ->where('is_active', true)
             ->latest('id')
             ->first();
 
-        abort_unless($roster, 422, 'Data kelas aktif siswa tidak ditemukan.');
-        return (int) $roster->id;
+        abort_unless((bool) $roster, 422, 'Data kelas aktif siswa tidak ditemukan.');
+        return (int) ($roster->id ?? 0);
     }
 
     /**
@@ -39,15 +40,17 @@ class BookingKonselingController extends Controller
     public function available(Request $r)
     {
         // Default range: hari ini s/d +30 hari
-        $from = $r->date('from') ?? now()->startOfDay();
-        $to = $r->date('to') ?? now()->addDays(30)->endOfDay();
+    $from = ($r->date('from')?->startOfDay()) ?? now()->startOfDay();
+    // Pastikan batas akhir mencakup seluruh hari ketika parameter 'to' diberikan
+    $to = ($r->date('to')?->endOfDay()) ?? now()->addDays(30)->endOfDay();
         abort_if($from > $to, 422, 'Rentang tanggal tidak valid.');
 
         $q = SlotKonseling::query()
-            ->with(['guru:user_id,nama']) // sesuaikan kolom model Guru
+            // Eager-load user for guru to obtain display name
+            ->with(['guru.user'])
             ->where('status', 'published')
             ->whereBetween('start_at', [$from, $to])
-            ->whereColumn('booked_count', '<', 1);
+            ->where('booked_count', '<', 1);
 
         if ($r->filled('guru_id')) {
             $q->where('guru_id', (int) $r->guru_id);
@@ -56,13 +59,15 @@ class BookingKonselingController extends Controller
         // Pagination ringan
         $rows = $q->orderBy('start_at')->paginate($r->integer('per_page', 20));
 
-        // Format output: jam lokal WITA (opsional)
-        $tz = new CarbonTimeZone('Asia/Makassar');
-        $data = $rows->through(function (SlotKonseling $s) {
+        // Transform items but keep paginator metadata
+        $mapped = $rows->getCollection()->map(function (SlotKonseling $s) {
             return [
                 'id' => $s->id,
-                'guru' => ['id' => $s->guru_id, 'nama' => $s->guru->nama ?? '-'],
-                'tanggal' => $s->tanggal->toDateString(),
+                'guru' => [
+                    'id' => $s->guru_id,
+                    'nama' => optional(optional($s->guru)->user)->name ?? '-',
+                ],
+                'tanggal' => optional($s->start_at)->toDateString(),
                 'start_at' => $s->start_at->toIso8601String(),
                 'end_at' => $s->end_at->toIso8601String(),
                 'durasi_menit' => $s->durasi_menit,
@@ -70,10 +75,10 @@ class BookingKonselingController extends Controller
                 'lokasi' => $s->lokasi,
                 'notes' => $s->notes,
             ];
-        });
+        })->values();
 
         return response()->json([
-            'data' => $data,
+            'data' => $mapped,
             'meta' => [
                 'current_page' => $rows->currentPage(),
                 'last_page' => $rows->lastPage(),

@@ -21,7 +21,7 @@ class SiswaKelas extends Model
         return $this->belongsTo(Kelas::class, 'kelas_id');
     }
 
-    // NB: di skema kamu, siswas PK-nya `user_id`
+    // siswas primary key is user_id; siswa_kelass.siswa_id also stores user_id
     public function siswa()
     {
         return $this->belongsTo(Siswa::class, 'siswa_id', 'user_id');

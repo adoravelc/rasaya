@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/auth_controller.dart';
-import '../api/api_client.dart';
+import '../widgets/app_drawer.dart';
 
 class RefleksiPage extends ConsumerStatefulWidget {
   const RefleksiPage({super.key});
@@ -17,12 +21,14 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
   final _teksCtrl = TextEditingController();
   DateTime _tanggal = DateTime.now();
   String _jenis = 'pribadi'; // 'pribadi' | 'laporan'
-  int? _laporSiswaId; // siswa yang dilaporkan (opsional)
+  int? _laporSiswaKelasId; // siswa yang dilaporkan (opsional)
   String? _laporSiswaNama;
   bool loading = false;
 
-  // mock upload (belum implementasi file picker)
-  String? _mockFilename;
+  // real upload
+  XFile? _pickedFile; // Android/iOS
+  Uint8List? _webBytes; // Web
+  String? _webFilename; // Web
 
   // cache siswa untuk dropdown (boleh kosong)
   List<Map<String, dynamic>> _siswa = [];
@@ -49,23 +55,64 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
     setState(() => _loadingSiswa = true);
     try {
       final api = ref.read(apiClientProvider);
-      final res = await api.get('/siswa-list'); // ganti dari /siswas
+      final res = await api
+          .get('/siswa-list'); // pastikan endpoint mengembalikan roster
       if (res.ok && res.data is Map && res.data['data'] is List) {
         final me = ref.read(authControllerProvider).me ?? {};
         final myUserId = me['id'];
         _siswa = (res.data['data'] as List)
             .cast<Map>()
-            .map((e) => {'id': e['id'], 'nama': e['nama'].toString()})
-            .where((m) => m['id'] != myUserId)
+            .map((e) => {
+                  // ambil id roster kalau tersedia, fallback ke id lama
+                  'id': e['siswa_kelas_id'] ?? e['id'],
+                  'nama': (e['nama'] ?? e['siswa_nama'] ?? '').toString(),
+                  // simpan user_id untuk filter diri sendiri jika ada
+                  'user_id': e['user_id'] ?? e['siswa_user_id'],
+                })
+            // jangan tampilkan diri sendiri jika user_id tersedia
+            .where((m) => (m['user_id'] ?? -1) != myUserId)
             .toList();
       } else {
-        debugPrint('GET /siswas gagal: ${res.errorMessage}');
+        debugPrint('GET /siswa-list gagal: ${res.errorMessage}');
       }
     } catch (e) {
       debugPrint('load siswa error: $e');
     } finally {
       if (mounted) setState(() => _loadingSiswa = false);
     }
+  }
+
+  Future<void> _pickFile() async {
+    if (kIsWeb) {
+      final res = await FilePicker.platform.pickFiles(type: FileType.image);
+      if (res != null && res.files.isNotEmpty) {
+        final f = res.files.first;
+        setState(() {
+          _webBytes = f.bytes;
+          _webFilename = f.name;
+          _pickedFile = null; // ensure only one source used
+        });
+      }
+      return;
+    }
+    final picker = ImagePicker();
+    final x =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (x != null) {
+      setState(() {
+        _pickedFile = x;
+        _webBytes = null;
+        _webFilename = null;
+      });
+    }
+  }
+
+  void _resetFile() {
+    setState(() {
+      _pickedFile = null;
+      _webBytes = null;
+      _webFilename = null;
+    });
   }
 
   String _fmtTanggal(DateTime d) {
@@ -76,11 +123,9 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
   // === SUBMIT KE SERVER ===================================================
 
   Future<void> _submit({required int statusUpload}) async {
-    // validasi minimal teks
     if (!_formKey.currentState!.validate()) return;
 
-    // validasi laporan: harus pilih siswa
-    if (_jenis == 'laporan' && _laporSiswaId == null) {
+    if (_jenis == 'laporan' && _laporSiswaKelasId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Pilih siswa yang ingin dilaporkan.')),
       );
@@ -90,35 +135,39 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
     setState(() => loading = true);
     try {
       final api = ref.read(apiClientProvider);
-      final payload = <String, dynamic>{
+      final fields = <String, dynamic>{
         'tanggal': _tanggal.toIso8601String().split('T').first,
         'teks': _teksCtrl.text.trim(),
         'status_upload': statusUpload, // 0=draft, 1=final
-        if (_jenis == 'laporan' && _laporSiswaId != null)
-          'siswa_dilapor_id': _laporSiswaId,
-        'meta': {
-          'src': 'flutter',
-          if (_mockFilename != null) 'mock_file': _mockFilename,
-          'jenis': _jenis,
-        },
+        if (_jenis == 'laporan' && _laporSiswaKelasId != null)
+          'siswa_dilapor_kelas_id': _laporSiswaKelasId,
+        // Kirim meta sebagai nested fields agar diterima sebagai array oleh Laravel
+        'meta[src]': 'flutter',
+        'meta[jenis]': _jenis,
       };
 
-      final res = await api.post('/input-siswa', payload);
+      final res = await api.postMultipartFlexible(
+        '/input-siswa',
+        fields: fields,
+        xfile: kIsWeb ? null : _pickedFile,
+        bytes: kIsWeb ? _webBytes : null,
+        filename: kIsWeb ? _webFilename : null,
+        fileField: 'gambar',
+      );
 
       if (!mounted) return;
       if (res.ok) {
-        // reset minimal
         _teksCtrl.clear();
-        _laporSiswaId = null;
+        _laporSiswaKelasId = null;
         _laporSiswaNama = null;
+        _resetFile();
 
         final msg = statusUpload == 0
             ? 'Draft tersimpan.'
             : 'Refleksi berhasil terkirim.';
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(msg)));
-
-        context.go('/home');
+        context.pop(true);
       } else {
         showDialog(
           context: context,
@@ -234,7 +283,7 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
 
     if (selected != null) {
       setState(() {
-        _laporSiswaId = selected['id'] as int?;
+        _laporSiswaKelasId = selected['id'] as int?;
         _laporSiswaNama = selected['nama']?.toString();
       });
     }
@@ -247,10 +296,11 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
             'kronologi singkat, dan hal penting yang perlu diketahui guru BK.'
         : 'Ceritakan perasaan, pengalaman, atau hal penting yang kamu alami hari ini…';
 
+    final displayFilename = _pickedFile?.name ?? _webFilename;
     final left = _FormKiri(
       formKey: _formKey,
       tanggal: _tanggal,
-      mockFilename: _mockFilename,
+      pickedFilename: displayFilename,
       jenis: _jenis,
       onPickTanggal: _pickTanggal,
       onJenisChanged: (v) async {
@@ -259,7 +309,7 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
           await _loadSiswaIfNeeded();
         } else {
           setState(() {
-            _laporSiswaId = null;
+            _laporSiswaKelasId = null;
             _laporSiswaNama = null;
           });
         }
@@ -272,9 +322,8 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
       teksCtrl: _teksCtrl,
       isiHint: hintText,
 
-      onPickMock: () => setState(() =>
-          _mockFilename = 'bukti_${DateTime.now().millisecondsSinceEpoch}.jpg'),
-      onResetMock: () => setState(() => _mockFilename = null),
+      onPickFile: _pickFile,
+      onResetFile: _resetFile,
       loading: loading,
 
       // tombol
@@ -288,31 +337,34 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Refleksi Harian')),
-      body: LayoutBuilder(
-        builder: (ctx, c) {
-          final isWide = c.maxWidth >= 900;
-          if (isWide) {
-            return Padding(
+      drawer: const AppDrawer(),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (ctx, c) {
+            final isWide = c.maxWidth >= 900;
+            if (isWide) {
+              return Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: left),
+                    const SizedBox(width: 16),
+                    SizedBox(width: 360, child: right),
+                  ],
+                ),
+              );
+            }
+            return ListView(
               padding: const EdgeInsets.all(12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: left),
-                  const SizedBox(width: 16),
-                  SizedBox(width: 360, child: right),
-                ],
-              ),
+              children: [
+                left,
+                const SizedBox(height: 16),
+                right,
+              ],
             );
-          }
-          return ListView(
-            padding: const EdgeInsets.all(12),
-            children: [
-              left,
-              const SizedBox(height: 16),
-              right,
-            ],
-          );
-        },
+          },
+        ),
       ),
     );
   }
@@ -332,15 +384,15 @@ class _FormKiri extends StatelessWidget {
     required this.siswaLoading,
     required this.teksCtrl,
     required this.isiHint,
-    required this.mockFilename,
-    required this.onPickMock,
-    required this.onResetMock,
+    required this.pickedFilename,
+    required this.onPickFile,
+    required this.onResetFile,
     required this.loading,
     required this.onSaveDraft,
     required this.onSubmit,
     required this.fmtTanggal,
-    super.key,
-  });
+    Key? key,
+  }) : super(key: key);
 
   final GlobalKey<FormState> formKey;
   final DateTime tanggal;
@@ -357,9 +409,9 @@ class _FormKiri extends StatelessWidget {
   final TextEditingController teksCtrl;
   final String isiHint;
 
-  final String? mockFilename;
-  final VoidCallback onPickMock;
-  final VoidCallback onResetMock;
+  final String? pickedFilename;
+  final VoidCallback onPickFile;
+  final VoidCallback onResetFile;
 
   final bool loading;
   final VoidCallback onSaveDraft;
@@ -483,7 +535,7 @@ class _FormKiri extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              // Upload mock
+              // Upload gambar (opsional)
               _FieldGroup(
                 label: 'Unggah Gambar (opsional)',
                 helper: 'Gunakan untuk bukti pendukung bila diperlukan.',
@@ -494,21 +546,22 @@ class _FormKiri extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          mockFilename ?? 'Pilih file... (mockup)',
+                          pickedFilename ?? 'Pilih file…',
                           style: TextStyle(
-                            color:
-                                mockFilename == null ? Colors.grey[600] : null,
+                            color: pickedFilename == null
+                                ? Colors.grey[600]
+                                : null,
                           ),
                         ),
                       ),
-                      if (mockFilename != null)
+                      if (pickedFilename != null)
                         IconButton(
                           tooltip: 'Hapus',
-                          onPressed: loading ? null : onResetMock,
+                          onPressed: loading ? null : onResetFile,
                           icon: const Icon(Icons.close),
                         ),
                       ElevatedButton.icon(
-                        onPressed: loading ? null : onPickMock,
+                        onPressed: loading ? null : onPickFile,
                         icon: const Icon(Icons.upload_file),
                         label: const Text('Pilih'),
                       ),

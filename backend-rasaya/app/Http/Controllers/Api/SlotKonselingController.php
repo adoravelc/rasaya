@@ -36,7 +36,8 @@ class SlotKonselingController extends Controller
             'date_start' => ['required', 'date'],
             'date_end' => ['required', 'date', 'after_or_equal:date_start'],
             'days' => ['required', 'array', 'min:1'],
-            'days.*' => ['integer', 'between:1,7'],
+            // Accept either ISO 1..7 (Mon..Sun) or JS-style 0..6 (Sun..Sat)
+            'days.*' => ['integer', 'between:0,7'],
 
             'start_time' => ['required', 'string'],
             'end_time' => ['required', 'string'],
@@ -75,12 +76,26 @@ class SlotKonselingController extends Controller
         $interval = (int) $data['interval'];
         $durasi = (int) $data['durasi'];
 
-        $generated = 0;
+    $generated = 0;
+    $existing = 0;
+    $skippedWindow = 0;
+    $attempted = 0;
 
-        DB::transaction(function () use (&$generated, $d1, $d2, $data, $guruId, $tz, $startClock, $endClock, $interval, $durasi) {
+        // Normalize provided days to ISO (1=Mon..7=Sun)
+        $daysIso = collect($data['days'])
+            ->map(function ($d) {
+                $di = (int) $d;
+                if ($di === 0) return 7; // map Sunday 0 -> 7
+                return max(1, min(7, $di));
+            })
+            ->unique()
+            ->values()
+            ->all();
+
+        DB::transaction(function () use (&$generated, &$existing, &$skippedWindow, &$attempted, $d1, $d2, $daysIso, $guruId, $tz, $startClock, $endClock, $interval, $durasi, $data) {
             for ($d = $d1->copy(); $d->lte($d2); $d->addDay()) {
                 // 1=Mon..7=Sun
-                if (!in_array($d->dayOfWeekIso, $data['days'], false)) {
+                if (!in_array($d->dayOfWeekIso, $daysIso, false)) {
                     continue;
                 }
 
@@ -99,9 +114,11 @@ class SlotKonselingController extends Controller
 
                     // pastikan slot tidak melewati batas window
                     if ($slotEndLocal->gt($endT)) {
+                        $skippedWindow++;
                         break;
                     }
 
+                    $attempted++;
                     $slot = SlotKonseling::firstOrCreate(
                         [
                             'guru_id' => $guruId,
@@ -118,14 +135,18 @@ class SlotKonselingController extends Controller
                         ]
                     );
 
-                    if ($slot->wasRecentlyCreated) {
-                        $generated++;
-                    }
+                    $slot->wasRecentlyCreated ? $generated++ : $existing++;
                 }
             }
         });
 
-        return response()->json(['generated' => $generated], 201);
+        return response()->json([
+            'generated' => $generated,
+            'existing' => $existing,
+            'skipped' => $skippedWindow,
+            'attempted' => $attempted,
+            'days_iso' => $daysIso,
+        ], 201);
     }
 
     public function cancel(Request $r, int $id)

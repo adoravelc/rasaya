@@ -11,12 +11,18 @@ class PemantauanEmosiSiswa extends Model
 
     protected $table = 'pemantauan_emosi_siswas';
 
+    // GANTI field
     protected $fillable = [
-        'siswa_id', 'tanggal', 'sesi', 'skor', 'gambar',
+        'siswa_kelas_id', 'tanggal', 'sesi', 'skor', 'gambar', 'catatan',
     ];
 
     protected $casts = [
         'tanggal' => 'date',
         'skor'    => 'integer',
     ];
+
+    public function siswaKelas()
+    {
+        return $this->belongsTo(SiswaKelas::class, 'siswa_kelas_id');
+    }
 }

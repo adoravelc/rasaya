@@ -8,25 +8,23 @@ class StoreInputSiswaRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // kalau memang hanya siswa yang boleh submit, biarkan seperti ini.
-        return $this->user()?->role === 'siswa';
+        // Izinkan siswa, guru, atau admin untuk submit
+        return in_array($this->user()?->role, ['siswa', 'guru', 'admin'], true);
     }
 
     public function rules(): array
     {
         return [
-            // NOTE: relasi siswa keyed ke user_id
-            'siswa_id' => ['nullable', 'integer', 'exists:siswas,user_id'],
-
-            // <-- tambahkan rule untuk siswa_dilapor_id
-            'siswa_dilapor_id' => ['nullable', 'integer', 'different:siswa_id', 'exists:siswas,user_id'],
+            // Pakai roster (siswa_kelass) bukan langsung siswas
+            'siswa_kelas_id' => ['nullable', 'integer', 'exists:siswa_kelass,id'],
+            'siswa_dilapor_kelas_id' => ['nullable', 'integer', 'different:siswa_kelas_id', 'exists:siswa_kelass,id'],
 
             'tanggal' => ['nullable', 'date'],
             'teks' => ['required', 'string', 'min:5', 'max:2000'],
             'avg_emosi' => ['nullable', 'numeric', 'between:0,10'],
 
-            // optional bukti/gambar mock
-            'gambar' => ['nullable', 'string', 'max:255'],
+            // optional bukti/gambar asli (file upload)
+            'gambar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'], // max ~2MB
 
             // 0 = draft, 1 = submit
             'status_upload' => ['required', 'in:0,1'],

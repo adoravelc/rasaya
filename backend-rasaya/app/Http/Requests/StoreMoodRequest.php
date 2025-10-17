@@ -15,8 +15,9 @@ class StoreMoodRequest extends FormRequest
     {
         return [
             'skor' => ['required', 'integer'],
-            'gambar' => ['nullable', 'string', 'max:255'],   // path/URL
-            'tanggal' => ['nullable', 'date'],                // opsional (default: today)
+            'gambar' => ['nullable', 'image', 'max:2048'],   // path/URL
+            'tanggal' => ['nullable', 'date'], // opsional (default: today)
+            'catatan' => ['nullable', 'string'],              // opsional
         ];
     }
 

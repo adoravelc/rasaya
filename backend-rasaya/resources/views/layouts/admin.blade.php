@@ -11,12 +11,12 @@
         .sidebar {
             min-height: 100vh;
             border-right: 1px solid #e5e7eb;
-            background: #f8f9fa
+            background: var(--ras-broken-white, #f8f9fa);
         }
 
         .sidebar .nav-link.active {
             background: #e9ecef;
-            font-weight: 600
+            font-weight: 600;
         }
     </style>
     @stack('head')
