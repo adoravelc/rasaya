@@ -45,11 +45,6 @@ final recentMoodProvider =
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
-  Future<void> _doLogout(BuildContext context, WidgetRef ref) async {
-    ref.read(authControllerProvider.notifier).logout();
-    if (context.mounted) context.go('/login');
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(authControllerProvider);
@@ -72,13 +67,6 @@ class HomePage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
-        actions: [
-          IconButton(
-            tooltip: 'Logout',
-            icon: const Icon(Icons.logout),
-            onPressed: () => _doLogout(context, ref),
-          )
-        ],
       ),
       drawer: const AppDrawer(),
       body: ListView(
@@ -338,19 +326,6 @@ class HomePage extends ConsumerWidget {
           ),
 
           const SizedBox(height: 24),
-
-          Align(
-            alignment: Alignment.centerLeft,
-            child: SizedBox(
-              width: 220,
-              child: FilledButton.icon(
-                icon: const Icon(Icons.logout),
-                label: const Text('Logout'),
-                onPressed: () => _doLogout(context, ref),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
         ],
       ),
     );

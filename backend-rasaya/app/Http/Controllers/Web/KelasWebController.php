@@ -15,7 +15,7 @@ class KelasWebController extends Controller
         $tahunAjarans = TahunAjaran::orderByDesc('nama')->get();
         $activeTa = $request->input('tahun_ajaran_id') ?: TahunAjaran::aktif()->value('id');
 
-        $kelas = Kelas::with(['tahunAjaran', 'waliGuru'])
+    $kelas = Kelas::with(['tahunAjaran', 'waliGuru'])
             ->when($activeTa, fn($q) => $q->where('tahun_ajaran_id', $activeTa))
             ->orderBy('tingkat')
             ->orderByRaw("COALESCE(penjurusan,'')") // supaya null diurutkan stabil
@@ -29,7 +29,13 @@ class KelasWebController extends Controller
             ->orderBy('rombel')
             ->get();
 
-        return view('roles.admin.kelas.index', compact('kelas', 'tahunAjarans', 'activeTa', 'trashed'));
+        // Ambil daftar wali kelas (user) untuk dropdown
+        $waliOptions = \App\Models\User::query()
+            ->whereHas('guru', function ($q) { $q->where('jenis', 'wali_kelas'); })
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return view('roles.admin.kelas.index', compact('kelas', 'tahunAjarans', 'activeTa', 'trashed', 'waliOptions'));
     }
 
     // ===== AJAX (JSON) =====
@@ -56,7 +62,7 @@ class KelasWebController extends Controller
                 ),
             ],
             'kurikulum' => ['nullable', 'in:K13,KURMER'],
-            'wali_guru_id' => ['nullable', 'exists:users,id'],
+            'wali_guru_id' => ['required', 'exists:users,id'],
         ]);
 
         $row = Kelas::create($data)->load(['tahunAjaran', 'waliGuru']);
@@ -88,7 +94,7 @@ class KelasWebController extends Controller
                     ),
             ],
             'kurikulum' => ['nullable', 'in:K13,KURMER'],
-            'wali_guru_id' => ['nullable', 'exists:users,id'],
+            'wali_guru_id' => ['required', 'exists:users,id'],
         ]);
 
         $kelas->update($data);

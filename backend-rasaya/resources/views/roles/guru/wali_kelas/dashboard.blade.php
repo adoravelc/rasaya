@@ -6,14 +6,11 @@
 <div class="container-fluid">
 	<div class="row">
 		<main class="col-12 col-md-9 col-lg-10 p-4">
-			<div class="d-flex align-items-center justify-content-between mb-3">
-				<div>
+					<div class="d-flex align-items-center justify-content-between mb-3">
+						<div>
 					<h2 class="h4 mb-1">Dashboard Wali Kelas</h2>
 					<div class="text-muted">Halo, {{ auth()->user()->name }}</div>
-				</div>
-				<form method="POST" action="{{ route('logout') }}">@csrf
-					<button class="btn btn-outline-secondary btn-sm">Keluar</button>
-				</form>
+						</div>
 			</div>
 
 			<div class="row g-3">

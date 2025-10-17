@@ -12,9 +12,6 @@
                         <h2 class="h4 mb-1">Dashboard Guru BK</h2>
                         <div class="text-muted">Halo, {{ auth()->user()->name }}</div>
                     </div>
-                    <form method="POST" action="{{ route('logout') }}">@csrf
-                        <button class="btn btn-outline-secondary btn-sm">Keluar</button>
-                    </form>
                 </div>
 
                 <div class="row g-3">

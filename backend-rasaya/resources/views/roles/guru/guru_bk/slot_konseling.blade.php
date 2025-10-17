@@ -7,7 +7,7 @@
     <div class="container py-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h4 class="mb-0">Slot Konseling — BK</h4>
-            <button class="btn btn-primary" id="btnPublish">+ Generate Slot Massal</button>
+            <button class="btn btn-primary" id="btnPublish">+ Generate Slot</button>
         </div>
 
         {{-- Filter --}}
@@ -22,12 +22,11 @@
                     <input type="date" class="form-control" id="fTo">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Status</label>
+                    <label class="form-label">Ketersediaan</label>
                     <select id="fStatus" class="form-select">
                         <option value="">(Semua)</option>
-                        <option value="published">published</option>
-                        <option value="canceled">canceled</option>
-                        <option value="archived">archived</option>
+                        <option value="available">available</option>
+                        <option value="booked">booked</option>
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -46,7 +45,6 @@
                         <tr>
                             <th>Tanggal</th>
                             <th>Waktu</th>
-                            <th>Kuota</th>
                             <th>Booked</th>
                             <th>Lokasi</th>
                             <th>Status</th>
@@ -55,7 +53,7 @@
                     </thead>
                     <tbody id="rows">
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">Memuat data…</td>
+                            <td colspan="6" class="text-center py-4 text-muted">Memuat data…</td>
                         </tr>
                     </tbody>
                 </table>
@@ -89,20 +87,26 @@
                             <input type="date" class="form-control" name="date_end" required>
                         </div>
 
-                        <!-- Hidden input for days - default to all days -->
+                        <!-- Hidden input for days - default to all days (1..7 ISO: Mon..Sun) -->
                         <input type="hidden" name="days[]" value="1">
                         <input type="hidden" name="days[]" value="2">
                         <input type="hidden" name="days[]" value="3">
                         <input type="hidden" name="days[]" value="4">
                         <input type="hidden" name="days[]" value="5">
+                        <input type="hidden" name="days[]" value="6">
+                        <input type="hidden" name="days[]" value="7">
 
-                        <div class="col-md-4">
-                            <label class="form-label">Jam Mulai</label>
-                            <input type="time" class="form-control" name="start_time" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Jam Selesai</label>
-                            <input type="time" class="form-control" name="end_time" required>
+                        <div class="col-md-8">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Jam Mulai</label>
+                                    <input type="time" class="form-control" name="start_time" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Jam Selesai</label>
+                                    <input type="time" class="form-control" name="end_time" required>
+                                </div>
+                            </div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Interval (menit)</label>
@@ -129,10 +133,7 @@
                             <input type="text" class="form-control" name="notes" maxlength="255">
                         </div>
 
-                        <div class="col-12">
-                            <small class="text-muted">Zona waktu sistem: <strong>Asia/Makassar</strong>. Slot tersimpan di
-                                DB sebagai UTC.</small>
-                        </div>
+                        
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -188,13 +189,18 @@
             const st = document.getElementById('fStatus').value;
             if (from) p.set('from', from);
             if (to) p.set('to', to);
-            if (st) p.set('status', st);
+            if (st) {
+                // map availability to API parameters
+                if (st === 'available') p.set('availability', 'available');
+                else if (st === 'booked') p.set('availability', 'booked');
+                else p.set('status', st);
+            }
             return p.toString() ? `?${p.toString()}` : '';
         }
 
         async function load(url) {
             const tbody = document.getElementById('rows');
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">Memuat…</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">Memuat…</td></tr>`;
 
             try {
                 const res = await fetch(url || routes.list(q()), {
@@ -210,7 +216,14 @@
                 const j = await res.json();
                 console.log('Response data:', j); // Debug to see what's coming back
 
-                const data = j.data ?? j; // paginate or array
+                let data = j.data ?? j; // paginate or array
+                // Client-side availability filter fallback
+                const avail = document.getElementById('fStatus').value;
+                if (avail === 'available') {
+                    data = data.filter(s => s.status === 'published' && Number(s.booked_count ?? 0) === 0);
+                } else if (avail === 'booked') {
+                    data = data.filter(s => Number(s.booked_count ?? 0) > 0);
+                }
                 console.log('Data to render:', data); // Debug to see what's being passed to renderRows
 
                 pageUrl = j.path ? j.path : routes.list(); // for paginate
@@ -279,7 +292,7 @@
         function renderRows(items) {
             const tbody = document.getElementById('rows');
             if (!items || items.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">Tidak ada data.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">Tidak ada data.</td></tr>`;
                 return;
             }
             tbody.innerHTML = items.map(s => {
@@ -287,14 +300,15 @@
                 let dateToFormat = s.tanggal ? new Date(s.tanggal) : (s.start_at ? new Date(s.start_at) : null);
                 const tgl = dateToFormat ? toLocal(dateToFormat) : '-';
 
-                const times = s.start_at && s.end_at ? `${hhmm(s.start_at)}–${hhmm(s.end_at)}` : '-';
-                const badge = s.status === 'published' ? 'info' : (s.status === 'archived' ? 'dark' : 'secondary');
+                                                const times = s.start_at && s.end_at ? `${hhmm(s.start_at)}–${hhmm(s.end_at)}` : '-';
+                                const isAvailable = (s.status === 'published') && (Number(s.booked_count ?? 0) === 0);
+                                const badge = s.status === 'archived' ? 'dark' : (isAvailable ? 'success' : 'secondary');
                 return `<tr>
 <td>${tgl}</td>
 <td>${times}</td>
-<td>${s.booked_count ?? 0}</td>
+                <td>${s.booked_count ?? 0}</td>
 <td>${s.lokasi ?? '-'}</td>
-<td><span class="badge bg-${badge}">${s.status}</span></td>
+<td><span class="badge bg-${badge}">${isAvailable ? 'available' : (s.status ?? '-')}</span></td>
 <td class="text-end">
   <div class="btn-group btn-group-sm">
     ${s.status==='published' ? `<button class="btn btn-outline-danger" onclick="doCancel(${s.id})">Cancel</button>` : ''}
@@ -328,7 +342,7 @@
             const body = {
                 date_start: f.date_start.value, // "2025-10-16"
                 date_end: f.date_end.value, // "2025-10-16"
-                days: [1, 2, 3, 4, 5], // Weekdays only, or use getCheckedDays() if you kept the function
+                days: [1, 2, 3, 4, 5, 6, 7], // All days: Mon..Sun (ISO 1..7)
                 start_time: to24(f.start_time.value), // "13:00"
                 end_time: to24(f.end_time.value), // "14:10"
                 interval: parseInt(f.interval.value, 10),
@@ -373,7 +387,8 @@
             }
             const data = await res.json();
             modal.hide();
-            alert(`Berhasil generate ${data.generated} slot`);
+            const diag = `Generated: ${data.generated}\nExisting: ${data.existing}\nAttempted: ${data.attempted}\nSkipped (window): ${data.skipped}\nDays: ${Array.isArray(data.days_iso)?data.days_iso.join(','):data.days_iso}`;
+            alert(`Berhasil generate ${data.generated} slot\n\n${diag}`);
             load();
         }
 

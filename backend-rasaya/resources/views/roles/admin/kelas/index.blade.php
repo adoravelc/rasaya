@@ -50,7 +50,7 @@
                                 <td class="td-tingkat">{{ $k->tingkat }}</td>
                                 <td class="td-jur">{{ $k->penjurusan ?? '-' }}</td>
                                 <td class="td-rombel">{{ $k->rombel }}</td>
-                                <td class="td-wali">{{ $k->waliGuru->name ?? '-' }}</td>
+                                <td class="td-wali" data-wali-id="{{ $k->wali_guru_id ?? '' }}">{{ $k->waliGuru->name ?? '-' }}</td>
                                 <td class="actions">
                                     <div class="btn-group btn-group-sm">
                                         <button class="btn btn-outline-secondary"
@@ -144,8 +144,13 @@
                             </div>
 
                             <div class="col-md-4">
-                                <label class="form-label">Wali Guru (User ID)</label>
-                                <input id="m-wali" type="number" class="form-control" placeholder="opsional">
+                                <label class="form-label">Wali Kelas</label>
+                                <select id="m-wali" class="form-select" required>
+                                    <option value="">— Pilih Wali Kelas —</option>
+                                    @foreach($waliOptions as $w)
+                                        <option value="{{ $w->id }}">{{ $w->name }}</option>
+                                    @endforeach
+                                </select>
                             </div>
 
                             <div class="col-12">
@@ -198,7 +203,7 @@
             document.getElementById('m-penjurusan').value =
                 (tr.querySelector('.td-jur').innerText.trim() === '-' ? '' : tr.querySelector('.td-jur').innerText.trim());
             document.getElementById('m-rombel').value = tr.querySelector('.td-rombel').innerText.trim();
-            document.getElementById('m-wali').value = '';
+            document.getElementById('m-wali').value = tr.querySelector('.td-wali').dataset.waliId || '';
             document.getElementById('m-error').innerText = '';
             bsModal.show();
         }

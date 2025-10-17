@@ -13,7 +13,6 @@
     <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
             <h3 class="mb-1">Input Guru (Observasi)</h3>
-            <div class="text-muted">Catat observasi ke siswa (terhubung ke <em>siswa_kelas</em>).</div>
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-primary" onclick="openCreate()">+ Tambah Observasi</button>
@@ -108,21 +107,32 @@
 
                             <div class="col-md-4">
                                 <label class="form-label">Kondisi Siswa</label>
-                                <select id="m-kondisi" class="form-select" required>
-                                    @foreach ($opsiKondisi as $opt)
-                                        <option value="{{ $opt }}">{{ strtoupper($opt) }}</option>
-                                    @endforeach
-                                </select>
+                                <div class="d-flex align-items-center gap-2">
+                                    <select id="m-kondisi" class="form-select" required>
+                                        @foreach ($opsiKondisi as $opt)
+                                            <option value="{{ $opt }}">{{ strtoupper($opt) }}</option>
+                                        @endforeach
+                                    </select>
+                                    <div id="kondisi-dot" class="rounded-circle" style="width:18px;height:18px;border:1px solid #cbd5e1"></div>
+                                </div>
+                                <div class="form-text mt-1">
+                                    <span class="badge" style="background:#16a34a">Aman</span>
+                                    <span class="badge" style="background:#f59e0b">Perlu Perhatian</span>
+                                    <span class="badge" style="background:#ef4444">Urgent</span>
+                                </div>
                             </div>
 
                             <div class="col-md-8">
-                                <label class="form-label">Kategori (boleh banyak)</label>
-                                <select id="m-kategoris" multiple class="form-select">
+                                <label class="form-label">Kategori</label>
+                                <div id="kategori-group" class="d-flex flex-wrap gap-2">
                                     @foreach ($kategoris as $k)
-                                        <option value="{{ $k->id }}">{{ $k->nama }}</option>
+                                        <label class="form-check form-check-inline btn btn-outline-secondary btn-sm m-0" style="border-radius:20px">
+                                            <input class="form-check-input d-none" type="checkbox" value="{{ $k->id }}" onchange="syncKategori(this)">
+                                            <span class="small">{{ $k->nama }}</span>
+                                        </label>
                                     @endforeach
-                                </select>
-                                <div class="form-text">Gunakan Ctrl/Cmd untuk memilih lebih dari satu kategori.</div>
+                                </div>
+                                <input type="hidden" id="m-kategoris" value="[]">
                             </div>
 
                             <div class="col-12">
@@ -159,8 +169,25 @@
             });
         });
 
-        function valMulti(selectEl) {
-            return Array.from(selectEl.selectedOptions).map(o => Number(o.value));
+        function valMultiHidden(hidden) {
+            if (!hidden.value) return [];
+            try { return JSON.parse(hidden.value); } catch (_) { return []; }
+        }
+
+        function syncKategori(cb){
+            const hidden = document.getElementById('m-kategoris');
+            let arr = valMultiHidden(hidden);
+            const v = Number(cb.value);
+            if (cb.checked && !arr.includes(v)) arr.push(v);
+            if (!cb.checked) arr = arr.filter(x => x !== v);
+            hidden.value = JSON.stringify(arr);
+        }
+
+        function paintKondisi(){
+            const val = document.getElementById('m-kondisi').value.toLowerCase();
+            const dot = document.getElementById('kondisi-dot');
+            const map = { green:'#16a34a', yellow:'#f59e0b', red:'#ef4444', aman:'#16a34a'};
+            if (dot) dot.style.background = map[val] || '#e5e7eb';
         }
 
         function openCreate() {
@@ -169,9 +196,11 @@
             document.getElementById('m-tanggal').value = "{{ now()->toDateString() }}";
             document.getElementById('m-siswakelas').value = '';
             document.getElementById('m-kondisi').value = "{{ $opsiKondisi[0] ?? 'aman' }}";
-            document.getElementById('m-kategoris').selectedIndex = -1;
+            document.getElementById('m-kategoris').value = '[]';
+            document.querySelectorAll('#kategori-group input[type="checkbox"]').forEach(el=> el.checked=false);
             document.getElementById('m-catatan').value = '';
             document.getElementById('m-error').innerText = '';
+            paintKondisi();
             bsModal.show();
         }
 
@@ -183,10 +212,11 @@
             document.getElementById('m-tanggal').value = tr.querySelector('.td-tanggal').innerText.trim();
             document.getElementById('m-siswakelas').value = tr.querySelector('.td-siswakelas').dataset.siswakelas;
             document.getElementById('m-kondisi').value = tr.querySelector('.td-kondisi').innerText.trim().toLowerCase();
-            document.getElementById('m-kategoris').selectedIndex = -
-            1; // untuk kesederhanaan; edit kategori via show endpoint kalau mau
+            document.getElementById('m-kategoris').value = '[]';
+            document.querySelectorAll('#kategori-group input[type="checkbox"]').forEach(el=> el.checked=false);
             document.getElementById('m-catatan').value = '';
             document.getElementById('m-error').innerText = '';
+            paintKondisi();
             bsModal.show();
         }
 
@@ -198,7 +228,7 @@
                 tanggal: document.getElementById('m-tanggal').value,
                 siswa_kelas_id: Number(document.getElementById('m-siswakelas').value),
                 kondisi_siswa: document.getElementById('m-kondisi').value,
-                kategori_ids: valMulti(document.getElementById('m-kategoris')),
+                kategori_ids: valMultiHidden(document.getElementById('m-kategoris')),
                 catatan: document.getElementById('m-catatan').value || null,
                 isi: document.getElementById('m-catatan').value || '',
                 status_upload: 1, // final submit (1=dikirim)
@@ -234,5 +264,10 @@
             });
             if (res.ok) location.reload();
         }
+        document.addEventListener('DOMContentLoaded', ()=>{
+            paintKondisi();
+            const sel = document.getElementById('m-kondisi');
+            if (sel) sel.addEventListener('change', paintKondisi);
+        });
     </script>
 @endpush

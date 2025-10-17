@@ -32,6 +32,7 @@
             </button>
             <div class="collapse navbar-collapse" id="topbar">
                 <ul class="navbar-nav ms-auto align-items-lg-center">
+                    <li class="nav-item me-3 text-muted small" id="now-wita"></li>
                     <li class="nav-item me-3 text-muted small">
                         Halo, <strong>{{ auth()->user()->name }}</strong>
                         <span class="d-none d-sm-inline">({{ auth()->user()->identifier }})</span>
@@ -68,6 +69,18 @@
     </div>
 
     @stack('scripts')
+    <script>
+        function fmtWita(d){
+            return d.toLocaleString('id-ID', { timeZone:'Asia/Makassar', weekday:'long', year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit', hour12:false}).replace(',', '');
+        }
+        (function(){
+            const el = document.getElementById('now-wita');
+            if(!el) return;
+            const tick = ()=>{ el.textContent = fmtWita(new Date()) + ' WITA'; };
+            tick();
+            setInterval(tick, 30000);
+        })();
+    </script>
 </body>
 
 </html>
