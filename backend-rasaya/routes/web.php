@@ -12,6 +12,7 @@ use App\Http\Controllers\Web\InputGuruController;
 use App\Http\Controllers\Web\AdminGuruController;
 use App\Http\Controllers\Web\AdminSiswaController;
 use App\Http\Controllers\Web\AdminSiswaKelasController;
+use App\Http\Controllers\Web\AdminJurusanController;
 use App\Http\Controllers\Api\SlotKonselingController as SlotApi;
 
 Route::view('/', 'welcome');
@@ -71,6 +72,12 @@ Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/siswa-kelas', [AdminSiswaKelasController::class, 'index'])->name('admin.siswa_kelas.index');
     Route::post('/siswa-kelas', [AdminSiswaKelasController::class, 'store'])->name('admin.siswa_kelas.store');
     Route::post('/siswa-kelas/remove', [AdminSiswaKelasController::class, 'remove'])->name('admin.siswa_kelas.remove');
+
+    // Jurusan
+    Route::get('/jurusan', [AdminJurusanController::class, 'index'])->name('admin.jurusan.index');
+    Route::post('/jurusan', [AdminJurusanController::class, 'store'])->name('admin.jurusan.store');
+    Route::put('/jurusan/{jurusan}', [AdminJurusanController::class, 'update'])->name('admin.jurusan.update');
+    Route::delete('/jurusan/{jurusan}', [AdminJurusanController::class, 'destroy'])->name('admin.jurusan.destroy');
 });
 
 /** ===================== GURU (BK & WALI KELAS) ===================== */

@@ -19,7 +19,7 @@
                         Kategori</a>
                     <a class="nav-link {{ $is('admin.guru.index') }}" href="{{ route('admin.guru.index') }}">Manajemen Guru</a>
                     <a class="nav-link {{ $is('admin.siswa.index') }}" href="{{ route('admin.siswa.index') }}">Manajemen Siswa</a>
-                    <a class="nav-link {{ $is('admin.siswa_kelas.index') }}" href="{{ route('admin.siswa_kelas.index') }}">Siswa per Kelas</a>
+                    
                 </nav>
             @break
 

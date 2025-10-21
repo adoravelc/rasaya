@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-        Schema::create('kelass', function (Blueprint $t) {
+    Schema::create('kelass', function (Blueprint $t) {
             $t->id();
 
             $t->foreignId('tahun_ajaran_id')
@@ -15,12 +15,13 @@ return new class extends Migration {
                 ->cascadeOnDelete();
 
             $t->enum('tingkat', ['X', 'XI', 'XII']);
-            $t->string('penjurusan')->nullable();     // null = tanpa jurusan
+            // Relasi ke jurusan (nullable = tanpa jurusan)
+            $t->foreignId('jurusan_id')->nullable()->constrained('jurusans')->nullOnDelete();
             $t->unsignedTinyInteger('rombel');        // 1..n
 
-            // generated column untuk unique saat penjurusan null
-            // (kalau MariaDB kamu keberatan dengan virtual, ganti ke ->storedAs(...))
-            $t->string('penjurusan_key')->virtualAs("COALESCE(penjurusan, '-')");
+            // generated column untuk unique saat jurusan_id null
+            // (kalau MariaDB keberatan dengan virtual, bisa diganti storedAs)
+            $t->unsignedBigInteger('jurusan_key')->virtualAs('COALESCE(jurusan_id, 0)');
 
             // FK wali guru (nullable)
             $t->foreignId('wali_guru_id')
@@ -29,7 +30,7 @@ return new class extends Migration {
                 ->nullOnDelete();
 
             // unique kombinasi per tahun ajaran
-            $t->unique(['tahun_ajaran_id', 'tingkat', 'penjurusan_key', 'rombel']);
+            $t->unique(['tahun_ajaran_id', 'tingkat', 'jurusan_key', 'rombel']);
 
             $t->timestamps();
             $t->softDeletes();

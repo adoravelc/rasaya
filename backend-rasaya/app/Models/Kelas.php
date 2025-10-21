@@ -13,7 +13,7 @@ class Kelas extends Model
     protected $fillable = [
         'tahun_ajaran_id',
         'tingkat',
-        'penjurusan',
+        'jurusan_id',
         'rombel',
         'kurikulum',
         'wali_guru_id'
@@ -28,12 +28,16 @@ class Kelas extends Model
     {
         return $this->belongsTo(User::class, 'wali_guru_id');
     }
+    public function jurusan()
+    {
+        return $this->belongsTo(Jurusan::class);
+    }
 
     public function getLabelAttribute(): string
     {
         $parts = [$this->tingkat];
-        if ($this->penjurusan)
-            $parts[] = $this->penjurusan;
+        if ($this->jurusan && $this->jurusan->nama)
+            $parts[] = $this->jurusan->nama;
         $parts[] = (string) $this->rombel;
         return implode(' ', $parts);
     }
