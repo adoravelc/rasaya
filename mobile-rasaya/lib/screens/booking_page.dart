@@ -25,6 +25,66 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     _loadMonth();
   }
 
+  Future<void> _jumpToNextAvailableDate() async {
+    // Pastikan ada tanggal referensi
+    if (_selectedDate == null) {
+      setState(() => _selectedDate = DateTime.now());
+    }
+
+    final fmt = DateFormat('yyyy-MM-dd');
+    final selected = _selectedDate ?? DateTime.now();
+
+    // Pastikan bulan aktif selaras dengan tanggal terpilih
+    if (!(selected.year == _currentMonth.year &&
+        selected.month == _currentMonth.month)) {
+      setState(() {
+        _currentMonth = DateTime(selected.year, selected.month, 1);
+      });
+      await _loadMonth();
+    }
+
+    // 1) Cari di sisa hari pada bulan saat ini
+    final lastDayThisMonth =
+        DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
+    for (int d = selected.day + 1; d <= lastDayThisMonth; d++) {
+      final dt = DateTime(_currentMonth.year, _currentMonth.month, d);
+      final key = fmt.format(dt);
+      final slots = _slotsByDate[key] ?? const [];
+      if (slots.isNotEmpty) {
+        if (mounted) setState(() => _selectedDate = dt);
+        return;
+      }
+    }
+
+    // 2) Jika tidak ada, iterasi sampai 12 bulan ke depan
+    DateTime probeMonth =
+        DateTime(_currentMonth.year, _currentMonth.month + 1, 1);
+    for (int i = 0; i < 12; i++) {
+      setState(() => _currentMonth = probeMonth);
+      await _loadMonth();
+      final lastDay = DateTime(probeMonth.year, probeMonth.month + 1, 0).day;
+      for (int d = 1; d <= lastDay; d++) {
+        final dt = DateTime(probeMonth.year, probeMonth.month, d);
+        final key = fmt.format(dt);
+        final slots = _slotsByDate[key] ?? const [];
+        if (slots.isNotEmpty) {
+          if (mounted) setState(() => _selectedDate = dt);
+          return;
+        }
+      }
+      probeMonth = DateTime(probeMonth.year, probeMonth.month + 1, 1);
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+            'Tidak ada jadwal tersedia pada bulan-bulan berikutnya.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _loadMonth() async {
     setState(() => _loading = true);
     final api = ref.read(apiClientProvider);
@@ -190,6 +250,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                               .format(_selectedDate!)] ??
                           const []),
                   onTap: _book,
+                  onJumpNext: _jumpToNextAvailableDate,
                 );
 
                 if (isWide) {
@@ -360,10 +421,14 @@ class _MiniCalendar extends StatelessWidget {
 
 class _TimesPane extends StatelessWidget {
   const _TimesPane(
-      {required this.date, required this.slots, required this.onTap});
+      {required this.date,
+      required this.slots,
+      required this.onTap,
+      required this.onJumpNext});
   final DateTime? date;
   final List<Map<String, dynamic>> slots;
   final void Function(Map<String, dynamic>) onTap;
+  final VoidCallback onJumpNext;
 
   // Format jam persis seperti di DB (tanpa konversi zona waktu)
   String _fmt(String? iso) {
@@ -372,8 +437,7 @@ class _TimesPane extends StatelessWidget {
     if (iso.length >= 16) {
       final hhmm = iso.substring(11, 16);
       // Validasi sederhana
-      final ok = RegExp(r'^\d{2}:\d{2}"]').hasMatch('"$hhmm"') ||
-          RegExp(r'^\d{2}:\d{2}\$').hasMatch(hhmm);
+      final ok = RegExp(r'^\d{2}:\d{2}$').hasMatch(hhmm);
       if (ok) return hhmm;
     }
     // Fallback: parse dan tampilkan ke WITA
@@ -424,8 +488,20 @@ class _TimesPane extends StatelessWidget {
         Expanded(
           child: slots.isEmpty
               ? Center(
-                  child: Text('Tidak ada slot pada tanggal ini',
-                      style: TextStyle(color: Colors.grey.shade600)),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Tidak ada slot pada tanggal ini',
+                          style: TextStyle(color: Colors.grey.shade600)),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: onJumpNext,
+                        icon: const Icon(Icons.skip_next),
+                        label:
+                            const Text('Loncat ke tanggal tersedia berikutnya'),
+                      ),
+                    ],
+                  ),
                 )
               : ListView.builder(
                   padding:
