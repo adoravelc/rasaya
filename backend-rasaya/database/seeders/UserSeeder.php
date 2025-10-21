@@ -49,7 +49,7 @@ class UserSeeder extends Seeder
         $siswaUser = User::updateOrCreate(['email' => 'siswa@rasaya.id'], [
             'identifier' => '1234',
             'role' => 'siswa',
-            'name' => 'Bryan Tan',
+            'name' => 'Gideon Bryan Tan',
             'password' => Hash::make('1'),
             'email_verified_at' => now(),
         ]);
@@ -59,7 +59,7 @@ class UserSeeder extends Seeder
         $siswaUser2 = User::updateOrCreate(['email' => 'siswa2@rasaya.id'], [
             'identifier' => '5678',
             'role' => 'siswa',
-            'name' => 'Jezebel Mae',
+            'name' => 'Glen Fernando',
             'password' => Hash::make('1'),
             'email_verified_at' => now(),
         ]);

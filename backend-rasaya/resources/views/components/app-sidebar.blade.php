@@ -5,6 +5,15 @@
 @endphp
 
 <aside class="col-12 col-md-3 col-lg-2 p-0 sidebar">
+    {{-- Mobile header (only visible on small screens) --}}
+    <div class="d-md-none p-3 border-bottom bg-white">
+        <div class="small text-muted now-wita"></div>
+        <div class="mt-2">Halo, <strong>{{ auth()->user()->name }}</strong></div>
+        <form class="mt-2" method="POST" action="{{ route('logout') }}" onsubmit="return confirm('Yakin ingin logout?')">
+            @csrf
+            <button class="btn btn-outline-danger btn-sm" type="submit">Logout</button>
+        </form>
+    </div>
     <div class="p-3">
         <div class="text-uppercase text-muted fw-semibold small mb-2">Menu</div>
 

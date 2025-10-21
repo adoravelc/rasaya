@@ -13,6 +13,7 @@ use App\Http\Controllers\Web\AdminGuruController;
 use App\Http\Controllers\Web\AdminSiswaController;
 use App\Http\Controllers\Web\AdminSiswaKelasController;
 use App\Http\Controllers\Web\AdminJurusanController;
+use App\Http\Controllers\Web\TahunAjaranWebController;
 use App\Http\Controllers\Api\SlotKonselingController as SlotApi;
 
 Route::view('/', 'welcome');
@@ -78,6 +79,15 @@ Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
     Route::post('/jurusan', [AdminJurusanController::class, 'store'])->name('admin.jurusan.store');
     Route::put('/jurusan/{jurusan}', [AdminJurusanController::class, 'update'])->name('admin.jurusan.update');
     Route::delete('/jurusan/{jurusan}', [AdminJurusanController::class, 'destroy'])->name('admin.jurusan.destroy');
+
+    // Tahun Ajaran toggle active
+    Route::get('/tahun-ajaran', [TahunAjaranWebController::class, 'index'])->name('admin.tahun_ajaran.index');
+    Route::get('/tahun-ajaran/trashed', [TahunAjaranWebController::class, 'trashed'])->name('admin.tahun_ajaran.trashed');
+    Route::post('/tahun-ajaran', [TahunAjaranWebController::class, 'store'])->name('admin.tahun_ajaran.store');
+    Route::patch('/tahun-ajaran/{tahunAjaran}/active', [TahunAjaranWebController::class, 'toggleActive'])->name('admin.tahun_ajaran.toggle');
+    Route::delete('/tahun-ajaran/{tahunAjaran}', [TahunAjaranWebController::class, 'destroy'])->name('admin.tahun_ajaran.destroy');
+    Route::post('/tahun-ajaran/{id}/restore', [TahunAjaranWebController::class, 'restore'])->name('admin.tahun_ajaran.restore');
+    Route::delete('/tahun-ajaran/{id}/force', [TahunAjaranWebController::class, 'forceDelete'])->name('admin.tahun_ajaran.force');
 });
 
 /** ===================== GURU (BK & WALI KELAS) ===================== */
@@ -111,11 +121,11 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
         Route::get('/', [GuruBkDashboardController::class, 'index'])->name('guru.bk.dashboard');
 
         // Halaman Blade + JSON untuk Slot Konseling (reuse controller API)
-        Route::view('/slot-konseling', 'roles.guru.guru_bk.slot_konseling')->name('guru.guru_bk.slots.view');
-        Route::get('/slots', [SlotApi::class, 'index'])->name('guru.guru_bk.slots.index');
-        Route::post('/slots/publish', [SlotApi::class, 'publish'])->name('guru.guru_bk.slots.publish');
-        Route::patch('/slots/{id}/cancel', [SlotApi::class, 'cancel'])->name('guru.guru_bk.slots.cancel');
-        Route::patch('/slots/{id}/archive', [SlotApi::class, 'archive'])->name('guru.bk.slots.archive');
+    Route::view('/slot-konseling', 'roles.guru.guru_bk.slot_konseling')->name('guru.guru_bk.slots.view');
+    Route::get('/slots', [SlotApi::class, 'index'])->name('guru.guru_bk.slots.index');
+    Route::get('/slots/{id}', [SlotApi::class, 'show'])->name('guru.guru_bk.slots.show');
+    Route::post('/slots/publish', [SlotApi::class, 'publish'])->name('guru.guru_bk.slots.publish');
+    Route::delete('/slots/{id}', [SlotApi::class, 'destroy'])->name('guru.guru_bk.slots.destroy');
     });
 
     // Wali Kelas

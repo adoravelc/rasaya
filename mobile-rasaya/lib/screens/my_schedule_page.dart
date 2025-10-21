@@ -110,6 +110,8 @@ class _MySchedulePageState extends ConsumerState<MySchedulePage> {
     final res = await api.cancelMyBooking(id, reason: reasonController.text);
     if (!mounted) return;
     if (res.ok) {
+      // trigger global refresh marker for bookings
+      ref.read(bookingRefreshCounterProvider.notifier).state++;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(children: const [

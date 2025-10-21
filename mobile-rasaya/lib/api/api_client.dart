@@ -265,6 +265,17 @@ class ApiClient {
     return post('/bookings/$bookingId/cancel', body);
   }
 
+  // Akun: ganti password sendiri
+  Future<ApiResponse> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) {
+    return post('/me/password', {
+      'current_password': currentPassword,
+      'new_password': newPassword,
+    });
+  }
+
   // Helper untuk format error message yang lebih konsisten
   String _formatErrorMessage(DioException e) {
     if (e.response?.data is Map) {

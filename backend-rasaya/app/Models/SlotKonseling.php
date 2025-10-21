@@ -37,7 +37,9 @@ class SlotKonseling extends Model
 
     public function scopeAvailable($q)
     {
-        return $q->where('status', 'published')
-            ->whereColumn('booked_count', '<', 'capacity');
+        return $q->where('status', 'available')
+            ->where(function($qq){
+                $qq->whereNull('booked_count')->orWhere('booked_count', 0);
+            });
     }
 }

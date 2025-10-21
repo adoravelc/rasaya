@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../auth/auth_controller.dart';
 import '../widgets/app_drawer.dart';
+import 'package:go_router/go_router.dart';
 
 class BookingPage extends ConsumerStatefulWidget {
   const BookingPage({super.key});
@@ -192,6 +193,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     final res = await api.bookSlot(id);
     if (!mounted) return;
     if (res.ok) {
+      // trigger global refresh marker for bookings
+      ref.read(bookingRefreshCounterProvider.notifier).state++;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -211,7 +214,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
       }
-      Navigator.of(context).pushNamed('/my-schedule');
+      // setelah booking, arahkan ke Home agar status cepat ter-refresh
+      GoRouter.of(context).go('/home');
     } else {
       showDialog(
         context: context,

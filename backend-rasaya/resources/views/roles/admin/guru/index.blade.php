@@ -16,6 +16,10 @@
         <button class="btn btn-sm btn-outline-secondary" type="submit">Cari</button>
     </form>
 </div>
+<div class="small text-muted mt-2">
+  Keterangan: <span class="badge bg-info">BK</span> <span class="badge bg-success">WALI KELAS</span>
+  — gunakan filter untuk menyaring.
+</div>
 @endsection
 
 @section('content')

@@ -145,6 +145,26 @@
     </div>
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    {{-- Modal Detail Slot --}}
+    <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Detail Slot Konseling</h5>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="detailBody">
+                        <div class="text-muted">Memuat…</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -156,14 +176,15 @@
         const routes = {
             list: (p = '') => `${base}${p}`,
             publish: () => `${base}/publish`,
-            cancel: (id) => `${base}/${id}/cancel`,
-            archive: (id) => `${base}/${id}/archive`,
+            destroy: (id) => `${base}/${id}`,
         };
 
-        let modal, pageUrl = '';
+    let modal, pageUrl = '';
+    let detailModal;
 
         document.addEventListener('DOMContentLoaded', () => {
             modal = new bootstrap.Modal(document.getElementById('publishModal'));
+            detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
             document.getElementById('btnPublish').addEventListener('click', () => modal.show());
             document.getElementById('publishForm').addEventListener('submit', onPublish);
 
@@ -189,12 +210,7 @@
             const st = document.getElementById('fStatus').value;
             if (from) p.set('from', from);
             if (to) p.set('to', to);
-            if (st) {
-                // map availability to API parameters
-                if (st === 'available') p.set('availability', 'available');
-                else if (st === 'booked') p.set('availability', 'booked');
-                else p.set('status', st);
-            }
+            if (st) p.set('availability', st);
             return p.toString() ? `?${p.toString()}` : '';
         }
 
@@ -289,35 +305,122 @@
             });
         }
 
-        function renderRows(items) {
+                function renderRows(items) {
             const tbody = document.getElementById('rows');
             if (!items || items.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">Tidak ada data.</td></tr>`;
                 return;
             }
-            tbody.innerHTML = items.map(s => {
+                        tbody.innerHTML = items.map(s => {
                 // If we have a tanggal property, format it. Otherwise, get it from start_at
                 let dateToFormat = s.tanggal ? new Date(s.tanggal) : (s.start_at ? new Date(s.start_at) : null);
                 const tgl = dateToFormat ? toLocal(dateToFormat) : '-';
 
                                                 const times = s.start_at && s.end_at ? `${hhmm(s.start_at)}–${hhmm(s.end_at)}` : '-';
-                                const isAvailable = (s.status === 'published') && (Number(s.booked_count ?? 0) === 0);
-                                const badge = s.status === 'archived' ? 'dark' : (isAvailable ? 'success' : 'secondary');
-                return `<tr>
+                                                const isAvailable = (s.status === 'published' && Number(s.booked_count ?? 0) === 0);
+                                                const badge = isAvailable ? 'success' : 'secondary';
+                                return `<tr data-id="${s.id}" class="slot-row" style="cursor:pointer">
 <td>${tgl}</td>
 <td>${times}</td>
                 <td>${s.booked_count ?? 0}</td>
 <td>${s.lokasi ?? '-'}</td>
-<td><span class="badge bg-${badge}">${isAvailable ? 'available' : (s.status ?? '-')}</span></td>
+<td><span class="badge bg-${badge}">${s.status ?? '-'}</span></td>
 <td class="text-end">
   <div class="btn-group btn-group-sm">
-    ${s.status==='published' ? `<button class="btn btn-outline-danger" onclick="doCancel(${s.id})">Cancel</button>` : ''}
-    ${s.status!=='archived' ? `<button class="btn btn-outline-dark" onclick="doArchive(${s.id})">Archive</button>` : ''}
+    <button class="btn btn-outline-danger" onclick="doDelete(${s.id})">Hapus</button>
   </div>
 </td>
 </tr>`;
             }).join('');
+
+                        // row click to open detail
+                        tbody.querySelectorAll('tr.slot-row').forEach(tr => {
+                                tr.addEventListener('click', (e) => {
+                                        // avoid when clicking Delete button
+                                        if (e.target.closest('button')) return;
+                                        const id = tr.dataset.id;
+                                        if (id) openDetail(id);
+                                });
+                        });
         }
+
+                async function openDetail(id) {
+                        const container = document.getElementById('detailBody');
+                        container.innerHTML = `<div class="text-muted">Memuat…</div>`;
+                        detailModal.show();
+                        try {
+                                const res = await fetch(`${base}/${id}`, { headers: { 'Accept': 'application/json' } });
+                                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                                const slot = await res.json();
+                                container.innerHTML = renderDetail(slot);
+                        } catch (err) {
+                                container.innerHTML = `<div class="text-danger">Gagal memuat detail: ${err.message}</div>`;
+                        }
+                }
+
+                function renderDetail(s) {
+                        const fmtDate = (iso) => {
+                                if (!iso) return '-';
+                                const d = new Date(iso);
+                                return d.toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric', timeZone: 'Asia/Makassar' });
+                        };
+                        const fmtTime = (iso) => {
+                                if (!iso) return '-';
+                                const d = new Date(iso);
+                                return d.toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone: 'Asia/Makassar' });
+                        };
+
+                        const guru = s.guru?.user?.name || s.guru?.nama || '-';
+                        const tanggal = s.tanggal ? fmtDate(s.tanggal) : (s.start_at ? fmtDate(s.start_at) : '-');
+                        const jam = `${fmtTime(s.start_at)} – ${fmtTime(s.end_at)} WITA`;
+                        const lokasi = s.lokasi || '-';
+                        const notes = s.notes || '';
+                        const status = s.status || '-';
+
+                        const bookings = Array.isArray(s.bookings) ? s.bookings : [];
+                        // who booked: list booked entries (status maybe booked/held/etc.)
+            const bookedItems = bookings
+                .map(b => {
+                const sk = b.siswa_kelas;
+                const siswaNama = sk?.siswa?.user?.name || sk?.siswa?.nama || '-';
+                const k = sk?.kelas || {};
+                const tingkat = k?.tingkat || '';
+                const jurusan = k?.jurusan?.nama || '';
+                const rombel = k?.rombel || '';
+                const kelasLabel = k?.label || [tingkat, jurusan, rombel].filter(Boolean).join(' ') || k?.nama || '-';
+                const ta = sk?.tahun_ajaran?.nama || sk?.tahun_ajaran?.tahun || '';
+                const kelasFull = ta ? `${kelasLabel} (${ta})` : kelasLabel;
+                const statusB = b.status || '-';
+                return `<li class="list-group-item d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="fw-semibold">${siswaNama}</div>
+                        <div class="small text-muted">Kelas: ${kelasFull}</div>
+                    </div>
+                    <span class="badge bg-secondary">${statusB}</span>
+                </li>`;
+                })
+                .join('');
+
+                        return `
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="mb-2"><span class="text-muted">Guru BK</span><br><strong>${guru}</strong></div>
+                                <div class="mb-2"><span class="text-muted">Tanggal</span><br><strong>${tanggal}</strong></div>
+                                <div class="mb-2"><span class="text-muted">Waktu</span><br><strong>${jam}</strong></div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-2"><span class="text-muted">Lokasi</span><br><strong>${lokasi}</strong></div>
+                                <div class="mb-2"><span class="text-muted">Status</span><br><span class="badge bg-info">${status}</span></div>
+                                ${notes ? `<div class="mb-2"><span class="text-muted">Catatan</span><br><span>${notes}</span></div>` : ''}
+                            </div>
+                            <div class="col-12">
+                                <div class="mt-2">
+                                    <div class="fw-semibold mb-2">Peminat/Booking</div>
+                                    ${bookings.length ? `<ul class="list-group list-group-flush">${bookedItems}</ul>` : '<div class="text-muted">Belum ada booking.</div>'}
+                                </div>
+                            </div>
+                        </div>`;
+                }
 
         function getCheckedDays() {
             // Now just returns all weekdays (1-5) as default
@@ -392,29 +495,17 @@
             load();
         }
 
-        async function doCancel(id) {
-            if (!confirm('Batalkan slot ini (beserta booking aktif)?')) return;
-            const res = await fetch(routes.cancel(id), {
-                method: 'PATCH',
+        async function doDelete(id) {
+            if (!confirm('Hapus slot ini?')) return;
+            const res = await fetch(routes.destroy(id), {
+                method: 'DELETE',
                 headers: {
                     'X-CSRF-TOKEN': CSRF,
                     'Accept': 'application/json'
                 }
             });
             if (res.ok) load();
-            else alert('Gagal membatalkan.');
-        }
-        async function doArchive(id) {
-            if (!confirm('Arsipkan slot ini?')) return;
-            const res = await fetch(routes.archive(id), {
-                method: 'PATCH',
-                headers: {
-                    'X-CSRF-TOKEN': CSRF,
-                    'Accept': 'application/json'
-                }
-            });
-            if (res.ok) load();
-            else alert('Gagal mengarsipkan.');
+            else alert('Gagal menghapus.');
         }
     </script>
 @endpush

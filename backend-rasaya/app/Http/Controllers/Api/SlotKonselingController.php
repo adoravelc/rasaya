@@ -17,14 +17,40 @@ class SlotKonselingController extends Controller
         $guruId = optional($r->user()->guru)->user_id ?? $r->user()->id;
 
         $q = SlotKonseling::where('guru_id', $guruId)->orderBy('start_at');
-        if ($r->filled('status'))
-            $q->where('status', $r->string('status'));
+        // map availability to current schema (status='published' + booked_count)
+        if ($r->filled('availability')) {
+            $av = (string) $r->input('availability');
+            if ($av === 'available') {
+                $q->where('status', 'published')->where(function($qq){
+                    $qq->whereNull('booked_count')->orWhere('booked_count', 0);
+                });
+            } elseif ($av === 'booked') {
+                $q->where(function($qq){
+                    $qq->where('booked_count', '>', 0);
+                });
+            }
+        }
         if ($r->filled('from'))
             $q->where('start_at', '>=', $r->date('from'));
         if ($r->filled('to'))
             $q->where('start_at', '<=', $r->date('to'));
 
         return response()->json($q->paginate($r->integer('per_page', 20)));
+    }
+
+    public function show(Request $r, int $id)
+    {
+        $guruId = optional($r->user()->guru)->user_id ?? $r->user()->id;
+        $slot = SlotKonseling::with([
+                'bookings.siswaKelas.siswa.user',
+                'bookings.siswaKelas.kelas.jurusan',
+                'bookings.siswaKelas.tahunAjaran',
+                'guru.user',
+            ])
+            ->where('guru_id', $guruId)
+            ->findOrFail($id);
+
+        return response()->json($slot);
     }
 
     /**
@@ -149,34 +175,12 @@ class SlotKonselingController extends Controller
         ], 201);
     }
 
-    public function cancel(Request $r, int $id)
+    public function destroy(Request $r, int $id)
     {
         $guruId = optional($r->user()->guru)->user_id ?? $r->user()->id;
-
         $slot = SlotKonseling::where('guru_id', $guruId)->findOrFail($id);
-        if (in_array($slot->status, ['canceled', 'archived'])) {
-            return response()->json(['message' => 'Slot sudah tidak aktif'], 422);
-        }
-
-        DB::transaction(function () use ($slot) {
-            $slot->update(['status' => 'canceled']);
-
-            // auto-cancel booking aktif (jika ada)
-            $slot->bookings()
-                ->whereIn('status', ['booked', 'held'])
-                ->update(['status' => 'canceled', 'cancel_reason' => 'dibatalkan oleh guru']);
-        });
-
-        return response()->json(['ok' => true]);
-    }
-
-    public function archive(Request $r, int $id)
-    {
-        $guruId = optional($r->user()->guru)->user_id ?? $r->user()->id;
-
-        $slot = SlotKonseling::where('guru_id', $guruId)->findOrFail($id);
-        $slot->update(['status' => 'archived']);
-
-        return response()->json(['ok' => true]);
+        // Hard delete; if there are related bookings, you may want to restrict or cascade
+        $slot->delete();
+        return response()->noContent();
     }
 }

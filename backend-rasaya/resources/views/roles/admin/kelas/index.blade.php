@@ -1,49 +1,71 @@
 {{-- resources/views/roles/admin/kelas/index.blade.php --}}
 @extends('layouts.admin')
-
-@section('title', 'Manajemen Kelas')
-
-@section('page-header')
-    <div>
-        <h3 class="mb-1">Manajemen Kelas</h3>
-        <div class="text-muted">Kelola tingkat, penjurusan, rombel, dan wali kelas.</div>
-    </div>
-
-    <div class="d-flex gap-2 align-items-center">
-        {{-- Filter Tahun Ajaran --}}
-        <form method="get" class="d-flex">
-            <select name="tahun_ajaran_id" class="form-select form-select-sm" style="width:220px" onchange="this.form.submit()">
-                @foreach ($tahunAjarans as $ta)
-                    <option value="{{ $ta->id }}" {{ $activeTa == $ta->id ? 'selected' : '' }}>
-                        {{ $ta->nama }} {{ $ta->is_active ? '(aktif)' : '' }}
-                    </option>
-                @endforeach
-            </select>
-        </form>
-
-        <button class="btn btn-primary" onclick="openCreate()">+ Tambah Kelas</button>
-    </div>
-@endsection
-
 @section('content')
-    {{-- Manajemen Jurusan (per Tahun Ajaran) --}}
-    <div class="card shadow-sm border-0 mb-3">
-        <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                    <h5 class="mb-0">Manajemen Jurusan</h5>
-                    <div class="text-muted small">Atur daftar jurusan untuk Tahun Ajaran aktif ini.</div>
+    <div class="row g-3 mb-3">
+        {{-- Manajemen Tahun Ajaran --}}
+        <div class="col-12 col-md-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-0">Tahun Ajaran</h5>
+                            <div class="text-muted small">Aktif/nonaktifkan Tahun Ajaran. Hanya satu yang aktif.</div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-primary" onclick="openTaCreate()">+ Tambah Tahun Ajaran</button>
+                            <a class="btn btn-sm btn-outline-secondary" href="{{ route('admin.kelas.index') }}">Refresh</a>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead><tr><th>Nama</th><th>Periode</th><th style="width:130px">Aktif</th></tr></thead>
+                            <tbody>
+                                @foreach($tahunAjarans->where('is_active', true) as $ta)
+                                <tr>
+                                    <td class="fw-semibold">{{ $ta->nama }}</td>
+                                    <td class="text-muted small">{{ $ta->mulai }} — {{ $ta->selesai }}</td>
+                                    <td>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input ta-toggle" type="checkbox" role="switch"
+                                                   data-id="{{ $ta->id }}" {{ $ta->is_active ? 'checked' : '' }}>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <button class="btn btn-sm btn-primary" onclick="openJurusanCreate()">+ Tambah Jurusan</button>
             </div>
-
-            <ul id="jurusan-list" class="list-group"></ul>
+        </div>
+        {{-- Manajemen Jurusan (per Tahun Ajaran) --}}
+        <div class="col-12 col-md-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-0">Manajemen Jurusan</h5>
+                            <div class="text-muted small">Atur daftar jurusan untuk Tahun Ajaran aktif ini.</div>
+                        </div>
+                        <button class="btn btn-sm btn-primary" onclick="openJurusanCreate()">+ Tambah Jurusan</button>
+                    </div>
+                    <ul id="jurusan-list" class="list-group flex-grow-1"></ul>
+                </div>
+            </div>
         </div>
     </div>
+    <div class="mb-3">
+        <button class="btn btn-outline-secondary btn-sm" onclick="openTaManager()">Kelola TA yang Disembunyikan</button>
+    </div>
+    
 
     {{-- Tabel --}}
     <div class="card shadow-sm border-0">
         <div class="card-body p-0">
+            <div class="d-flex justify-content-between align-items-center px-3 pt-3">
+                <h5 class="mb-0">Kelas</h5>
+                <button class="btn btn-sm btn-primary" onclick="openCreate()">+ Tambah Kelas</button>
+            </div>
             <div class="table-responsive">
                 <table class="table table-striped mb-0 align-middle">
                     <thead class="table-light">
@@ -114,6 +136,41 @@
     </div>
 
     {{-- Modal Bootstrap --}}
+    {{-- Modal Tambah Tahun Ajaran --}}
+    <div class="modal fade" id="modalTa" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Tambah Tahun Ajaran</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="ta-form" onsubmit="submitTaForm(event)">
+                        <div class="mb-3">
+                            <label class="form-label">Nama</label>
+                            <input type="text" id="ta-nama" class="form-control" placeholder="2025/2026" required>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Mulai</label>
+                                <input type="date" id="ta-mulai" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Selesai</label>
+                                <input type="date" id="ta-selesai" class="form-control">
+                            </div>
+                        </div>
+                        <input type="hidden" id="ta-aktif" value="1">
+                        <pre id="ta-error" class="text-danger small mt-3 mb-0" style="white-space:pre-wrap"></pre>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button class="btn btn-primary" form="ta-form">Simpan</button>
+                </div>
+            </div>
+        </div>
+    </div>
     {{-- Detail Kelas (read-only) --}}
     <div class="modal fade" id="modalDetail" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -154,6 +211,33 @@
             </div>
         </div>
     </div>
+    {{-- Modal Kelola Tahun Ajaran (inactive & trash) --}}
+    <div class="modal fade" id="modalTaManager" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Kelola Tahun Ajaran Disembunyikan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-lg-6">
+                            <h6 class="mb-2">Tidak Aktif</h6>
+                            <ul id="ta-inactive-list" class="list-group small">
+                                <li class="list-group-item text-muted">Memuat...</li>
+                            </ul>
+                        </div>
+                        <div class="col-12 col-lg-6">
+                            <h6 class="mb-2">Terhapus (soft)</h6>
+                            <ul id="ta-trashed-list" class="list-group small">
+                                <li class="list-group-item text-muted">Memuat...</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="modal fade" id="modal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
@@ -186,7 +270,7 @@
                             </div>
 
                             <div class="col-md-4">
-                                <label class="form-label">Penjurusan (opsional)</label>
+                                <label class="form-label">Jurusan</label>
                                 <select id="m-penjurusan" class="form-select">
                                     <option value="">—</option>
                                 </select>
@@ -328,7 +412,167 @@
                     openDetail(id);
                 });
             });
+
+            // Tahun Ajaran toggle
+            document.querySelectorAll('.ta-toggle').forEach(chk => {
+                chk.addEventListener('change', async (e) => {
+                    const id = Number(chk.getAttribute('data-id'));
+                    const isActive = chk.checked;
+                    try{
+                        const res = await fetch(`{{ url('/admin/tahun-ajaran') }}/${id}/active`, {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': token,
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({ is_active: isActive })
+                        });
+                        if(!res.ok){
+                            const data = await res.json().catch(()=>({}));
+                            throw new Error(data.message || 'Gagal memperbarui TA');
+                        }
+                        if (!isActive) {
+                            // immediately hide row if deactivated
+                            const tr = chk.closest('tr');
+                            tr && tr.remove();
+                        }
+                        rasayaToast('success', 'Tahun Ajaran diperbarui');
+                    }catch(err){
+                        chk.checked = !isActive; // rollback
+                        rasayaToast('danger', 'Gagal', [String(err.message||err)]);
+                    }
+                });
+            });
+
+            // TA modal helpers
+            window.openTaCreate = function(){
+                document.getElementById('ta-nama').value = '';
+                document.getElementById('ta-mulai').value = '';
+                document.getElementById('ta-selesai').value = '';
+                document.getElementById('ta-error').innerText = '';
+                (new bootstrap.Modal(document.getElementById('modalTa'))).show();
+            }
+            window.submitTaForm = async function(e){
+                e.preventDefault();
+                const payload = {
+                    nama: document.getElementById('ta-nama').value.trim(),
+                    mulai: document.getElementById('ta-mulai').value || null,
+                    selesai: document.getElementById('ta-selesai').value || null,
+                    is_active: true,
+                };
+                const errEl = document.getElementById('ta-error');
+                errEl.innerText = '';
+                try{
+                    const res = await fetch(`{{ url('/admin/tahun-ajaran') }}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN': token, 'Accept':'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json().catch(()=>({}));
+                    if(!res.ok){
+                        errEl.innerText = JSON.stringify(data.errors ?? data, null, 2);
+                        return;
+                    }
+                    bootstrap.Modal.getInstance(document.getElementById('modalTa')).hide();
+                    rasayaToast('success','Tahun Ajaran ditambahkan & diaktifkan');
+                    location.reload();
+                }catch(err){
+                    errEl.innerText = String(err.message||err);
+                }
+            }
+
+            // TA Manager modal
+            window.openTaManager = async function(){
+                const modalEl = document.getElementById('modalTaManager');
+                if (!modalEl) return;
+                const m = new bootstrap.Modal(modalEl, { backdrop:'static' });
+                // load inactive
+                try{
+                    const res = await fetch(`{{ route('admin.tahun_ajaran.index') }}?is_active=0`, { headers:{ 'Accept':'application/json' } });
+                    const data = await res.json();
+                    const list = document.getElementById('ta-inactive-list');
+                    const rows = (data?.data||[]).filter(i=>!i.is_active);
+                    if(rows.length===0){
+                        list.innerHTML = '<li class="list-group-item text-muted">Tidak ada.</li>';
+                    } else {
+                        list.innerHTML = rows.map(i=>`
+                          <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                              <div class="fw-semibold">${esc(i.nama)}</div>
+                              <div class="text-muted">${esc(i.mulai||'-')} — ${esc(i.selesai||'-')}</div>
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                              <button class="btn btn-outline-success" onclick="taActivate(${i.id})">Aktifkan</button>
+                              <button class="btn btn-outline-danger" onclick="taSoftDelete(${i.id})">Hapus</button>
+                            </div>
+                          </li>`).join('');
+                    }
+                }catch(e){ console.error(e); }
+                // load trashed
+                try{
+                    const res2 = await fetch(`{{ route('admin.tahun_ajaran.trashed') }}`, { headers:{ 'Accept':'application/json' } });
+                    const data2 = await res2.json();
+                    const list2 = document.getElementById('ta-trashed-list');
+                    const rows2 = (data2?.data||[]);
+                    if(rows2.length===0){
+                        list2.innerHTML = '<li class="list-group-item text-muted">Tidak ada.</li>';
+                    } else {
+                        list2.innerHTML = rows2.map(i=>`
+                          <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                              <div class="fw-semibold">${esc(i.nama)}</div>
+                              <div class="text-muted">${esc(i.mulai||'-')} — ${esc(i.selesai||'-')}</div>
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                              <button class="btn btn-outline-success" onclick="taRestore(${i.id})">Pulihkan</button>
+                              <button class="btn btn-outline-danger" onclick="taForceDelete(${i.id})">Hapus Permanen</button>
+                            </div>
+                          </li>`).join('');
+                    }
+                }catch(e){ console.error(e); }
+
+                m.show();
+            }
         });
+
+        async function taActivate(id){
+            try{
+                const res = await fetch(`{{ url('/admin/tahun-ajaran') }}/${id}/active`, {
+                    method: 'PATCH', headers:{ 'Content-Type':'application/json','X-CSRF-TOKEN': token,'Accept':'application/json' },
+                    body: JSON.stringify({ is_active: true })
+                });
+                if(!res.ok) throw new Error('Gagal mengaktifkan');
+                rasayaToast('success','Diaktifkan');
+                location.reload();
+            }catch(e){ rasayaToast('danger','Gagal', [String(e.message||e)]); }
+        }
+        async function taSoftDelete(id){
+            if(!confirm('Hapus (soft delete) Tahun Ajaran ini?')) return;
+            try{
+                const res = await fetch(`{{ url('/admin/tahun-ajaran') }}/${id}`, { method:'DELETE', headers:{ 'X-CSRF-TOKEN': token, 'Accept':'application/json' }});
+                if(!res.ok) throw new Error('Gagal menghapus');
+                rasayaToast('success','Dihapus');
+                location.reload();
+            }catch(e){ rasayaToast('danger','Gagal', [String(e.message||e)]); }
+        }
+        async function taRestore(id){
+            try{
+                const res = await fetch(`{{ url('/admin/tahun-ajaran') }}/${id}/restore`, { method:'POST', headers:{ 'X-CSRF-TOKEN': token, 'Accept':'application/json' }});
+                if(!res.ok) throw new Error('Gagal memulihkan');
+                rasayaToast('success','Dipulihkan');
+                location.reload();
+            }catch(e){ rasayaToast('danger','Gagal', [String(e.message||e)]); }
+        }
+        async function taForceDelete(id){
+            if(!confirm('Hapus PERMANEN? Ini tidak bisa dibatalkan.')) return;
+            try{
+                const res = await fetch(`{{ url('/admin/tahun-ajaran') }}/${id}/force`, { method:'DELETE', headers:{ 'X-CSRF-TOKEN': token, 'Accept':'application/json' }});
+                if(!res.ok) throw new Error('Gagal hapus permanen');
+                rasayaToast('success','Dihapus permanen');
+                location.reload();
+            }catch(e){ rasayaToast('danger','Gagal', [String(e.message||e)]); }
+        }
         async function openDetail(kelasId){
             // Fill header info from row DOM
             const tr = document.querySelector(`tr[data-id="${kelasId}"]`);

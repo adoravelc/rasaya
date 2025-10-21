@@ -61,8 +61,9 @@ class HomePage extends ConsumerWidget {
     // status cepat: fetch daftar terbaru
     final refleksiAsync = ref.watch(recentRefleksiProvider);
     final moodAsync = ref.watch(recentMoodProvider);
-    // ambil jadwal saya untuk shortcut: kita ambil dari endpoint /bookings/me (1x di build)
-    final futureMyBookings = ref.watch(_myBookingsProvider);
+    // ambil jadwal saya untuk shortcut, tergantung pada refresh counter
+    final refreshCounter = ref.watch(bookingRefreshCounterProvider);
+    final futureMyBookings = ref.watch(_myBookingsProvider(refreshCounter));
 
     return Scaffold(
       appBar: AppBar(
@@ -362,7 +363,8 @@ class _QuickAction extends StatelessWidget {
 }
 
 // Provider untuk fetch bookings saya (digunakan untuk shortcut di dashboard)
-final _myBookingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final _myBookingsProvider = FutureProvider.family<Map<String, dynamic>, int>(
+    (ref, refreshCounter) async {
   final api = ref.read(apiClientProvider);
   final res = await api.getMyBookings();
   if (!res.ok || res.data is! Map) return <String, dynamic>{'data': []};

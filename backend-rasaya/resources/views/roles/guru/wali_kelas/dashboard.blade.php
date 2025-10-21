@@ -6,11 +6,28 @@
 <div class="container-fluid">
 	<div class="row">
 		<main class="col-12 col-md-9 col-lg-10 p-4">
-					<div class="d-flex align-items-center justify-content-between mb-3">
-						<div>
+			@php
+				$kelasWk = \App\Models\Kelas::with(['tahunAjaran'])
+					->where('wali_guru_id', auth()->id())
+					->latest('tahun_ajaran_id')
+					->first();
+			@endphp
+			<div class="d-flex align-items-center justify-content-between mb-3">
+				<div>
 					<h2 class="h4 mb-1">Dashboard Wali Kelas</h2>
 					<div class="text-muted">Halo, {{ auth()->user()->name }}</div>
+					<div class="mt-2">
+						<div class="d-inline-flex align-items-center gap-2 px-3 py-2 rounded-3 border bg-light-subtle">
+							<div class="small text-muted">Identitas Wali Kelas</div>
+							@if($kelasWk)
+								<span class="badge text-bg-primary">{{ $kelasWk->label }}</span>
+								<span class="badge text-bg-secondary">TA {{ $kelasWk->tahunAjaran->nama ?? '-' }}</span>
+							@else
+								<span class="text-muted small">Belum terdaftar pada tahun ajaran aktif</span>
+							@endif
 						</div>
+					</div>
+				</div>
 			</div>
 
 			<div class="row g-3">

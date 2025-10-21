@@ -37,6 +37,9 @@ final authControllerProvider =
   return AuthController(ref);
 });
 
+// Notifier sederhana untuk menandai perubahan pada booking (book/cancel)
+final bookingRefreshCounterProvider = StateProvider<int>((ref) => 0);
+
 class AuthController extends StateNotifier<AuthState> {
   final Ref _ref; // <— pakai Ref
   AuthController(this._ref) : super(const AuthState());

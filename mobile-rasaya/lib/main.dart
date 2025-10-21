@@ -12,6 +12,8 @@ import 'screens/mood_page.dart';
 import 'screens/history_page.dart';
 import 'screens/booking_page.dart';
 import 'screens/my_schedule_page.dart';
+import 'screens/profile_page.dart';
+import 'screens/change_password_page.dart';
 
 class RefleksiHistoryPage extends StatelessWidget {
   const RefleksiHistoryPage({super.key});
@@ -61,7 +63,10 @@ class _AppState extends ConsumerState<App> {
         GoRoute(path: '/booking', builder: (_, __) => const BookingPage()),
         GoRoute(
             path: '/my-schedule', builder: (_, __) => const MySchedulePage()),
-        GoRoute(path: '/profile', builder: (_, __) => const _ProfilePage()),
+        GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
+        GoRoute(
+            path: '/profile/change-password',
+            builder: (_, __) => const ChangePasswordPage()),
       ],
       redirect: (context, state) {
         final st = ref.read(authControllerProvider);
@@ -160,13 +165,4 @@ class GoRouterRefreshStream extends ChangeNotifier {
   }
 }
 
-class _ProfilePage extends StatelessWidget {
-  const _ProfilePage();
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Profil')),
-      body: const Center(child: Text('Halaman Profil (akan dikembangkan)')),
-    );
-  }
-}
+// moved to screens/profile_page.dart
