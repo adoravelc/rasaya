@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Kelas;
 use App\Models\TahunAjaran;
+use App\Models\Siswa;
+use App\Models\SiswaKelas;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -35,7 +37,14 @@ class KelasWebController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        return view('roles.admin.kelas.index', compact('kelas', 'tahunAjarans', 'activeTa', 'trashed', 'waliOptions'));
+        // Data untuk manajemen siswa per kelas (integrasi)
+        $siswas = Siswa::with('user')->orderBy('user_id')->get();
+        $assignments = SiswaKelas::with(['siswa.user'])
+            ->when($activeTa, fn($q) => $q->where('tahun_ajaran_id', $activeTa))
+            ->where('is_active', true)
+            ->get();
+
+        return view('roles.admin.kelas.index', compact('kelas', 'tahunAjarans', 'activeTa', 'trashed', 'waliOptions', 'siswas', 'assignments'));
     }
 
     // ===== AJAX (JSON) =====

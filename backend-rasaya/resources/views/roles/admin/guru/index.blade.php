@@ -19,9 +19,7 @@
 @endsection
 
 @section('content')
-@if(session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
-@endif
+{{-- Notifications handled by layout toasts --}}
 
 <div class="table-responsive">
     <table class="table table-hover align-middle">
@@ -67,6 +65,7 @@
       @csrf
       <div class="modal-header"><h5 class="modal-title">Tambah Guru</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body">
+        {{-- Errors shown via global toast --}}
         <div class="mb-2"><label class="form-label">Identifier (NIP/NIK)</label><input name="identifier" class="form-control" required></div>
         <div class="mb-2"><label class="form-label">Nama</label><input name="name" class="form-control" required></div>
         <div class="mb-2"><label class="form-label">Email</label><input name="email" type="email" class="form-control" required></div>

@@ -10,6 +10,9 @@ class Guru extends Model
 {
     use SoftDeletes;
     protected $fillable = ['user_id', 'jenis'];
+    protected $primaryKey = 'user_id';
+    public $incrementing = false;
+    protected $keyType = 'int';
 
     public function user()
     {

@@ -10,6 +10,9 @@ class Siswa extends Model
 {
     use SoftDeletes;
     protected $fillable = ['user_id'];
+    protected $primaryKey = 'user_id';
+    public $incrementing = false;
+    protected $keyType = 'int';
 
     public function user()
     {

@@ -17,12 +17,12 @@ class StoreGuruRequest extends FormRequest
         return [
             'identifier' => [
                 'required', 'string', 'max:50',
-                Rule::unique('users', 'identifier')->whereNull('deleted_at'),
+                Rule::unique('users', 'identifier'),
             ],
             'name' => ['required', 'string', 'max:255'],
             'email' => [
                 'required', 'email', 'max:255',
-                Rule::unique('users', 'email')->whereNull('deleted_at'),
+                Rule::unique('users', 'email'),
             ],
             'password' => ['nullable', 'string', 'min:6'],
             'jenis' => ['required', Rule::in(['bk', 'wali_kelas'])],

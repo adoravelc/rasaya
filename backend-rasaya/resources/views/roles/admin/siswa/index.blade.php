@@ -14,9 +14,7 @@
 @endsection
 
 @section('content')
-@if(session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
-@endif
+{{-- Notifications handled by layout toasts --}}
 
 <div class="table-responsive">
     <table class="table table-hover align-middle">

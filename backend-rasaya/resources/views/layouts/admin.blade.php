@@ -70,6 +70,57 @@
 
     @stack('scripts')
     <script>
+        // Simple toast helper using Bootstrap 5
+        function rasayaToast(type, title, messages){
+            const containerId = 'toast-container';
+            let container = document.getElementById(containerId);
+            if(!container){
+                container = document.createElement('div');
+                container.id = containerId;
+                container.className = 'position-fixed bottom-0 end-0 p-3';
+                container.style.zIndex = 1080;
+                document.body.appendChild(container);
+            }
+            const color = {
+                success:'text-bg-success',
+                danger:'text-bg-danger',
+                warning:'text-bg-warning',
+                info:'text-bg-info',
+                primary:'text-bg-primary'
+            }[type] || 'text-bg-primary';
+
+            const el = document.createElement('div');
+            el.className = `toast align-items-center border-0 ${color}`;
+            el.setAttribute('role','alert');
+            el.setAttribute('aria-live','assertive');
+            el.setAttribute('aria-atomic','true');
+            el.innerHTML = `
+                <div class="d-flex">
+                  <div class="toast-body">
+                    <div class="fw-semibold mb-1">${title || ''}</div>
+                    ${Array.isArray(messages) ? '<ul class="mb-0 ps-3">'+messages.map(m=>`<li>${m}</li>`).join('')+'</ul>' : (messages||'')}
+                  </div>
+                  <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>`;
+            container.appendChild(el);
+            const toast = new bootstrap.Toast(el, { delay: 5000 });
+            toast.show();
+        }
+
+        // Show session flashes and validation errors as toasts
+        (function(){
+            @if(session('success'))
+                rasayaToast('success', 'Berhasil', @json(session('success')));
+            @endif
+            @if(session('error'))
+                rasayaToast('danger', 'Terjadi kesalahan', @json(session('error')));
+            @endif
+            @if($errors->any())
+                rasayaToast('danger', 'Gagal menyimpan', @json($errors->all()));
+            @endif
+        })();
+    </script>
+    <script>
         function fmtWita(d){
             return d.toLocaleString('id-ID', { timeZone:'Asia/Makassar', weekday:'long', year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit', hour12:false}).replace(',', '');
         }

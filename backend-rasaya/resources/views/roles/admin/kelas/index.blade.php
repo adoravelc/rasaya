@@ -57,6 +57,7 @@
                                             onclick="openEdit({{ $k->id }})">Edit</button>
                                         <button class="btn btn-outline-danger"
                                             onclick="doDelete({{ $k->id }})">Hapus</button>
+                                        <button class="btn btn-outline-primary" onclick='openManageSiswa({{ $k->id }}, @json($k->label))'>Kelola Siswa</button>
                                     </div>
                                 </td>
                             </tr>
@@ -110,8 +111,8 @@
                     <form id="m-form" onsubmit="submitForm(event)">
                         <input type="hidden" id="m-id">
 
-                        <div class="row g-3">
-                            <div class="col-md-6">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-4">
                                 <label class="form-label">Tahun Ajaran</label>
                                 <select id="m-ta" class="form-select" required>
                                     @foreach ($tahunAjarans as $ta)
@@ -120,7 +121,7 @@
                                 </select>
                             </div>
 
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label class="form-label">Tingkat</label>
                                 <select id="m-tingkat" class="form-select" required>
                                     <option>X</option>
@@ -153,6 +154,8 @@
                                 </select>
                             </div>
 
+                            <div class="col-md-4 d-none d-md-block"></div>
+
                             <div class="col-12">
                                 <pre id="m-error" class="text-danger small mb-0" style="white-space:pre-wrap"></pre>
                             </div>
@@ -167,20 +170,96 @@
             </div>
         </div>
     </div>
+            {{-- Modal Kelola Siswa per Kelas --}}
+            <div class="modal fade" id="modalSiswa" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 id="ms-title" class="modal-title">Kelola Siswa</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="ms-form-add" onsubmit="submitAddSiswa(event)">
+                                <input type="hidden" id="ms-kelas-id">
+                                <input type="hidden" id="ms-ta" value="{{ $activeTa }}">
+                                <div class="mb-2">
+                                    <label class="form-label">Pilih Siswa</label>
+                                    <select id="ms-siswa" class="form-select" required>
+                                        @foreach($siswas as $s)
+                                            <option value="{{ $s->user_id }}">{{ $s->user->identifier }} — {{ $s->user->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="text-end"><button class="btn btn-primary">Tambah</button></div>
+                            </form>
+                            <hr>
+                            <div id="ms-list">
+                                <div class="text-muted small">Memuat data...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 @endsection
 
 @push('scripts')
     <script>
         const token = document.querySelector('meta[name="csrf-token"]').content;
         const base = '/admin/kelas';
-        const modalEl = document.getElementById('modal');
-        let bsModal;
+        let bsModal, bsModalSiswa;
+
+        // Precomputed data for assignments (active TA) and all students
+        @php
+            $assignmentItems = $assignments->map(function($a){
+                return [
+                    'kelas_id' => (int) $a->kelas_id,
+                    'siswa_id' => (int) $a->siswa_id,
+                    'name' => optional(optional($a->siswa)->user)->name,
+                    'identifier' => optional(optional($a->siswa)->user)->identifier,
+                ];
+            })->values()->toArray();
+            $siswasItems = $siswas->map(function($s){
+                return [
+                    'id' => (int) $s->user_id,
+                    'name' => optional($s->user)->name,
+                    'identifier' => optional($s->user)->identifier,
+                ];
+            })->values()->toArray();
+        @endphp
+        const ASSIGNMENTS = {!! json_encode($assignmentItems, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT) !!};
+        const SISWAS = {!! json_encode($siswasItems, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT) !!};
+
+        // Precompute wali options and used wali IDs (only from non-trashed classes in active TA)
+        @php
+            $waliItems = $waliOptions->map(fn($w) => ['id' => (int) $w->id, 'name' => $w->name])->values()->toArray();
+            $usedWaliIds = $kelas->pluck('wali_guru_id')->filter()->map(fn($v) => (int) $v)->values()->toArray();
+        @endphp
+        const WALI_OPTIONS = {!! json_encode($waliItems, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT) !!};
+        const USED_WALI_IDS = {!! json_encode($usedWaliIds, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT) !!};
+
+        function esc(s){
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
-            bsModal = new bootstrap.Modal(modalEl, {
-                backdrop: 'static'
-            });
+            const modalEl = document.getElementById('modal');
+            const modalSiswaEl = document.getElementById('modalSiswa');
+            if (modalEl) bsModal = new bootstrap.Modal(modalEl, { backdrop: 'static' });
+            if (modalSiswaEl) bsModalSiswa = new bootstrap.Modal(modalSiswaEl, { backdrop: 'static' });
         });
+
+        function rebuildWaliSelect(selectedId = null){
+            const sel = document.getElementById('m-wali');
+            const available = WALI_OPTIONS.filter(w => !USED_WALI_IDS.includes(w.id) || (selectedId !== null && w.id === Number(selectedId)));
+            const opts = ['<option value="">— Pilih Wali Kelas —</option>']
+                .concat(available.map(w => `<option value="${w.id}">${esc(w.name)}</option>`));
+            sel.innerHTML = opts.join('');
+        }
 
         function openCreate() {
             document.getElementById('m-title').innerText = 'Tambah Kelas';
@@ -189,6 +268,7 @@
             document.getElementById('m-tingkat').value = 'X';
             document.getElementById('m-penjurusan').value = '';
             document.getElementById('m-rombel').value = '';
+            rebuildWaliSelect(null);
             document.getElementById('m-wali').value = '';
             document.getElementById('m-error').innerText = '';
             bsModal.show();
@@ -200,10 +280,11 @@
             document.getElementById('m-id').value = id;
             document.getElementById('m-ta').value = '{{ $activeTa }}';
             document.getElementById('m-tingkat').value = tr.querySelector('.td-tingkat').innerText.trim();
-            document.getElementById('m-penjurusan').value =
-                (tr.querySelector('.td-jur').innerText.trim() === '-' ? '' : tr.querySelector('.td-jur').innerText.trim());
+            document.getElementById('m-penjurusan').value = (tr.querySelector('.td-jur').innerText.trim() === '-' ? '' : tr.querySelector('.td-jur').innerText.trim());
             document.getElementById('m-rombel').value = tr.querySelector('.td-rombel').innerText.trim();
-            document.getElementById('m-wali').value = tr.querySelector('.td-wali').dataset.waliId || '';
+            const currentWali = tr.querySelector('.td-wali').dataset.waliId || '';
+            rebuildWaliSelect(currentWali ? Number(currentWali) : null);
+            document.getElementById('m-wali').value = currentWali;
             document.getElementById('m-error').innerText = '';
             bsModal.show();
         }
@@ -242,10 +323,7 @@
             if (!confirm('Hapus kelas?')) return;
             const res = await fetch(`${base}/${id}`, {
                 method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': token,
-                    'Accept': 'application/json'
-                }
+                headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json' }
             });
             if (res.ok) location.reload();
         }
@@ -253,10 +331,7 @@
         async function restore(id) {
             const res = await fetch(`${base}/${id}/restore`, {
                 method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': token,
-                    'Accept': 'application/json'
-                }
+                headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json' }
             });
             if (res.ok) location.reload();
         }
@@ -265,12 +340,83 @@
             if (!confirm('Hapus permanen?')) return;
             const res = await fetch(`${base}/${id}/force`, {
                 method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': token,
-                    'Accept': 'application/json'
-                }
+                headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json' }
             });
             if (res.ok) location.reload();
+        }
+
+        // === Kelola Siswa per Kelas ===
+        function openManageSiswa(kelasId, label){
+            document.getElementById('ms-title').innerText = `Kelola Siswa — ${label}`;
+            document.getElementById('ms-kelas-id').value = kelasId;
+
+            // Rebuild the siswa select to only include those NOT assigned in the active TA
+            const assignedIds = new Set(ASSIGNMENTS.map(a => a.siswa_id));
+            const available = SISWAS.filter(s => !assignedIds.has(s.id));
+            const sel = document.getElementById('ms-siswa');
+            if (available.length === 0) {
+                sel.innerHTML = '<option value="" disabled selected>Tidak ada siswa tersedia</option>';
+                sel.disabled = true;
+            } else {
+                sel.disabled = false;
+                sel.innerHTML = available.map(s => `<option value="${s.id}">${esc(s.identifier)} — ${esc(s.name)}</option>`).join('');
+            }
+
+            loadSiswaList(kelasId);
+            if (!bsModalSiswa) {
+                const modalSiswaEl = document.getElementById('modalSiswa');
+                bsModalSiswa = new bootstrap.Modal(modalSiswaEl, { backdrop: 'static' });
+            }
+            bsModalSiswa.show();
+        }
+
+        async function loadSiswaList(kelasId){
+            const listEl = document.getElementById('ms-list');
+            const filtered = ASSIGNMENTS.filter(i => i.kelas_id === kelasId);
+            if(filtered.length === 0){
+                listEl.innerHTML = '<div class="text-muted small">Belum ada siswa.</div>';
+                return;
+            }
+            listEl.innerHTML = '<ul class="list-group">' + filtered.map(i => `
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div><strong>${i.name}</strong> <span class="text-muted">(${i.identifier})</span></div>
+                    <button class="btn btn-sm btn-outline-danger" onclick="removeSiswa(${kelasId}, ${i.siswa_id})">Keluarkan</button>
+                </li>`).join('') + '</ul>';
+        }
+
+        async function submitAddSiswa(e){
+            e.preventDefault();
+            const kelasId = Number(document.getElementById('ms-kelas-id').value);
+            const siswaId = Number(document.getElementById('ms-siswa').value);
+            const ta = Number(document.getElementById('ms-ta').value);
+            const res = await fetch(`{{ route('admin.siswa_kelas.store') }}`,{
+                method:'POST',
+                headers:{ 'Content-Type':'application/json', 'X-CSRF-TOKEN': token, 'Accept':'application/json' },
+                body: JSON.stringify({ tahun_ajaran_id: ta, kelas_id: kelasId, siswa_id: siswaId })
+            });
+            if(res.ok){
+                rasayaToast('success','Siswa ditambahkan');
+                location.reload();
+            }else{
+                const data = await res.json().catch(()=>({}));
+                rasayaToast('danger','Gagal menambah', data.errors ? Object.values(data.errors).flat() : [data.message||'Unknown error']);
+            }
+        }
+
+        async function removeSiswa(kelasId, siswaId){
+            const ta = Number(document.getElementById('ms-ta').value);
+            const res = await fetch(`{{ route('admin.siswa_kelas.remove') }}`,{
+                method:'POST',
+                headers:{ 'Content-Type':'application/json', 'X-CSRF-TOKEN': token, 'Accept':'application/json' },
+                body: JSON.stringify({ tahun_ajaran_id: ta, kelas_id: kelasId, siswa_id: siswaId })
+            });
+            if(res.ok){
+                rasayaToast('success','Siswa dikeluarkan');
+                location.reload();
+            }else{
+                const data = await res.json().catch(()=>({}));
+                rasayaToast('danger','Gagal mengeluarkan', data.errors ? Object.values(data.errors).flat() : [data.message||'Unknown error']);
+            }
         }
     </script>
 @endpush
