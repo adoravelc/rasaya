@@ -9,6 +9,9 @@ use App\Http\Controllers\Web\GuruWkDashboardController;
 use App\Http\Controllers\Web\KelasWebController;
 use App\Http\Controllers\Web\KategoriWebController;
 use App\Http\Controllers\Web\InputGuruController;
+use App\Http\Controllers\Web\AdminGuruController;
+use App\Http\Controllers\Web\AdminSiswaController;
+use App\Http\Controllers\Web\AdminSiswaKelasController;
 use App\Http\Controllers\Api\SlotKonselingController as SlotApi;
 
 Route::view('/', 'welcome');
@@ -51,6 +54,23 @@ Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/kategori/trashed', [KategoriWebController::class, 'trashed'])->name('admin.kategori.trashed');
     Route::post('/kategori/{id}/restore', [KategoriWebController::class, 'restore'])->name('admin.kategori.restore');
     Route::delete('/kategori/{id}/force', [KategoriWebController::class, 'force'])->name('admin.kategori.force');
+
+    // Guru
+    Route::get('/guru', [AdminGuruController::class, 'index'])->name('admin.guru.index');
+    Route::post('/guru', [AdminGuruController::class, 'store'])->name('admin.guru.store');
+    Route::put('/guru/{userId}', [AdminGuruController::class, 'update'])->name('admin.guru.update');
+    Route::delete('/guru/{userId}', [AdminGuruController::class, 'destroy'])->name('admin.guru.destroy');
+
+    // Siswa
+    Route::get('/siswa', [AdminSiswaController::class, 'index'])->name('admin.siswa.index');
+    Route::post('/siswa', [AdminSiswaController::class, 'store'])->name('admin.siswa.store');
+    Route::put('/siswa/{userId}', [AdminSiswaController::class, 'update'])->name('admin.siswa.update');
+    Route::delete('/siswa/{userId}', [AdminSiswaController::class, 'destroy'])->name('admin.siswa.destroy');
+
+    // Siswa-Kelas
+    Route::get('/siswa-kelas', [AdminSiswaKelasController::class, 'index'])->name('admin.siswa_kelas.index');
+    Route::post('/siswa-kelas', [AdminSiswaKelasController::class, 'store'])->name('admin.siswa_kelas.store');
+    Route::post('/siswa-kelas/remove', [AdminSiswaKelasController::class, 'remove'])->name('admin.siswa_kelas.remove');
 });
 
 /** ===================== GURU (BK & WALI KELAS) ===================== */

@@ -17,8 +17,9 @@
                         Kelas</a>
                     <a class="nav-link {{ $is('admin.kategori.index') }}" href="{{ route('admin.kategori.index') }}">Manajemen
                         Kategori</a>
-                    <a class="nav-link disabled">Data Guru (segera)</a>
-                    <a class="nav-link disabled">Data Siswa (segera)</a>
+                    <a class="nav-link {{ $is('admin.guru.index') }}" href="{{ route('admin.guru.index') }}">Manajemen Guru</a>
+                    <a class="nav-link {{ $is('admin.siswa.index') }}" href="{{ route('admin.siswa.index') }}">Manajemen Siswa</a>
+                    <a class="nav-link {{ $is('admin.siswa_kelas.index') }}" href="{{ route('admin.siswa_kelas.index') }}">Siswa per Kelas</a>
                 </nav>
             @break
 
