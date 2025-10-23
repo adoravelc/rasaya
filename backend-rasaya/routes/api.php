@@ -38,6 +38,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Input refleksi
     Route::get('input-siswa', [InputSiswaController::class, 'index']);
+    Route::get('input-siswa/today-status', [InputSiswaController::class, 'todayStatus']);
     Route::post('input-siswa', [InputSiswaController::class, 'store']);
     Route::get('input-siswa/{inputSiswa}', [InputSiswaController::class, 'show']);
     Route::put('input-siswa/{inputSiswa}', [InputSiswaController::class, 'update']);

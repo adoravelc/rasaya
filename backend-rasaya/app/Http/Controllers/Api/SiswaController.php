@@ -27,8 +27,7 @@ class SiswaController extends Controller
 
         // optional: filter q
         $q = trim((string) $r->query('q'));
-
-        $rows = \App\Models\Siswa::with(['user:id,name'])
+        $siswas = \App\Models\Siswa::with(['user:id,name,identifier'])
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->whereHas('user', function ($uq) use ($q) {
                     $uq->where('name', 'like', "%{$q}%")
@@ -36,13 +35,51 @@ class SiswaController extends Controller
                 });
             })
             ->limit(1000)
+            ->get();
+
+        // Ambil mapping kelas aktif/terbaru per siswa
+        $ids = $siswas->pluck('user_id')->all();
+        $skAll = \App\Models\SiswaKelas::with(['kelas.jurusan', 'tahunAjaran'])
+            ->whereIn('siswa_id', $ids)
             ->get()
-            ->map(fn($s) => [
-                'id' => $s->user_id,          // <- pk siswa = user_id di skema kamu
-                'nama' => $s->user->name ?? 'Tanpa Nama',
-            ])
-            ->filter(fn($m) => $m['id'] !== $myUserId) // exclude diri sendiri
-            ->values();
+            ->groupBy('siswa_id');
+
+        $rows = $siswas->filter(fn($s) => $s->user_id !== $myUserId)->map(function ($s) use ($skAll) {
+            $kelass = $skAll->get($s->user_id) ?? collect();
+            // pilih: yang aktif; jika tidak ada, ambil yang terbaru by joined_at desc
+            $chosen = $kelass->sortByDesc(function ($x) {
+                return [($x->is_active ? 1 : 0), $x->joined_at ?? $x->id];
+            })->first();
+
+            $kelasLabel = null;
+            if ($chosen && $chosen->kelas) {
+                $tingkat = $chosen->kelas->tingkat;
+                $jurusan = optional($chosen->kelas->jurusan)->nama;
+                $rombel  = $chosen->kelas->rombel;
+                $taName  = optional($chosen->tahunAjaran)->nama ?? optional($chosen->tahunAjaran)->tahun;
+                $base = trim(implode(' ', array_filter([$tingkat, $jurusan, $rombel])));
+                $kelasLabel = $taName ? "$base ($taName)" : $base;
+            }
+
+            return [
+                'id' => $s->user_id, // user_id tetap disediakan
+                'user_id' => $s->user_id,
+                'nama' => optional($s->user)->name ?? 'Tanpa Nama',
+                // kirimkan siswa_kelas_id bila ada agar frontend bisa gunakan untuk pelaporan teman
+                'siswa_kelas_id' => $chosen->id ?? null,
+                'kelas_label' => $kelasLabel,
+            ];
+        })->values();
+
+        // optional: sort by kelas lalu nama di server juga
+        $rows = $rows->sort(function ($a, $b) {
+            $ka = strtoupper($a['kelas_label'] ?? '');
+            $kb = strtoupper($b['kelas_label'] ?? '');
+            if ($ka === $kb) {
+                return strcasecmp($a['nama'] ?? '', $b['nama'] ?? '');
+            }
+            return $ka <=> $kb;
+        })->values();
 
         return response()->json(['data' => $rows]);
     }

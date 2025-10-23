@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../auth/auth_controller.dart';
-import '../widgets/app_drawer.dart';
+import '../widgets/app_scaffold.dart';
 import 'package:go_router/go_router.dart';
 
 class BookingPage extends ConsumerStatefulWidget {
@@ -228,9 +228,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   @override
   Widget build(BuildContext context) {
     final monthTitle = DateFormat.yMMMM().format(_currentMonth);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Booking Konseling')),
-      drawer: const AppDrawer(),
+    return AppScaffold(
+      title: 'Booking Konseling',
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : LayoutBuilder(

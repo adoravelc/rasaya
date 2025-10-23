@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../auth/auth_controller.dart';
 import 'package:go_router/go_router.dart';
-import '../widgets/app_drawer.dart';
+import '../widgets/app_scaffold.dart';
 
 class MySchedulePage extends ConsumerStatefulWidget {
   const MySchedulePage({super.key});
@@ -167,9 +167,8 @@ class _MySchedulePageState extends ConsumerState<MySchedulePage> {
 
     final nowLabel = DateFormat('HH.mm', 'id_ID').format(_nowWita);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Jadwal Saya')),
-      drawer: const AppDrawer(),
+    return AppScaffold(
+      title: 'Jadwal Saya',
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(

@@ -16,11 +16,14 @@ class ApiClient {
   final Dio _dio;
   static const _kTokenKey = 'token';
 
-  static const String _webBase = 'http://localhost:8000/api';
+  // Allow override via --dart-define=API_BASE_URL=http://<host>:<port>/api
+  static const String _envBase = String.fromEnvironment('API_BASE_URL');
+  static const String _webBase = 'http://127.0.0.1:8000/api';
   static const String _androidEmuBase = 'http://10.0.2.2:8000/api';
   static const String _iosSimBase = 'http://127.0.0.1:8000/api';
 
   static String _resolveBaseUrl() {
+    if (_envBase.isNotEmpty) return _envBase;
     if (kIsWeb) return _webBase;
     if (defaultTargetPlatform == TargetPlatform.android) return _androidEmuBase;
     return _iosSimBase;
@@ -193,6 +196,14 @@ class ApiClient {
   // Refleksi terbaru (ambil 1 teratas)
   Future<ApiResponse> getLatestRefleksi() {
     return get('/input-siswa', query: {'per_page': 1});
+  }
+
+  // Status refleksi hari ini (self vs friend)
+  Future<ApiResponse> getRefleksiTodayStatus({int? siswaKelasId}) {
+    final q = <String, dynamic>{
+      if (siswaKelasId != null) 'siswa_kelas_id': siswaKelasId,
+    };
+    return get('/input-siswa/today-status', query: q);
   }
 
   Future<ApiResponse> getMoodHistory(

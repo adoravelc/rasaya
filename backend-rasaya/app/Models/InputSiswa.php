@@ -12,6 +12,7 @@ class InputSiswa extends Model
     protected $fillable = [
         'siswa_kelas_id',
         'siswa_dilapor_kelas_id',
+        'is_friend',
         'tanggal',
         'teks',
         'avg_emosi',
@@ -24,6 +25,7 @@ class InputSiswa extends Model
         'tanggal' => 'date',
         'avg_emosi' => 'float',
         'status_upload' => 'integer',
+        'is_friend' => 'boolean',
         'meta' => 'array',
     ];
 

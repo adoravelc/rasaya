@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/auth_controller.dart';
-import '../widgets/app_drawer.dart';
+import '../widgets/app_scaffold.dart';
 
 class RefleksiPage extends ConsumerStatefulWidget {
   const RefleksiPage({super.key});
@@ -55,23 +55,32 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
     setState(() => _loadingSiswa = true);
     try {
       final api = ref.read(apiClientProvider);
-      final res = await api
-          .get('/siswa-list'); // pastikan endpoint mengembalikan roster
+      final res = await api.get(
+          '/siswa-list'); // returns {id(user), nama, siswa_kelas_id?, kelas_label?}
       if (res.ok && res.data is Map && res.data['data'] is List) {
         final me = ref.read(authControllerProvider).me ?? {};
         final myUserId = me['id'];
-        _siswa = (res.data['data'] as List)
-            .cast<Map>()
+        final list = (res.data['data'] as List).cast<Map>();
+        _siswa = list
             .map((e) => {
-                  // ambil id roster kalau tersedia, fallback ke id lama
+                  // id yang akan dikirim ke server: pakai siswa_kelas_id jika ada
                   'id': e['siswa_kelas_id'] ?? e['id'],
                   'nama': (e['nama'] ?? e['siswa_nama'] ?? '').toString(),
-                  // simpan user_id untuk filter diri sendiri jika ada
-                  'user_id': e['user_id'] ?? e['siswa_user_id'],
+                  'user_id': e['user_id'] ?? e['siswa_user_id'] ?? e['id'],
+                  'kelas': (e['kelas_label'] ?? '').toString(),
                 })
-            // jangan tampilkan diri sendiri jika user_id tersedia
             .where((m) => (m['user_id'] ?? -1) != myUserId)
             .toList();
+        // Sortir: per kelas lalu nama
+        _siswa.sort((a, b) {
+          final ka = (a['kelas'] ?? '') as String;
+          final kb = (b['kelas'] ?? '') as String;
+          final cmpK = ka.toUpperCase().compareTo(kb.toUpperCase());
+          if (cmpK != 0) return cmpK;
+          final na = (a['nama'] ?? '') as String;
+          final nb = (b['nama'] ?? '') as String;
+          return na.toUpperCase().compareTo(nb.toUpperCase());
+        });
       } else {
         debugPrint('GET /siswa-list gagal: ${res.errorMessage}');
       }
@@ -203,10 +212,11 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
           if (qq.isEmpty) {
             filtered = List.of(_siswa);
           } else {
-            filtered = _siswa
-                .where((m) =>
-                    (m['nama'] ?? '').toString().toLowerCase().contains(qq))
-                .toList();
+            filtered = _siswa.where((m) {
+              final nm = (m['nama'] ?? '').toString().toLowerCase();
+              final kl = (m['kelas'] ?? '').toString().toLowerCase();
+              return nm.contains(qq) || kl.contains(qq);
+            }).toList();
           }
         }
 
@@ -266,7 +276,11 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
                                 return ListTile(
                                   leading: const Icon(Icons.person_outline),
                                   title: Text(m['nama'].toString()),
-                                  subtitle: Text('ID: ${m['id']}'),
+                                  subtitle: Text(
+                                    (m['kelas'] as String).isNotEmpty
+                                        ? m['kelas'] as String
+                                        : '—',
+                                  ),
                                   onTap: () => Navigator.pop(ctx, m),
                                 );
                               },
@@ -335,9 +349,8 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
 
     final right = const _PanduanMenulis();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Refleksi Harian')),
-      drawer: const AppDrawer(),
+    return AppScaffold(
+      title: 'Refleksi Harian',
       body: SafeArea(
         child: LayoutBuilder(
           builder: (ctx, c) {

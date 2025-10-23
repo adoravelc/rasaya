@@ -6,7 +6,7 @@ import 'package:mobile_rasaya/auth/auth_controller.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import '../widgets/app_drawer.dart';
+import '../widgets/app_scaffold.dart';
 
 class MoodPage extends ConsumerStatefulWidget {
   const MoodPage({super.key});
@@ -14,21 +14,32 @@ class MoodPage extends ConsumerStatefulWidget {
   ConsumerState<MoodPage> createState() => _MoodPageState();
 }
 
-class _MoodPageState extends ConsumerState<MoodPage> {
-  // 10 emojis → index 0..9 => score 1..10
+class _MoodPageState extends ConsumerState<MoodPage>
+    with TickerProviderStateMixin {
+  // 10 emojis → score 1..10
   static const _emojis = [
-    '😞',
-    '😟',
-    '🙁',
-    '😕',
-    '😐',
-    '🙂',
-    '😊',
-    '😃',
-    '😄',
-    '🤩'
+    '😞', //1 awful-
+    '😟', //2 awful
+    '🙁', //3 bad-
+    '😕', //4 bad
+    '😐', //5 meh
+    '🙂', //6 meh+
+    '😊', //7 good-
+    '😃', //8 good
+    '😄', //9 rad-
+    '🤩' //10 rad
   ];
-  int _selected = 5; // default tengah (index 5 -> score 6)
+
+  // Main 5 for quick pick: awful, bad, meh, good, rad → map to even scores 2,4,6,8,10
+  static const _mainMap = [
+    {'label': 'Awful', 'emoji': '😟', 'score': 2},
+    {'label': 'Bad', 'emoji': '😕', 'score': 4},
+    {'label': 'Meh', 'emoji': '😐', 'score': 6},
+    {'label': 'Good', 'emoji': '😃', 'score': 8},
+    {'label': 'Rad', 'emoji': '🤩', 'score': 10},
+  ];
+
+  int _selectedScore = 6; // default Meh
   bool _loading = false;
   final _catatanCtrl = TextEditingController();
 
@@ -42,6 +53,10 @@ class _MoodPageState extends ConsumerState<MoodPage> {
   bool _loadingToday = true;
   bool _loadingHistory = true;
 
+  bool _showMore = false;
+  late final AnimationController _plusCtrl = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 250));
+
   @override
   void initState() {
     super.initState();
@@ -52,6 +67,7 @@ class _MoodPageState extends ConsumerState<MoodPage> {
   @override
   void dispose() {
     _catatanCtrl.dispose();
+    _plusCtrl.dispose();
     super.dispose();
   }
 
@@ -107,7 +123,7 @@ class _MoodPageState extends ConsumerState<MoodPage> {
   Future<void> _submit() async {
     setState(() => _loading = true);
     final api = ref.read(apiClientProvider);
-    final score = _selected + 1;
+    final score = _selectedScore.clamp(1, 10);
     final catatan = _catatanCtrl.text.trim();
 
     final res = await api.postMood(
@@ -139,25 +155,24 @@ class _MoodPageState extends ConsumerState<MoodPage> {
     final itemsToday = ((_today?['items'] as List?) ?? const []);
     final gridCols = MediaQuery.of(context).size.width >= 480 ? 10 : 5;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mood Tracker'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: () {
-              _loadToday();
-              _loadHistory();
-            },
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      drawer: const AppDrawer(),
+    String emojiForScore(int s) => (s >= 1 && s <= 10) ? _emojis[s - 1] : '•';
+
+    return AppScaffold(
+      title: 'Mood Tracker',
+      actions: [
+        IconButton(
+          tooltip: 'Refresh',
+          onPressed: () {
+            _loadToday();
+            _loadHistory();
+          },
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Picker + attach
+          // Header: playful gradient + quick pick
           Card(
             clipBehavior: Clip.antiAlias,
             child: Padding(
@@ -165,59 +180,109 @@ class _MoodPageState extends ConsumerState<MoodPage> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Text('Sesi sekarang: $sesiNow',
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w700)),
-                        const SizedBox(width: 8),
-                        const Text('(pilih emoji yang mewakili perasaanmu)',
-                            style: TextStyle(color: Colors.grey)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // emoji grid (1..10)
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _emojis.length,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount:
-                            gridCols, // 10 di layar lebar, 5 di sempit
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                        childAspectRatio: 1.2,
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 18, horizontal: 16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        gradient: LinearGradient(
+                          colors: [
+                            Theme.of(context).colorScheme.primary,
+                            Theme.of(context).colorScheme.secondary
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                       ),
-                      itemBuilder: (_, i) {
-                        final selected = _selected == i;
-                        return InkWell(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Lagi ngerasa gimana?',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16)),
+                            const SizedBox(height: 4),
+                            Text('Sesi sekarang: $sesiNow',
+                                style: const TextStyle(color: Colors.white70)),
+                          ]),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: _mainMap.map((m) {
+                        final score = m['score'] as int;
+                        final selected = _selectedScore == score;
+                        return _EmojiPill(
+                          label: m['label'] as String,
+                          emoji: m['emoji'] as String,
+                          selected: selected,
                           onTap: _loading
                               ? null
-                              : () => setState(() => _selected = i),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                  color: selected
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Theme.of(context).dividerColor),
-                              color: selected
-                                  ? Theme.of(context)
-                                      .colorScheme
-                                      .primary
-                                      .withOpacity(.08)
-                                  : null,
-                            ),
-                            child: Center(
-                                child: Text(_emojis[i],
-                                    style: const TextStyle(fontSize: 22))),
-                          ),
+                              : () => setState(() => _selectedScore = score),
                         );
-                      },
+                      }).toList(),
                     ),
-
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                            shape: const StadiumBorder()),
+                        onPressed: () {
+                          setState(() {
+                            _showMore = !_showMore;
+                            if (_showMore) {
+                              _plusCtrl.forward();
+                            } else {
+                              _plusCtrl.reverse();
+                            }
+                          });
+                        },
+                        icon: RotationTransition(
+                            turns:
+                                Tween(begin: 0.0, end: .25).animate(_plusCtrl),
+                            child: const Icon(Icons.add)),
+                        label:
+                            Text(_showMore ? 'Sembunyikan' : 'Emoji lainnya'),
+                      ),
+                    ),
+                    AnimatedCrossFade(
+                      firstChild: const SizedBox.shrink(),
+                      secondChild: Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: 10,
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: gridCols,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                            childAspectRatio: 1.2,
+                          ),
+                          itemBuilder: (_, i) {
+                            final score = i + 1;
+                            final emoji = _emojis[i];
+                            final selected = _selectedScore == score;
+                            return _EmojiTile(
+                              emoji: emoji,
+                              selected: selected,
+                              onTap: _loading
+                                  ? null
+                                  : () =>
+                                      setState(() => _selectedScore = score),
+                            );
+                          },
+                        ),
+                      ),
+                      crossFadeState: _showMore
+                          ? CrossFadeState.showSecond
+                          : CrossFadeState.showFirst,
+                      duration: const Duration(milliseconds: 250),
+                    ),
                     const SizedBox(height: 16),
 
                     // attach image (opsional, mock)
@@ -289,8 +354,7 @@ class _MoodPageState extends ConsumerState<MoodPage> {
                                 final skor = (e['skor'] ?? '').toString();
                                 // map skor 1..10 balik ke emoji
                                 final s = int.tryParse(skor) ?? 0;
-                                final emoji =
-                                    (s >= 1 && s <= 10) ? _emojis[s - 1] : '•';
+                                final emoji = emojiForScore(s);
                                 return ListTile(
                                   dense: true,
                                   leading: Text(emoji,
@@ -333,8 +397,7 @@ class _MoodPageState extends ConsumerState<MoodPage> {
                                 final s = int.tryParse(
                                         (e['skor'] ?? '').toString()) ??
                                     0;
-                                final emoji =
-                                    (s >= 1 && s <= 10) ? _emojis[s - 1] : '•';
+                                final emoji = emojiForScore(s);
                                 return ListTile(
                                   dense: true,
                                   leading: Text(emoji,
@@ -348,6 +411,82 @@ class _MoodPageState extends ConsumerState<MoodPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _EmojiPill extends StatelessWidget {
+  const _EmojiPill(
+      {required this.label,
+      required this.emoji,
+      required this.selected,
+      required this.onTap});
+  final String label;
+  final String emoji;
+  final bool selected;
+  final VoidCallback? onTap;
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? Theme.of(context).colorScheme.primary.withOpacity(.12)
+              : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: selected
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.grey.shade300),
+        ),
+        child: Column(
+          children: [
+            AnimatedScale(
+                scale: selected ? 1.2 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                child: Text(emoji, style: const TextStyle(fontSize: 22))),
+            const SizedBox(height: 6),
+            Text(label,
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: selected
+                        ? Theme.of(context).colorScheme.primary
+                        : null)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmojiTile extends StatelessWidget {
+  const _EmojiTile(
+      {required this.emoji, required this.selected, required this.onTap});
+  final String emoji;
+  final bool selected;
+  final VoidCallback? onTap;
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Ink(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: selected
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).dividerColor),
+          color: selected
+              ? Theme.of(context).colorScheme.primary.withOpacity(.08)
+              : null,
+        ),
+        child: Center(child: Text(emoji, style: const TextStyle(fontSize: 22))),
       ),
     );
   }

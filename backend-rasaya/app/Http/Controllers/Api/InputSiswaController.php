@@ -82,6 +82,23 @@ class InputSiswaController extends Controller
             return response()->json(['message' => 'Tidak boleh melaporkan diri sendiri.'], 422);
         }
 
+        // Tentukan jenis input: self vs friend
+        $isFriend = !empty($data['siswa_dilapor_kelas_id']);
+        $tanggal = $data['tanggal'] ?? now()->toDateString();
+
+        // Batasi: maksimal 1 self per hari dan 1 lapor teman per hari per siswa_kelas
+        $exists = InputSiswa::query()
+            ->where('siswa_kelas_id', $siswaKelasId)
+            ->whereDate('tanggal', $tanggal)
+            ->where('is_friend', $isFriend)
+            ->exists();
+        if ($exists) {
+            $msg = $isFriend
+                ? 'Kamu sudah melaporkan teman hari ini. Coba lagi besok, ya.'
+                : 'Kamu sudah isi refleksi diri hari ini. Terima kasih! Coba lagi besok.';
+            return response()->json(['message' => $msg], 422);
+        }
+
         // handle upload gambar (opsional)
         $path = null;
         if ($r->hasFile('gambar')) {
@@ -91,7 +108,8 @@ class InputSiswaController extends Controller
         $row = InputSiswa::create([
             'siswa_kelas_id' => $siswaKelasId,
             'siswa_dilapor_kelas_id' => $data['siswa_dilapor_kelas_id'] ?? null,
-            'tanggal' => $data['tanggal'] ?? now()->toDateString(),
+            'is_friend' => $isFriend,
+            'tanggal' => $tanggal,
             'teks' => $data['teks'],
             'avg_emosi' => $data['avg_emosi'] ?? null,
             'gambar' => $path,
@@ -142,6 +160,9 @@ class InputSiswaController extends Controller
             'siswa_dilapor_kelas_id' => array_key_exists('siswa_dilapor_kelas_id', $data)
                 ? $data['siswa_dilapor_kelas_id']
                 : $inputSiswa->siswa_dilapor_kelas_id,
+            'is_friend' => array_key_exists('siswa_dilapor_kelas_id', $data)
+                ? !empty($data['siswa_dilapor_kelas_id'])
+                : $inputSiswa->is_friend,
         ]);
 
         // handle replace gambar jika ada upload baru
@@ -178,5 +199,30 @@ class InputSiswaController extends Controller
         }
         $inputSiswa->delete();  // soft delete
         return response()->noContent();
+    }
+
+    public function todayStatus(Request $r)
+    {
+        $user = $r->user();
+        $siswaKelasId = $user->role === 'siswa' ? $this->getActiveRosterId($r) : $r->integer('siswa_kelas_id');
+        abort_if(!$siswaKelasId, 403, 'siswa_kelas_id wajib.');
+
+        $today = now()->toDateString();
+        $hasSelf = InputSiswa::query()
+            ->where('siswa_kelas_id', $siswaKelasId)
+            ->whereDate('tanggal', $today)
+            ->where('is_friend', false)
+            ->exists();
+        $hasFriend = InputSiswa::query()
+            ->where('siswa_kelas_id', $siswaKelasId)
+            ->whereDate('tanggal', $today)
+            ->where('is_friend', true)
+            ->exists();
+
+        return [
+            'date' => $today,
+            'has_self_today' => $hasSelf,
+            'has_friend_report_today' => $hasFriend,
+        ];
     }
 }

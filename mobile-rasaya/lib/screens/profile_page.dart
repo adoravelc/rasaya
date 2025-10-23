@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../auth/auth_controller.dart';
-import '../widgets/app_drawer.dart';
+import '../widgets/app_scaffold.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
@@ -18,9 +18,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final email = (me['email'] ?? '-').toString();
     final identifier = (me['identifier'] ?? '-').toString();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Profil')),
-      drawer: const AppDrawer(),
+    return AppScaffold(
+      title: 'Profil',
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
@@ -41,6 +40,60 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 onPressed: () => context.push('/profile/change-password'),
                 icon: const Icon(Icons.lock_reset),
                 label: const Text('Ubah Password'),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(child: const SizedBox(height: 12)),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: OutlinedButton.icon(
+                onPressed: () => context.push('/history'),
+                icon: const Icon(Icons.history),
+                label: const Text('Lihat History Input'),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(child: const SizedBox(height: 12)),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red.shade700,
+                  side: BorderSide(color: Colors.red.shade300),
+                ),
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Keluar dari akun?'),
+                      content: const Text(
+                          'Kamu akan keluar dari aplikasi dan perlu login kembali.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Batal'),
+                        ),
+                        FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.red.shade600,
+                          ),
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Logout'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    await ref.read(authControllerProvider.notifier).logout();
+                    if (context.mounted) {
+                      GoRouter.of(context).go('/');
+                    }
+                  }
+                },
+                icon: const Icon(Icons.logout),
+                label: const Text('Logout'),
               ),
             ),
           ),

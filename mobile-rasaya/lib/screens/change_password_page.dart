@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/auth_controller.dart';
-import '../widgets/app_drawer.dart';
+import '../widgets/app_scaffold.dart';
 
 class ChangePasswordPage extends ConsumerStatefulWidget {
   const ChangePasswordPage({super.key});
@@ -69,9 +69,8 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Ubah Password')),
-      drawer: const AppDrawer(),
+    return AppScaffold(
+      title: 'Ubah Password',
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

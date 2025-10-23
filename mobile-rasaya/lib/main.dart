@@ -14,6 +14,7 @@ import 'screens/booking_page.dart';
 import 'screens/my_schedule_page.dart';
 import 'screens/profile_page.dart';
 import 'screens/change_password_page.dart';
+import 'screens/stats_page.dart';
 
 class RefleksiHistoryPage extends StatelessWidget {
   const RefleksiHistoryPage({super.key});
@@ -52,6 +53,7 @@ class _AppState extends ConsumerState<App> {
       routes: [
         GoRoute(path: '/', builder: (_, __) => const LoginPage()),
         GoRoute(path: '/home', builder: (_, __) => const HomePage()),
+        GoRoute(path: '/stats', builder: (_, __) => const StatsPage()),
         GoRoute(
             path: '/refleksi', builder: (_, __) => const RefleksiPage()), // NEW
         GoRoute(
@@ -112,6 +114,13 @@ class _AppState extends ConsumerState<App> {
         elevation: 0,
         centerTitle: false,
       ),
+      pageTransitionsTheme: const PageTransitionsTheme(builders: {
+        TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+      }),
       cardTheme: CardThemeData(
         color: Colors.white,
         surfaceTintColor: Colors.transparent,
@@ -139,9 +148,10 @@ class _AppState extends ConsumerState<App> {
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         ),
       ),
-      chipTheme: const ChipThemeData(
-        shape: StadiumBorder(),
-        labelStyle: TextStyle(fontSize: 12),
+      chipTheme: ChipThemeData(
+        shape: const StadiumBorder(),
+        labelStyle: const TextStyle(fontSize: 12),
+        backgroundColor: Colors.white.withOpacity(.9),
       ),
     );
 

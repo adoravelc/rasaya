@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_rasaya/auth/auth_controller.dart';
-import '../widgets/app_drawer.dart';
+import '../widgets/app_scaffold.dart';
 
 class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
@@ -28,18 +28,15 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Riwayat'),
-        bottom: TabBar(
-          controller: _tab,
-          tabs: const [
-            Tab(text: 'Refleksi'),
-            Tab(text: 'Mood'),
-          ],
-        ),
+    return AppScaffold(
+      title: 'Riwayat',
+      bottom: TabBar(
+        controller: _tab,
+        tabs: const [
+          Tab(text: 'Refleksi'),
+          Tab(text: 'Mood'),
+        ],
       ),
-      drawer: const AppDrawer(),
       body: SafeArea(
         child: TabBarView(
           controller: _tab,
