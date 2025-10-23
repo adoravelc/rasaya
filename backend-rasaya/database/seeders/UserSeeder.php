@@ -29,7 +29,7 @@ class UserSeeder extends Seeder
         $guruUser = User::updateOrCreate(['email' => 'gurubk@rasaya.id'], [
             'identifier' => 'bk',
             'role' => 'guru',
-            'name' => 'Bu Natalia',
+            'name' => 'Natalia',
             'password' => Hash::make('1'),
             'email_verified_at' => now(),
         ]);
@@ -39,7 +39,7 @@ class UserSeeder extends Seeder
         $guruUser = User::updateOrCreate(['email' => 'guruwk@rasaya.id'], [
             'identifier' => 'wk',
             'role' => 'guru',
-            'name' => 'Pak Alfonsius',
+            'name' => 'Alfonsius',
             'password' => Hash::make('1'),
             'email_verified_at' => now(),
         ]);
@@ -49,7 +49,7 @@ class UserSeeder extends Seeder
         $siswaUser = User::updateOrCreate(['email' => 'siswa@rasaya.id'], [
             'identifier' => '1234',
             'role' => 'siswa',
-            'name' => 'Gideon Bryan Tan',
+            'name' => 'Chavelle',
             'password' => Hash::make('1'),
             'email_verified_at' => now(),
         ]);
@@ -59,7 +59,7 @@ class UserSeeder extends Seeder
         $siswaUser2 = User::updateOrCreate(['email' => 'siswa2@rasaya.id'], [
             'identifier' => '5678',
             'role' => 'siswa',
-            'name' => 'Glen Fernando',
+            'name' => 'Bellatrix',
             'password' => Hash::make('1'),
             'email_verified_at' => now(),
         ]);
