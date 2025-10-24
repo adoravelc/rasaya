@@ -15,6 +15,8 @@ use App\Http\Controllers\Web\AdminSiswaKelasController;
 use App\Http\Controllers\Web\AdminJurusanController;
 use App\Http\Controllers\Web\TahunAjaranWebController;
 use App\Http\Controllers\Api\SlotKonselingController as SlotApi;
+use App\Http\Controllers\Web\MlBridgeController;
+use App\Http\Controllers\Web\AnalisisEntryController;
 
 Route::view('/', 'welcome');
 
@@ -121,19 +123,39 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
         Route::get('/', [GuruBkDashboardController::class, 'index'])->name('guru.bk.dashboard');
 
         // Halaman Blade + JSON untuk Slot Konseling (reuse controller API)
-    Route::view('/slot-konseling', 'roles.guru.guru_bk.slot_konseling')->name('guru.guru_bk.slots.view');
-    Route::get('/slots', [SlotApi::class, 'index'])->name('guru.guru_bk.slots.index');
-    Route::get('/slots/{id}', [SlotApi::class, 'show'])->name('guru.guru_bk.slots.show');
-    Route::post('/slots/publish', [SlotApi::class, 'publish'])->name('guru.guru_bk.slots.publish');
-    Route::delete('/slots/{id}', [SlotApi::class, 'destroy'])->name('guru.guru_bk.slots.destroy');
+        Route::view('/slot-konseling', 'roles.guru.guru_bk.slot_konseling')->name('guru.guru_bk.slots.view');
+        Route::get('/slots', [SlotApi::class, 'index'])->name('guru.guru_bk.slots.index');
+        Route::get('/slots/{id}', [SlotApi::class, 'show'])->name('guru.guru_bk.slots.show');
+        Route::post('/slots/publish', [SlotApi::class, 'publish'])->name('guru.guru_bk.slots.publish');
+        Route::delete('/slots/{id}', [SlotApi::class, 'destroy'])->name('guru.guru_bk.slots.destroy');
+
+        // Tetap tersedia untuk BK (legacy route names)
+        Route::get('/analisis', [AnalisisEntryController::class, 'index'])->name('guru.bk.analisis.index');
+        Route::get('/analisis/create', [AnalisisEntryController::class, 'create'])->name('guru.bk.analisis.create');
+        Route::post('/analisis', [AnalisisEntryController::class, 'store'])->name('guru.bk.analisis.store');
+        Route::get('/analisis/{analisis}', [AnalisisEntryController::class, 'show'])->name('guru.bk.analisis.show');
+        Route::post('/analisis/{analisis}/rekomendasi/{rid}', [AnalisisEntryController::class, 'decide'])->name('guru.bk.analisis.decide');
     });
 
     // Wali Kelas
     Route::prefix('wk')->middleware('gurujenis:wali_kelas')->group(function () {
         Route::get('/', [GuruWkDashboardController::class, 'index'])->name('guru.wk.dashboard');
     });
+
+    // Umum: Analisis (tersedia untuk semua Guru, BK & Wali Kelas)
+    Route::prefix('analisis')->group(function () {
+        Route::get('/', [AnalisisEntryController::class, 'index'])->name('guru.analisis.index');
+        Route::get('/create', [AnalisisEntryController::class, 'create'])->name('guru.analisis.create');
+        Route::post('/', [AnalisisEntryController::class, 'store'])->name('guru.analisis.store');
+        Route::get('/{analisis}', [AnalisisEntryController::class, 'show'])->name('guru.analisis.show');
+        Route::post('/{analisis}/rekomendasi/{rid}', [AnalisisEntryController::class, 'decide'])->name('guru.analisis.decide');
+    });
 });
 
 Route::redirect('/admin/dashboard', '/admin');
 Route::redirect('/guru/guru_bk/dashboard', '/guru/bk');
 Route::redirect('/guru/wali_kelas/dashboard', '/guru/wk');
+
+//nyoba dummy ML API
+Route::get('/ml/health', [MlBridgeController::class, 'health']);
+Route::post('/ml/try', [MlBridgeController::class, 'tryAnalyze']);

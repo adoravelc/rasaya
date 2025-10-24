@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,   // seeder punyamu yg sudah isi identifier & role
             TahunAjaranSeeder::class,
             KategoriMasalahSeeder::class,
+            MasterRekomendasiSeeder::class,
             // SiswaKelasSeeder::class,            
         ]);
     }

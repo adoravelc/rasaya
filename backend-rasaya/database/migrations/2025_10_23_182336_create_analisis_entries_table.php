@@ -13,10 +13,8 @@ return new class extends Migration
     {
         Schema::create('analisis_entries', function (Blueprint $t) {
             $t->id();
-
-            // refer ke siswa_kelas (bukan siswas.user_id lagi)
             $t->foreignId('siswa_kelas_id')
-                ->constrained('siswa_kelas')   // FK -> siswa_kelas.id
+                ->constrained('siswa_kelass')   // FK -> siswa_kelass.id
                 ->cascadeOnDelete();
 
             // hasil analisis

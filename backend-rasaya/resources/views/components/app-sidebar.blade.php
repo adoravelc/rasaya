@@ -42,14 +42,15 @@
                     <a class="nav-link {{ $is('guru.observasi.*') }}" href="{{ route('guru.observasi.index') }}">Input Guru
                         (Observasi)</a>
 
+                    {{-- Analisis Input (untuk semua guru; wali kelas otomatis dibatasi siswanya sendiri) --}}
+                    <a class="nav-link {{ $is('guru.analisis.*') }} {{ $is('guru.bk.analisis.*') }}" href="{{ route('guru.analisis.index') }}">Analisis Input</a>
+
                     {{-- === BARU: Slot Konseling (hanya untuk Guru BK) === --}}
                     @if ($guruJenis === 'bk')
                         <a class="nav-link {{ $is('guru.bk.slots.view') }} {{ $is('guru.guru_bk.slots.*') }}"
                             href="{{ route('guru.guru_bk.slots.view') }}">Slot Konseling (BK)</a>
                     @endif
-
                     <a class="nav-link disabled">Laporan Siswa (segera)</a>
-                    <a class="nav-link disabled">Analitik Emosi (segera)</a>
                 </nav>
             @break
 
