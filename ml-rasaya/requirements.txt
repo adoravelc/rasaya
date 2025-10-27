@@ -1,0 +1,8 @@
+flask
+uvicorn
+scikit-learn
+numpy
+pandas
+nltk
+rake-nltk
+langdetect
