@@ -12,5 +12,10 @@ class MasterRekomendasi extends Model
         'rules' => 'array',
         'tags' => 'array',
     ];
+
+    public function kategoris()
+    {
+        return $this->belongsToMany(\App\Models\KategoriMasalah::class, 'kategori_masalah_master_rekomendasi', 'master_rekomendasi_id', 'kategori_masalah_id');
+    }
 }
 

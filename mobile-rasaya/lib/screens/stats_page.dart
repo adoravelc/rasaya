@@ -74,7 +74,7 @@ class _StatsPageState extends ConsumerState<StatsPage> {
                           switchOutCurve: Curves.easeInCubic,
                           child: _MoodLineChart(
                             key: ValueKey(
-                                '${_period}-${data.xLabels.length}-${data.count}'),
+                                '$_period-${data.xLabels.length}-${data.count}'),
                             data: data,
                           ),
                         ),
@@ -368,8 +368,9 @@ class _MoodLineChart extends StatelessWidget {
                   '🤩'
                 ];
                 final i = v.round();
-                if (i % 2 != 0 || i < 1 || i > 10)
+                if (i % 2 != 0 || i < 1 || i > 10) {
                   return const SizedBox.shrink();
+                }
                 return Text(emojis[i - 1],
                     style: const TextStyle(fontSize: 12));
               },

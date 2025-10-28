@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             TahunAjaranSeeder::class,
             KategoriMasalahSeeder::class,
             MasterRekomendasiSeeder::class,
+            MasterRekomendasiBulkSeeder::class,
             // SiswaKelasSeeder::class,            
         ]);
     }

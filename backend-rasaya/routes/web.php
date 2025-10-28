@@ -135,6 +135,7 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
         Route::post('/analisis', [AnalisisEntryController::class, 'store'])->name('guru.bk.analisis.store');
         Route::get('/analisis/{analisis}', [AnalisisEntryController::class, 'show'])->name('guru.bk.analisis.show');
         Route::post('/analisis/{analisis}/rekomendasi/{rid}', [AnalisisEntryController::class, 'decide'])->name('guru.bk.analisis.decide');
+    Route::get('/analisis/{analisis}/rekomendasi/{rid}/alternatives', [AnalisisEntryController::class, 'alternatives'])->name('guru.bk.analisis.alternatives');
     });
 
     // Wali Kelas
@@ -149,6 +150,7 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
         Route::post('/', [AnalisisEntryController::class, 'store'])->name('guru.analisis.store');
         Route::get('/{analisis}', [AnalisisEntryController::class, 'show'])->name('guru.analisis.show');
         Route::post('/{analisis}/rekomendasi/{rid}', [AnalisisEntryController::class, 'decide'])->name('guru.analisis.decide');
+        Route::get('/{analisis}/rekomendasi/{rid}/alternatives', [AnalisisEntryController::class, 'alternatives'])->name('guru.analisis.alternatives');
     });
 });
 

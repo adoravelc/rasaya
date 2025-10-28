@@ -27,10 +27,14 @@ class MlClient
         return $this->http()->get('/health')->json();
     }
 
-    public function analyze(array $payload): array
+    public function analyze(array $items): array
     {
-        $payload['request_id'] = $payload['request_id'] ?? (string) \Illuminate\Support\Str::uuid();
-        $res = $this->http()->post('/analyze', ['items' => $payload]);
+        // Build proper JSON body: { request_id, items: [...] }
+        $body = [
+            'request_id' => (string) \Illuminate\Support\Str::uuid(),
+            'items' => array_values($items),
+        ];
+        $res = $this->http()->post('/analyze', $body);
         $res->throw();
         return $res->json();
     }

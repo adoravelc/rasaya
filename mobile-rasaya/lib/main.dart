@@ -98,8 +98,6 @@ class _AppState extends ConsumerState<App> {
       onSecondary: Colors.white,
       error: Color(0xFFB3261E),
       onError: Colors.white,
-      background: brokenWhite,
-      onBackground: Color(0xFF1B1B1F),
       surface: brokenWhite,
       onSurface: Color(0xFF1B1B1F),
     );

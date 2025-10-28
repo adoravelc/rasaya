@@ -3,8 +3,12 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\AnalisisEntry;
+use App\Models\AnalisisRekomendasi;
+use App\Models\KategoriMasalah;
+use App\Models\MasterRekomendasi;
 use App\Models\InputGuru;
 use App\Models\InputSiswa;
+use App\Models\PemantauanEmosiSiswa;
 use App\Models\SiswaKelas;
 use App\Services\AnalisisService;
 use Illuminate\Http\Request;
@@ -20,7 +24,12 @@ class AnalisisEntryController extends Controller
     public function index(Request $r)
     {
         // daftar hasil analisis; wali kelas hanya melihat siswanya sendiri
-        $q = AnalisisEntry::query()->with(['rekomendasis', 'siswaKelas.kelas', 'siswaKelas.siswa.user'])->latest()
+        $q = AnalisisEntry::query()->with([
+                'rekomendasis.master',
+                'siswaKelas.kelas',
+                'siswaKelas.tahunAjaran',
+                'siswaKelas.siswa.user'
+            ])->latest()
             ->where('created_by', $r->user()->id);
 
         $guru = optional($r->user())->guru;
@@ -88,6 +97,9 @@ class AnalisisEntryController extends Controller
         $guruNotes = collect();
 
         $used = collect($analisis->used_items ?? []);
+        $topEmojis = collect();
+        $avgMood = $analisis->avg_mood; // already stored at analysis time
+
         if ($used->isNotEmpty()) {
             // Ambil data tepat yang dipakai saat analisis (snapshot IDs)
             $selfIds = $used->where('type', 'ref_self')->pluck('id')->all();
@@ -140,24 +152,96 @@ class AnalisisEntryController extends Controller
             $guruNotes = $gq->get();
         }
 
+        // Ambil data mood untuk ringkasan (gunakan rentang yang tercatat di entry)
+        if ($from && $to) {
+            $moods = PemantauanEmosiSiswa::query()
+                ->where('siswa_kelas_id', $analisis->siswa_kelas_id)
+                ->whereBetween('tanggal', [$from, $to])
+                ->get(['skor']);
+            if ($moods->isNotEmpty()) {
+                $freq = $moods->groupBy('skor')->map(function($g){ return $g->count(); })->sortDesc();
+                // mapping skor->emoji umum
+                $map = [1 => '\ud83d\ude2d', 2 => '\ud83d\ude41\ufe0f', 3 => '\ud83d\ude10', 4 => '\ud83d\ude42', 5 => '\ud83d\ude04'];
+                $topEmojis = $freq->take(5)->map(function ($cnt, $skor) use ($map) {
+                    $s = (int) $skor;
+                    $emoji = $map[$s] ?? '🙂';
+                    return ['skor' => $s, 'emoji' => $emoji, 'count' => (int) $cnt];
+                })->values();
+                // If not stored previously, compute avg mood now for display fallback
+                $avgMood = $avgMood ?? round((float) $moods->avg('skor'), 2);
+            }
+        }
+
+        $kategoris = \App\Models\KategoriMasalah::aktif()->orderBy('nama')->get(['id','nama','kode']);
+
         return view('roles.guru.analisis.show', [
             'analisis' => $analisis,
             'refleksisSelf' => $refleksisSelf,
             'friendReports' => $friendReports,
             'guruNotes' => $guruNotes,
             'isWali' => $isWali,
+            'topEmojis' => $topEmojis,
+            'avgMood' => $avgMood,
+            'kategoris' => $kategoris,
         ]);
     }
 
     public function decide(Request $r, AnalisisEntry $analisis, int $rekomId)
     {
-        $r->validate(['action' => ['required', Rule::in(['accept', 'reject'])]]);
+        $validated = $r->validate([
+            'action' => ['required', Rule::in(['accept', 'reject'])],
+            'kategori_id' => ['nullable', 'integer'],
+            'selected_master_rekomendasi_id' => ['nullable', 'integer'],
+        ]);
+
+        /** @var AnalisisRekomendasi $rec */
         $rec = $analisis->rekomendasis()->findOrFail($rekomId);
+
+        if ($validated['action'] === 'accept') {
+            $rec->update([
+                'status' => 'accepted',
+                'decided_by' => Auth::id(),
+                'decided_at' => now(),
+                'rejected_kategori_id' => null,
+                'selected_master_rekomendasi_id' => null,
+            ]);
+            return back()->with('ok', 'Rekomendasi diterima.');
+        }
+
+        // action = reject → require kategori + selected alternative
+        $kategoriId = (int) ($validated['kategori_id'] ?? 0);
+        $altId = (int) ($validated['selected_master_rekomendasi_id'] ?? 0);
+    $kategori = $kategoriId ? KategoriMasalah::aktif()->find($kategoriId) : null;
+    $alt = $altId ? MasterRekomendasi::with('kategoris')->find($altId) : null;
+
+        if (!$kategori || !$alt) {
+            return back()->withErrors(['reject' => 'Kategori dan rekomendasi alternatif wajib dipilih.']);
+        }
+
+        // Validate selected alternative is linked to kategori via pivot
+        if (!$alt->kategoris->pluck('id')->contains($kategori->id)) {
+            return back()->withErrors(['reject' => 'Rekomendasi yang dipilih tidak sesuai dengan kategori yang dipilih.']);
+        }
+
         $rec->update([
-            'status' => $r->action === 'accept' ? 'accepted' : 'rejected',
+            'status' => 'rejected',
             'decided_by' => Auth::id(),
             'decided_at' => now(),
+            'rejected_kategori_id' => $kategori->id,
+            'selected_master_rekomendasi_id' => $alt->id,
         ]);
-        return back()->with('ok', 'Keputusan tersimpan.');
+        return back()->with('ok', 'Penolakan disimpan beserta rekomendasi alternatif.');
+    }
+
+    // Return up to 5 alternative master recommendations for a given kategori
+    public function alternatives(Request $r, AnalisisEntry $analisis, int $rekomId)
+    {
+        $r->validate(['kategori_id' => ['required', 'integer']]);
+        $kategori = KategoriMasalah::aktif()->findOrFail((int) $r->kategori_id);
+        $q = MasterRekomendasi::query()->where('is_active', true)
+            ->whereHas('kategoris', function($qq) use ($kategori){ $qq->where('kategori_masalahs.id', $kategori->id); })
+            ->limit(5)
+            ->get(['id', 'kode', 'judul', 'deskripsi', 'severity']);
+        return response()->json(['items' => $q]);
     }
 }

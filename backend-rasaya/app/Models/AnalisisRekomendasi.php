@@ -14,6 +14,8 @@ class AnalisisRekomendasi extends Model
         'severity',
         'match_score',
         'status',
+        'rejected_kategori_id',
+        'selected_master_rekomendasi_id',
         'decided_by',
         'decided_at'
     ];
@@ -26,6 +28,14 @@ class AnalisisRekomendasi extends Model
     public function master()
     {
         return $this->belongsTo(MasterRekomendasi::class, 'master_rekomendasi_id');
+    }
+    public function selectedMaster()
+    {
+        return $this->belongsTo(MasterRekomendasi::class, 'selected_master_rekomendasi_id');
+    }
+    public function rejectedKategori()
+    {
+        return $this->belongsTo(\App\Models\KategoriMasalah::class, 'rejected_kategori_id');
     }
     public function analisis()
     {

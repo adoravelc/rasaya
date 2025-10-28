@@ -105,11 +105,12 @@ class _MoodPageState extends ConsumerState<MoodPage>
       final picker = ImagePicker();
       final x =
           await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-      if (x != null)
+      if (x != null) {
         setState(() {
           _imageFile = x;
           _webFile = null;
         });
+      }
     }
   }
 

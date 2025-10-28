@@ -456,7 +456,7 @@ class _QuickMoodPrompt extends ConsumerWidget {
 }
 
 class _SelfRefleksiReminder extends StatefulWidget {
-  const _SelfRefleksiReminder({Key? key}) : super(key: key);
+  const _SelfRefleksiReminder({super.key});
 
   @override
   State<_SelfRefleksiReminder> createState() => _SelfRefleksiReminderState();
@@ -479,7 +479,7 @@ class _SelfRefleksiReminderState extends State<_SelfRefleksiReminder>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
-      color: theme.colorScheme.surfaceVariant.withOpacity(0.6),
+      color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.6),
       clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -663,7 +663,7 @@ class _UpcomingCounselingSection extends ConsumerWidget {
 
         if (upcoming.isEmpty) {
           return Card(
-            color: Theme.of(context).colorScheme.surfaceVariant,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: ListTile(
               leading: const Icon(Icons.event_busy),
               title: const Text('Tidak ada konseling terjadwal'),
@@ -693,7 +693,7 @@ class _UpcomingCounselingSection extends ConsumerWidget {
             (next['slot']?['lokasi'] ?? next['lokasi'] ?? '').toString();
 
         return Card(
-          color: Theme.of(context).colorScheme.surfaceVariant,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           child: ListTile(
             leading: const Icon(Icons.event_available),
             title: Text(dateLabel,

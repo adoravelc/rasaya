@@ -159,7 +159,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     ? null
                                     : () async {
                                         if (_formKey.currentState?.validate() !=
-                                            true) return;
+                                            true) {
+                                          return;
+                                        }
                                         await ref
                                             .read(
                                                 authControllerProvider.notifier)

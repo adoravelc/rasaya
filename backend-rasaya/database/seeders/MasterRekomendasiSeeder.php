@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\MasterRekomendasi;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class MasterRekomendasiSeeder extends Seeder
 {
@@ -37,7 +38,15 @@ class MasterRekomendasiSeeder extends Seeder
         ];
 
         foreach ($data as $d) {
-            MasterRekomendasi::updateOrCreate(['kode' => $d['kode']], $d);
+            $m = MasterRekomendasi::updateOrCreate(['kode' => $d['kode']], $d);
+            // Attach categories based on tags matching kategori names (lowercase)
+            $tagNames = collect($d['tags'] ?? [])->map(fn($x)=>mb_strtolower((string)$x))->filter();
+            if ($tagNames->isNotEmpty()) {
+                $kats = \App\Models\KategoriMasalah::whereIn(DB::raw('LOWER(nama)'), $tagNames->all())->pluck('id');
+                if ($kats->isNotEmpty()) {
+                    $m->kategoris()->syncWithoutDetaching($kats->all());
+                }
+            }
         }
     }
 }

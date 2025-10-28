@@ -404,8 +404,8 @@ class _FormKiri extends StatelessWidget {
     required this.onSaveDraft,
     required this.onSubmit,
     required this.fmtTanggal,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   final GlobalKey<FormState> formKey;
   final DateTime tanggal;
@@ -474,7 +474,7 @@ class _FormKiri extends StatelessWidget {
                   child: _FieldGroup(
                     label: 'Jenis Refleksi',
                     child: DropdownButtonFormField<String>(
-                      value: jenis,
+                      initialValue: jenis,
                       items: const [
                         DropdownMenuItem(
                             value: 'pribadi', child: Text('Pribadi')),
