@@ -1,0 +1,38 @@
+{
+  "bella melewatkan quality time": {
+    "AKADEMIK": -0.15,
+    "EMOSI": -0.15,
+    "SOSIAL": -0.375,
+    "DISIPLIN": -0.15
+  },
+  "bella kek sedih ya": {
+    "AKADEMIK": -0.15,
+    "EMOSI": -0.15,
+    "SOSIAL": -0.375,
+    "DISIPLIN": -0.15
+  },
+  "terlambat 15 menit": {
+    "AKADEMIK": -0.15,
+    "EMOSI": -0.075,
+    "SOSIAL": -0.15,
+    "DISIPLIN": -0.075
+  },
+  "mengidap depresi": {
+    "AKADEMIK": -0.15,
+    "EMOSI": -0.075,
+    "SOSIAL": -0.15,
+    "DISIPLIN": -0.075
+  },
+  "bellatrix keliatan": {
+    "AKADEMIK": -0.15,
+    "EMOSI": -0.075,
+    "SOSIAL": -0.15,
+    "DISIPLIN": -0.075
+  },
+  "wali kelas": {
+    "AKADEMIK": -0.15,
+    "EMOSI": -0.15,
+    "SOSIAL": -0.375,
+    "DISIPLIN": -0.15
+  }
+}

@@ -27,6 +27,7 @@ class AnalisisEntry extends Model
         'source_id',              // jika per-item, id sumbernya
         'tanggal_awal_proses',
         'tanggal_akhir_proses',
+        'needs_attention',
     ];
 
     protected $casts = [
@@ -36,6 +37,7 @@ class AnalisisEntry extends Model
         'used_items' => 'array',
         'tanggal_awal_proses' => 'datetime',
         'tanggal_akhir_proses' => 'datetime',
+        'needs_attention' => 'boolean',
     ];
 
     /* ===========================

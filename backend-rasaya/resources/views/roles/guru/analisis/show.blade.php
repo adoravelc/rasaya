@@ -23,6 +23,19 @@
                 </div>
 
                 <h5 class="mb-1">Ringkasan</h5>
+                <div class="mb-2">
+                    <form id="attention-form" class="d-inline-flex align-items-center gap-2" method="post" action="{{ route('guru.analisis.attention', $analisis->id) }}" onsubmit="return false;">
+                        @csrf
+                        <input type="hidden" name="needs_attention" id="attention-input" value="{{ $analisis->needs_attention ? '1' : '0' }}">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="attention-switch" {{ $analisis->needs_attention ? 'checked' : '' }}>
+                            <label class="form-check-label" for="attention-switch">Tandai perlu perhatian</label>
+                        </div>
+                        <span id="attention-status" class="small {{ $analisis->needs_attention ? 'text-danger' : 'text-muted' }}">
+                            {{ $analisis->needs_attention ? 'Butuh perhatian' : 'Normal' }}
+                        </span>
+                    </form>
+                </div>
                 <div class="text-muted small mb-2">
                     Rentang: {{ \Illuminate\Support\Carbon::parse($analisis->tanggal_awal_proses)->toDateString() }} —
                     {{ \Illuminate\Support\Carbon::parse($analisis->tanggal_akhir_proses)->toDateString() }}
@@ -110,7 +123,7 @@
                         <div class="text-end">
                             <div class="small text-muted mb-1">Status: <strong>{{ $r->status }}</strong></div>
                             @if ($r->status === 'suggested')
-                                <form class="d-inline" method="post" action="{{ route('guru.analisis.decide', [$analisis->id, $r->id]) }}">
+                                <form class="d-inline" method="post" action="{{ route('guru.analisis.decide', [$analisis->id, $r->id]) }}" onsubmit="window.__accepted = true;">
                                     @csrf
                                     <input type="hidden" name="action" value="accept">
                                     <button class="btn btn-sm btn-success">Terima</button>
@@ -375,5 +388,54 @@
             document.getElementById('rej-error').innerText = err.message || 'Gagal menyimpan';
         }
     }
+
+    // Auto-finalize on page leave: reject remaining suggestions when user leaves the page
+    (function(){
+        window.__accepted = window.__accepted || false;
+        window.__finalized = false;
+        const finalize = () => {
+            if (window.__finalized) return;
+            if (!window.__accepted) return; // only if there was at least one acceptance
+            window.__finalized = true;
+            try {
+                const analisisId = {{ $analisis->id }};
+                const url = `${location.origin}/guru/analisis/${analisisId}/finalize`;
+                const data = new FormData();
+                data.append('_token', csrf);
+                // keepalive to allow sending during unload
+                fetch(url, { method: 'POST', body: data, keepalive: true, headers: { 'Accept':'application/json' } });
+            } catch (e) {}
+        };
+        window.addEventListener('beforeunload', finalize);
+        // also when clicking back button
+        window.addEventListener('pagehide', finalize);
+    })();
+
+    // Toggle needs_attention via fetch when switch changes
+    (function(){
+        const sw = document.getElementById('attention-switch');
+        if (!sw) return;
+        sw.addEventListener('change', async (e)=>{
+            const checked = !!e.target.checked;
+            const analisisId = {{ $analisis->id }};
+            const url = `${location.origin}/guru/analisis/${analisisId}/attention`;
+            const fd = new FormData();
+            fd.append('_token', csrf);
+            fd.append('needs_attention', checked ? '1' : '0');
+            try{
+                const res = await fetch(url, { method: 'POST', body: fd, headers: { 'Accept':'application/json' } });
+                if (res.ok){
+                    const data = await res.json().catch(()=>({}));
+                    const txt = document.getElementById('attention-status');
+                    if (txt){
+                        const on = !!(data.needs_attention ?? checked);
+                        txt.textContent = on ? 'Butuh perhatian' : 'Normal';
+                        txt.classList.toggle('text-danger', on);
+                        txt.classList.toggle('text-muted', !on);
+                    }
+                }
+            }catch(err){ /* ignore */ }
+        })
+    })();
 </script>
 @endpush

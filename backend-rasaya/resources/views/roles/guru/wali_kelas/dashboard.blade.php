@@ -62,6 +62,27 @@
 				</div>
 			</div>
 
+			@if(($attentionList ?? collect())->isNotEmpty())
+			<div class="card mt-4 shadow-sm">
+				<div class="card-header bg-white fw-semibold">Siswa Perlu Perhatian (Kelas Anda)</div>
+				<div class="list-group list-group-flush">
+					@foreach($attentionList as $a)
+						<a href="{{ route('guru.analisis.show', $a->id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-start">
+							<div>
+								<div class="fw-semibold">{{ optional($a->siswaKelas->siswa->user)->name }}</div>
+								<div class="small text-muted">
+									{{ optional($a->siswaKelas->kelas)->label }} — TA {{ optional($a->siswaKelas->kelas?->tahunAjaran)->nama }}
+								</div>
+							</div>
+							<div class="text-end small text-muted">
+								<div>Analisis: {{ optional($a->created_at)->diffForHumans() }}</div>
+							</div>
+						</a>
+					@endforeach
+				</div>
+			</div>
+			@endif
+
 			<div class="card mt-4 shadow-sm">
 				<div class="card-header bg-white fw-semibold">Hari Ini</div>
 				<div class="card-body">

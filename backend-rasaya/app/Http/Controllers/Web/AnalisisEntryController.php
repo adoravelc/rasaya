@@ -67,14 +67,15 @@ class AnalisisEntryController extends Controller
             'to' => ['required', 'date', 'after_or_equal:from'],
         ]);
 
-        $isWali = optional($r->user()->guru)->jenis === 'wali_kelas';
+        // Termasuk semua catatan guru (BK dan WK) dalam analisis untuk siswa tsb
+        $includeAllGuruNotes = true;
 
         $entry = $this->svc->analisisRentang(
             (int) $data['siswa_kelas_id'],
             $data['from'],
             $data['to'],
             (int) $r->user()->id,
-            $isWali,
+            $includeAllGuruNotes,
         );
 
         return redirect()
@@ -86,7 +87,7 @@ class AnalisisEntryController extends Controller
     {
         $analisis->load(['rekomendasis', 'siswaKelas.siswa.user', 'siswaKelas.kelas.jurusan', 'createdBy']);
 
-        $isWali = optional(Auth::user()->guru)->jenis === 'wali_kelas';
+    $isWali = optional(Auth::user()->guru)->jenis === 'wali_kelas';
 
         // Kumpulkan semua input yang termasuk dalam rentang analisis ini
         $from = optional($analisis->tanggal_awal_proses)?->toDateString();
@@ -142,14 +143,11 @@ class AnalisisEntryController extends Controller
                 ->orderBy('tanggal', 'desc')
                 ->get();
 
-            $gq = InputGuru::with(['kategoris', 'siswaKelas.siswa.user'])
+            $guruNotes = InputGuru::with(['kategoris', 'siswaKelas.siswa.user'])
                 ->where('siswa_kelas_id', $analisis->siswa_kelas_id)
                 ->whereBetween('tanggal', [$from, $to])
-                ->orderBy('tanggal', 'desc');
-            if (!$isWali) {
-                $gq->where('guru_id', $analisis->created_by);
-            }
-            $guruNotes = $gq->get();
+                ->orderBy('tanggal', 'desc')
+                ->get();
         }
 
         // Ambil data mood untuk ringkasan (gunakan rentang yang tercatat di entry)
@@ -205,6 +203,11 @@ class AnalisisEntryController extends Controller
                 'rejected_kategori_id' => null,
                 'selected_master_rekomendasi_id' => null,
             ]);
+            // flag needs attention if severity high
+            if (($rec->severity ?? 'low') === 'high') {
+                $analisis->needs_attention = true;
+                $analisis->save();
+            }
             return back()->with('ok', 'Rekomendasi diterima.');
         }
 
@@ -230,6 +233,13 @@ class AnalisisEntryController extends Controller
             'rejected_kategori_id' => $kategori->id,
             'selected_master_rekomendasi_id' => $alt->id,
         ]);
+        // Send feedback to ML using top keywords
+        try {
+            $keywords = collect($analisis->kata_kunci ?? [])->pluck('term')->take(8)->values()->all();
+            app(\App\Services\MlClient::class)->feedback($keywords, from: $rec->master?->kategoris?->first()?->nama, to: $kategori->nama);
+        } catch (\Throwable $e) {
+            // ignore ML feedback failure
+        }
         return back()->with('ok', 'Penolakan disimpan beserta rekomendasi alternatif.');
     }
 
@@ -243,5 +253,62 @@ class AnalisisEntryController extends Controller
             ->limit(5)
             ->get(['id', 'kode', 'judul', 'deskripsi', 'severity']);
         return response()->json(['items' => $q]);
+    }
+
+    // Finalize an analysis: auto-reject any remaining suggested recommendations
+    public function finalize(Request $r, AnalisisEntry $analisis)
+    {
+        $remaining = $analisis->rekomendasis()->where('status', 'suggested')->get();
+        if ($remaining->isEmpty()) {
+            return response()->json(['ok' => true]);
+        }
+        foreach ($remaining as $rec) {
+            $rec->update([
+                'status' => 'rejected',
+                'decided_by' => Auth::id(),
+                'decided_at' => now(),
+            ]);
+            // ML feedback: penalize original category slightly (no target)
+            try {
+                $fromCat = optional($rec->master?->kategoris?->first())->nama;
+                if ($fromCat) {
+                    $keywords = collect($analisis->kata_kunci ?? [])->pluck('term')->take(6)->values()->all();
+                    app(\App\Services\MlClient::class)->feedback($keywords, from: $fromCat, to: null, delta: 0.15);
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+        // ensure needs_attention stays true if any accepted high exists
+        $hasHigh = $analisis->rekomendasis()->where('status','accepted')->where('severity','high')->exists();
+        if ($hasHigh && !$analisis->needs_attention) {
+            $analisis->needs_attention = true;
+            $analisis->save();
+        }
+        return response()->json(['ok' => true]);
+    }
+
+    // Toggle needs_attention flag manually by guru (BK or WK)
+    public function attention(Request $r, AnalisisEntry $analisis)
+    {
+        $r->validate(['needs_attention' => ['required', 'boolean']]);
+
+        // Authorization: BK can toggle for all; WK only for their class
+        $guru = optional($r->user())->guru;
+        if (!$guru) {
+            abort(403);
+        }
+        if ($guru->jenis === 'wali_kelas') {
+            $allow = optional($analisis->siswaKelas?->kelas)->wali_guru_id === $r->user()->id;
+            abort_if(!$allow, 403);
+        }
+
+        $analisis->needs_attention = (bool) $r->boolean('needs_attention');
+        $analisis->save();
+
+        if ($r->wantsJson()) {
+            return response()->json(['ok' => true, 'needs_attention' => $analisis->needs_attention]);
+        }
+        return back()->with('ok', 'Status perhatian diperbarui.');
     }
 }

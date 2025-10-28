@@ -38,5 +38,28 @@ class MlClient
         $res->throw();
         return $res->json();
     }
+
+    /**
+     * Send feedback to ML to adjust keyword→category weights.
+     * @param array $keywords list of strings
+     * @param string|null $from optional previous category name
+     * @param string|null $to optional corrected category name
+     * @param float $delta adjustment magnitude (default 0.2)
+     */
+    public function feedback(array $keywords, ?string $from = null, ?string $to = null, float $delta = 0.2): void
+    {
+        if (empty($keywords) || (!$from && !$to)) {
+            return; // nothing to do
+        }
+        $payload = [
+            'keywords' => array_values(array_filter(array_map(fn($x)=> (string)$x, $keywords))),
+            'from_category' => $from,
+            'to_category' => $to,
+            'delta' => $delta,
+        ];
+        $res = $this->http()->post('/feedback', $payload);
+        // don't throw hard; ignore failures silently to avoid UX impact
+        // ignore failures; optional logging could be added via event/queue if needed
+    }
 }
 

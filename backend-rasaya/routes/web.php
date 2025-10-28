@@ -149,7 +149,9 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
         Route::get('/create', [AnalisisEntryController::class, 'create'])->name('guru.analisis.create');
         Route::post('/', [AnalisisEntryController::class, 'store'])->name('guru.analisis.store');
         Route::get('/{analisis}', [AnalisisEntryController::class, 'show'])->name('guru.analisis.show');
-        Route::post('/{analisis}/rekomendasi/{rid}', [AnalisisEntryController::class, 'decide'])->name('guru.analisis.decide');
+            Route::post('/{analisis}/rekomendasi/{rid}', [AnalisisEntryController::class, 'decide'])->name('guru.analisis.decide');
+            Route::post('/{analisis}/finalize', [AnalisisEntryController::class, 'finalize'])->name('guru.analisis.finalize');
+        Route::post('/{analisis}/attention', [AnalisisEntryController::class, 'attention'])->name('guru.analisis.attention');
         Route::get('/{analisis}/rekomendasi/{rid}/alternatives', [AnalisisEntryController::class, 'alternatives'])->name('guru.analisis.alternatives');
     });
 });
