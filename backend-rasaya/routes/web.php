@@ -17,8 +17,10 @@ use App\Http\Controllers\Web\TahunAjaranWebController;
 use App\Http\Controllers\Api\SlotKonselingController as SlotApi;
 use App\Http\Controllers\Web\MlBridgeController;
 use App\Http\Controllers\Web\AnalisisEntryController;
+use App\Http\Controllers\Web\EmosiTrenController;
 
-Route::view('/', 'welcome');
+// Redirect landing page straight to login for a focused UX
+Route::redirect('/', '/login');
 
 Route::get('/login', [AuthWebController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthWebController::class, 'doLogin']);
@@ -154,6 +156,11 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
         Route::post('/{analisis}/attention', [AnalisisEntryController::class, 'attention'])->name('guru.analisis.attention');
         Route::get('/{analisis}/rekomendasi/{rid}/alternatives', [AnalisisEntryController::class, 'alternatives'])->name('guru.analisis.alternatives');
     });
+
+    // Tren Emosi (Dashboard chart + halaman khusus)
+    Route::get('/tren-emosi', [EmosiTrenController::class, 'index'])->name('guru.tren_emosi.index');
+    Route::get('/tren-emosi/data', [EmosiTrenController::class, 'data'])->name('guru.tren_emosi.data');
+    Route::get('/tren-emosi/siswa', [EmosiTrenController::class, 'siswaByKelas'])->name('guru.tren_emosi.siswa');
 });
 
 Route::redirect('/admin/dashboard', '/admin');

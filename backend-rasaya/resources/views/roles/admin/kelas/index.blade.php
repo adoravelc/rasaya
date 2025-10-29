@@ -640,7 +640,10 @@
         async function refreshJurusan(){
             try{
                 const ta = document.getElementById('m-ta')?.value || '{{ $activeTa }}';
-                const res = await fetch(`{{ route('admin.jurusan.index') }}?tahun_ajaran_id=${ta}`);
+                const res = await fetch(`{{ route('admin.jurusan.index') }}?tahun_ajaran_id=${ta}` , {
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-store'
+                });
                 const data = await res.json();
                 JURUSAN = (data?.data ?? []).map(j => ({ id: Number(j.id), nama: String(j.nama) }));
                 renderJurusan();

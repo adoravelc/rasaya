@@ -158,11 +158,22 @@ class AnalisisEntryController extends Controller
                 ->get(['skor']);
             if ($moods->isNotEmpty()) {
                 $freq = $moods->groupBy('skor')->map(function($g){ return $g->count(); })->sortDesc();
-                // mapping skor->emoji umum
-                $map = [1 => '\ud83d\ude2d', 2 => '\ud83d\ude41\ufe0f', 3 => '\ud83d\ude10', 4 => '\ud83d\ude42', 5 => '\ud83d\ude04'];
+                // Mapping skor->emoji: 1=😓 Awful, 2=😭 Overwhelmed, 3=😔 Bad, 4=😟 Stressed, 5=😐 Meh, 6=😴 Tired, 7=😊 Good, 8=😎 Chill, 9=😍 In Love, 10=🤩 Rad
+                $map = [
+                    1 => '😓',
+                    2 => '😭',
+                    3 => '😔',
+                    4 => '😟',
+                    5 => '😐',
+                    6 => '😴',
+                    7 => '😊',
+                    8 => '😎',
+                    9 => '😍',
+                    10 => '🤩'
+                ];
                 $topEmojis = $freq->take(5)->map(function ($cnt, $skor) use ($map) {
                     $s = (int) $skor;
-                    $emoji = $map[$s] ?? '🙂';
+                    $emoji = $map[$s] ?? '�';
                     return ['skor' => $s, 'emoji' => $emoji, 'count' => (int) $cnt];
                 })->values();
                 // If not stored previously, compute avg mood now for display fallback

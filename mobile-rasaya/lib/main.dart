@@ -55,7 +55,11 @@ class _AppState extends ConsumerState<App> {
         GoRoute(path: '/home', builder: (_, __) => const HomePage()),
         GoRoute(path: '/stats', builder: (_, __) => const StatsPage()),
         GoRoute(
-            path: '/refleksi', builder: (_, __) => const RefleksiPage()), // NEW
+            path: '/refleksi',
+            builder: (_, state) {
+              final jenis = state.uri.queryParameters['jenis'];
+              return RefleksiPage(initialJenis: jenis);
+            }),
         GoRoute(
             path: '/refleksi/history',
             builder: (_, __) => const RefleksiHistoryPage()),

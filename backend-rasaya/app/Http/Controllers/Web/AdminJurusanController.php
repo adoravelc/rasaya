@@ -16,7 +16,11 @@ class AdminJurusanController extends Controller
         $items = Jurusan::where('tahun_ajaran_id', $activeTa)
             ->orderBy('nama')
             ->get();
-        return response()->json(['data' => $items]);
+        return response()
+            ->json(['data' => $items])
+            // Prevent client/proxy caching; ensure fresh list after create/update
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache');
     }
 
     public function store(Request $request)

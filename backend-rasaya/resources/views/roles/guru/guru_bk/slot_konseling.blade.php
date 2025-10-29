@@ -319,12 +319,13 @@
                                                 const times = s.start_at && s.end_at ? `${hhmm(s.start_at)}–${hhmm(s.end_at)}` : '-';
                                                 const isAvailable = (s.status === 'published' && Number(s.booked_count ?? 0) === 0);
                                                 const badge = isAvailable ? 'success' : 'secondary';
+                                                const statusLabel = isAvailable ? 'available' : 'booked';
                                 return `<tr data-id="${s.id}" class="slot-row" style="cursor:pointer">
 <td>${tgl}</td>
 <td>${times}</td>
                 <td>${s.booked_count ?? 0}</td>
 <td>${s.lokasi ?? '-'}</td>
-<td><span class="badge bg-${badge}">${s.status ?? '-'}</span></td>
+<td><span class="badge bg-${badge}">${statusLabel}</span></td>
 <td class="text-end">
   <div class="btn-group btn-group-sm">
     <button class="btn btn-outline-danger" onclick="doDelete(${s.id})">Hapus</button>
@@ -375,7 +376,8 @@
                         const jam = `${fmtTime(s.start_at)} – ${fmtTime(s.end_at)} WITA`;
                         const lokasi = s.lokasi || '-';
                         const notes = s.notes || '';
-                        const status = s.status || '-';
+                        const isAvailable = (s.status === 'published' && Number(s.booked_count ?? 0) === 0);
+                        const status = isAvailable ? 'available' : 'booked';
 
                         const bookings = Array.isArray(s.bookings) ? s.bookings : [];
                         // who booked: list booked entries (status maybe booked/held/etc.)

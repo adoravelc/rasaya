@@ -35,11 +35,22 @@ class SlotKonseling extends Model
         return $this->hasMany(SlotBooking::class, 'slot_id');
     }
 
+    /**
+     * Scope untuk slot yang tersedia (published dan belum di-book)
+     */
     public function scopeAvailable($q)
     {
-        return $q->where('status', 'available')
+        return $q->where('status', 'published')
             ->where(function($qq){
                 $qq->whereNull('booked_count')->orWhere('booked_count', 0);
             });
+    }
+
+    /**
+     * Scope untuk slot yang sudah di-book
+     */
+    public function scopeBooked($q)
+    {
+        return $q->where('booked_count', '>', 0);
     }
 }

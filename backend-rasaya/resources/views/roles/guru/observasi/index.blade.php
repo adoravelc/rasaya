@@ -153,8 +153,10 @@
                         <div class="row g-3">
                             <div class="col-md-4">
                                 <label class="form-label">Tanggal</label>
-                                <input id="m-tanggal" type="date" class="form-control"
-                                    value="{{ now()->toDateString() }}" required>
+                                <input id="m-tanggal" type="hidden" value="{{ now()->toDateString() }}">
+                                <div id="m-tanggal-display" class="form-control-plaintext">
+                                    {{ now()->locale('id')->translatedFormat('l, d F Y') }}
+                                </div>
                             </div>
 
                             <div class="col-md-8">
@@ -345,7 +347,17 @@
         function openCreate() {
             document.getElementById('m-title').innerText = 'Tambah Observasi';
             document.getElementById('m-id').value = '';
-            document.getElementById('m-tanggal').value = "{{ now()->toDateString() }}";
+            // lock date to today (cannot change in UI)
+            const today = new Date();
+            const y = today.getFullYear();
+            const m = String(today.getMonth()+1).padStart(2,'0');
+            const d = String(today.getDate()).padStart(2,'0');
+            const iso = `${y}-${m}-${d}`;
+            document.getElementById('m-tanggal').value = iso;
+            try{
+                const f = new Intl.DateTimeFormat('id-ID', { timeZone:'Asia/Makassar', weekday:'long', day:'2-digit', month:'long', year:'numeric' }).format(today);
+                document.getElementById('m-tanggal-display').innerText = f;
+            }catch(_){ document.getElementById('m-tanggal-display').innerText = iso; }
             document.getElementById('m-siswakelas').value = '';
             document.getElementById('m-kondisi').value = "{{ $opsiKondisi[0] ?? 'aman' }}";
             document.querySelectorAll('#kategori-group input[type="checkbox"]').forEach(el=> el.checked=false);
@@ -371,8 +383,13 @@
                 // fallback: try read from table row
                 const tr = document.querySelector(`tr[data-id="${id}"]`);
                 if (tr) {
-                    const raw = tr.getAttribute('data-tanggal');
-                    document.getElementById('m-tanggal').value = raw || "";
+                    const raw = tr.getAttribute('data-tanggal') || "";
+                    document.getElementById('m-tanggal').value = raw;
+                    try{
+                        const t = raw ? new Date(raw) : null;
+                        const f = t ? new Intl.DateTimeFormat('id-ID', { timeZone:'Asia/Makassar', weekday:'long', day:'2-digit', month:'long', year:'numeric' }).format(t) : '-';
+                        document.getElementById('m-tanggal-display').innerText = f || raw || '-';
+                    }catch(_){ document.getElementById('m-tanggal-display').innerText = raw || '-'; }
                     document.getElementById('m-siswakelas').value = tr.querySelector('.td-siswakelas').dataset.siswakelas;
                     document.getElementById('m-kondisi').value = tr.querySelector('.td-kondisi').innerText.trim().toLowerCase();
                     const ids = (tr.getAttribute('data-kategoris')||'').split(',').filter(Boolean).map(x=>Number(x));
@@ -390,7 +407,13 @@
         function fillFormFromData(d){
             // tanggal may be 'YYYY-mm-dd' or include time, slice to 10
             const tgl = (d.tanggal || '').slice(0,10);
-            document.getElementById('m-tanggal').value = tgl || "{{ now()->toDateString() }}";
+            const iso = tgl || "{{ now()->toDateString() }}";
+            document.getElementById('m-tanggal').value = iso;
+            try {
+                const t = new Date(iso);
+                const f = new Intl.DateTimeFormat('id-ID', { timeZone:'Asia/Makassar', weekday:'long', day:'2-digit', month:'long', year:'numeric' }).format(t);
+                document.getElementById('m-tanggal-display').innerText = f;
+            } catch(_) { document.getElementById('m-tanggal-display').innerText = iso; }
             const siswakelasId = d.siswa_kelas_id || d.siswa_kelas?.id || '';
             document.getElementById('m-siswakelas').value = String(siswakelasId);
             const kondisi = (d.kondisi_siswa || '').toLowerCase();

@@ -50,7 +50,28 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return response()->json($request->user());
+        $user = $request->user();
+        $data = $user->toArray();
+        
+        // Jika role siswa, tambahkan info NIS dan kelas aktif
+        if ($user->role === 'siswa' && $user->siswa) {
+            $siswa = $user->siswa;
+            // ambil roster aktif terbaru
+            $aktif = \App\Models\SiswaKelas::with(['kelas.tahunAjaran'])
+                ->where('siswa_id', $siswa->user_id)
+                ->where('is_active', true)
+                ->latest('id')
+                ->first();
+            
+            if ($aktif && $aktif->kelas) {
+                $kelas = $aktif->kelas;
+                $tahunAjaran = $kelas->tahunAjaran;
+                $data['nis'] = $user->identifier; // NIS dari identifier
+                $data['kelas_label'] = $kelas->label . ' — ' . ($tahunAjaran->nama ?? '');
+            }
+        }
+        
+        return response()->json($data);
     }
 
     public function logout(Request $request)

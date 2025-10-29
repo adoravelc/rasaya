@@ -18,28 +18,28 @@ class _MoodPageState extends ConsumerState<MoodPage>
     with TickerProviderStateMixin {
   // 10 emojis → score 1..10
   static const _emojis = [
-    '😞', //1 awful-
-    '😟', //2 awful
-    '🙁', //3 bad-
-    '😕', //4 bad
-    '😐', //5 meh
-    '🙂', //6 meh+
-    '😊', //7 good-
-    '😃', //8 good
-    '😄', //9 rad-
-    '🤩' //10 rad
+    '😓', //1 Awful
+    '😭', //2 Overwhelmed
+    '😔', //3 Bad
+    '😟', //4 Stressed
+    '😐', //5 Meh
+    '😴', //6 Tired (also score 5)
+    '😊', //7 Good
+    '😎', //8 Chill
+    '😍', //9 In Love
+    '🤩', //10 Rad
   ];
 
-  // Main 5 for quick pick: awful, bad, meh, good, rad → map to even scores 2,4,6,8,10
+  // Main 5 for quick pick: Awful, Bad, Meh, Good, Rad → map to scores 1,3,5,7,10
   static const _mainMap = [
-    {'label': 'Awful', 'emoji': '😟', 'score': 2},
-    {'label': 'Bad', 'emoji': '😕', 'score': 4},
-    {'label': 'Meh', 'emoji': '😐', 'score': 6},
-    {'label': 'Good', 'emoji': '😃', 'score': 8},
     {'label': 'Rad', 'emoji': '🤩', 'score': 10},
+    {'label': 'Good', 'emoji': '😊', 'score': 7},
+    {'label': 'Meh', 'emoji': '😐', 'score': 5},
+    {'label': 'Bad', 'emoji': '😔', 'score': 3},
+    {'label': 'Awful', 'emoji': '😓', 'score': 1},
   ];
 
-  int _selectedScore = 6; // default Meh
+  int _selectedScore = 5; // default Meh
   bool _loading = false;
   final _catatanCtrl = TextEditingController();
 

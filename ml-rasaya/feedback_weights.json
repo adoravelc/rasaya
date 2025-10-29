@@ -34,5 +34,29 @@
     "EMOSI": -0.15,
     "SOSIAL": -0.375,
     "DISIPLIN": -0.15
+  },
+  "bolos mata pelajaran setelahnya": {
+    "DISIPLIN": -0.3,
+    "SOSIAL": -0.075
+  },
+  "3x terlambat": {
+    "DISIPLIN": -0.3,
+    "SOSIAL": -0.075
+  },
+  "glen telat": {
+    "DISIPLIN": -0.3,
+    "SOSIAL": -0.075
+  },
+  "telat": {
+    "DISIPLIN": -0.3,
+    "SOSIAL": -0.075
+  },
+  "glen": {
+    "DISIPLIN": -0.3,
+    "SOSIAL": -0.075
+  },
+  "minggu": {
+    "DISIPLIN": -0.3,
+    "SOSIAL": -0.075
   }
 }

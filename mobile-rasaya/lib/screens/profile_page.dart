@@ -16,7 +16,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final me = ref.watch(authControllerProvider).me ?? {};
     final name = (me['name'] ?? me['nama'] ?? '-').toString();
     final email = (me['email'] ?? '-').toString();
-    final identifier = (me['identifier'] ?? '-').toString();
+    final nis = (me['nis'] ?? me['identifier'] ?? '-').toString();
 
     return AppScaffold(
       title: 'Profil',
@@ -28,7 +28,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           SliverToBoxAdapter(child: const SizedBox(height: 12)),
           SliverToBoxAdapter(
             child: _InfoList(
-              identifier: identifier,
+              nis: nis,
               email: email,
             ),
           ),
@@ -147,8 +147,8 @@ class _HeaderCard extends StatelessWidget {
 }
 
 class _InfoList extends StatelessWidget {
-  const _InfoList({required this.identifier, required this.email});
-  final String identifier;
+  const _InfoList({required this.nis, required this.email});
+  final String nis;
   final String email;
   @override
   Widget build(BuildContext context) {
@@ -159,8 +159,8 @@ class _InfoList extends StatelessWidget {
         children: [
           _InfoTile(
             icon: Icons.badge_outlined,
-            label: 'Identifier',
-            value: identifier,
+            label: 'NIS',
+            value: nis,
             iconColor: iconColor,
           ),
           const Divider(height: 1),

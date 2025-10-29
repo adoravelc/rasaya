@@ -18,8 +18,12 @@ String _fmtTanggal(BuildContext context, String? iso) {
 }
 
 // Providers: ambil beberapa item terakhir, mirip History
+// NOTE: autoDispose + depend on auth token so they refresh when user changes
 final recentRefleksiProvider =
-    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  // tie lifecycle to auth token
+  final token = ref.watch(authControllerProvider.select((s) => s.token));
+  if (token == null) return <Map<String, dynamic>>[];
   final api = ref.read(apiClientProvider);
   final res = await api.get('/input-siswa', query: {'page': 1, 'per_page': 3});
   if (!res.ok) throw Exception(res.errorMessage);
@@ -31,7 +35,9 @@ final recentRefleksiProvider =
 });
 
 final recentMoodProvider =
-    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final token = ref.watch(authControllerProvider.select((s) => s.token));
+  if (token == null) return <Map<String, dynamic>>[];
   final api = ref.read(apiClientProvider);
   final res = await api.getMoodHistory(page: 1, perPage: 5);
   if (!res.ok) throw Exception(res.errorMessage);
@@ -44,7 +50,9 @@ final recentMoodProvider =
 
 // Status refleksi hari ini (self/friend) untuk reminder
 final _refleksiTodayStatusProvider =
-    FutureProvider<Map<String, dynamic>>((ref) async {
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final token = ref.watch(authControllerProvider.select((s) => s.token));
+  if (token == null) return <String, dynamic>{};
   final api = ref.read(apiClientProvider);
   final res = await api.getRefleksiTodayStatus();
   if (!res.ok || res.data is! Map) return <String, dynamic>{};
@@ -64,8 +72,8 @@ class HomePage extends ConsumerWidget {
     }
 
     final name = (me['name'] ?? '-').toString();
-    final role = (me['role'] ?? '-').toString();
-    final identifier = (me['identifier'] ?? '-').toString();
+    final nis = (me['nis'] ?? me['identifier'] ?? '-').toString();
+    final kelasLabel = (me['kelas_label'] ?? me['role'] ?? '-').toString();
 
     // status cepat: fetch daftar terbaru
     final refleksiAsync = ref.watch(recentRefleksiProvider);
@@ -130,7 +138,7 @@ class HomePage extends ConsumerWidget {
                           children: [
                             Chip(
                               label: Text(
-                                'Role: $role',
+                                'NIS: $nis',
                                 style: TextStyle(
                                   color: Theme.of(context).colorScheme.primary,
                                 ),
@@ -140,7 +148,7 @@ class HomePage extends ConsumerWidget {
                             ),
                             Chip(
                               label: Text(
-                                'ID: $identifier',
+                                kelasLabel,
                                 style: TextStyle(
                                   color: Theme.of(context).colorScheme.primary,
                                 ),
@@ -165,11 +173,27 @@ class HomePage extends ConsumerWidget {
           _QuickMoodPrompt(),
           const SizedBox(height: 12),
 
-          // Fun reminder to do self-reflection (if not yet today)
+          // Fun reminder untuk refleksi/laporan teman
           todayRefleksiStatus.when(
-            data: (m) => (m['has_self_today'] == true)
-                ? const SizedBox.shrink()
-                : const _SelfRefleksiReminder(),
+            data: (m) {
+              final hasSelf = m['has_self_today'] == true;
+              // Backend mengirim key 'has_friend_report_today'; fallback ke 'has_friend_today' bila ada versi lama
+              final hasFriend = (m['has_friend_report_today'] == true) ||
+                  (m['has_friend_today'] == true);
+
+              // Jika belum ada refleksi diri, tampilkan reminder refleksi diri
+              if (!hasSelf) {
+                return const _SelfRefleksiReminder();
+              }
+
+              // Jika sudah ada refleksi diri tapi belum laporan teman, tampilkan reminder laporan teman
+              if (hasSelf && !hasFriend) {
+                return const _FriendReportReminder();
+              }
+
+              // Jika sudah lengkap, tidak tampilkan apa-apa
+              return const SizedBox.shrink();
+            },
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
           ),
@@ -186,6 +210,7 @@ class HomePage extends ConsumerWidget {
                   final res = await context.push('/refleksi');
                   if (context.mounted && res == true) {
                     ref.invalidate(recentRefleksiProvider);
+                    ref.invalidate(_refleksiTodayStatusProvider);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Refleksi tersimpan.')),
                     );
@@ -349,16 +374,16 @@ class HomePage extends ConsumerWidget {
                             return const Text('Belum ada riwayat mood.');
                           }
                           const emojis = [
-                            '😞',
-                            '😟',
-                            '🙁',
-                            '😕',
-                            '😐',
-                            '🙂',
-                            '😊',
-                            '😃',
-                            '😄',
-                            '🤩'
+                            '😓', //1 Awful
+                            '😭', //2 Overwhelmed
+                            '😔', //3 Bad
+                            '😟', //4 Stressed
+                            '😐', //5 Meh
+                            '😴', //6 Tired (also score 5)
+                            '😊', //7 Good
+                            '😎', //8 Chill
+                            '😍', //9 In Love
+                            '🤩', //10 Rad
                           ];
                           return Column(
                             children: items.map((m) {
@@ -436,11 +461,11 @@ class _QuickMoodPrompt extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: const [
-                    _MoodQuickEmoji(label: 'rad', emoji: '🤩'),
-                    _MoodQuickEmoji(label: 'good', emoji: '😃'),
-                    _MoodQuickEmoji(label: 'meh', emoji: '😐'),
-                    _MoodQuickEmoji(label: 'bad', emoji: '😕'),
-                    _MoodQuickEmoji(label: 'awful', emoji: '😟'),
+                    _MoodQuickEmoji(label: 'Rad', emoji: '🤩', score: 10),
+                    _MoodQuickEmoji(label: 'Good', emoji: '😊', score: 7),
+                    _MoodQuickEmoji(label: 'Meh', emoji: '😐', score: 5),
+                    _MoodQuickEmoji(label: 'Bad', emoji: '😔', score: 3),
+                    _MoodQuickEmoji(label: 'Awful', emoji: '😓', score: 1),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -456,7 +481,7 @@ class _QuickMoodPrompt extends ConsumerWidget {
 }
 
 class _SelfRefleksiReminder extends StatefulWidget {
-  const _SelfRefleksiReminder({super.key});
+  const _SelfRefleksiReminder();
 
   @override
   State<_SelfRefleksiReminder> createState() => _SelfRefleksiReminderState();
@@ -530,46 +555,181 @@ class _SelfRefleksiReminderState extends State<_SelfRefleksiReminder>
   }
 }
 
-final _moodTodayProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+class _FriendReportReminder extends ConsumerStatefulWidget {
+  const _FriendReportReminder();
+
+  @override
+  ConsumerState<_FriendReportReminder> createState() =>
+      _FriendReportReminderState();
+}
+
+class _FriendReportReminderState extends ConsumerState<_FriendReportReminder>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.6),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Apakah ada kondisi temanmu yang perlu diperhatikan? 👥',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Laporkan jika ada teman yang membutuhkan bantuan 💙',
+                    style: TextStyle(color: theme.hintColor),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: const [
+                      Chip(
+                          label: Text('Belum ada laporan teman hari ini'),
+                          visualDensity: VisualDensity.compact),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      final res = await GoRouter.of(context)
+                          .push('/refleksi?jenis=laporan');
+                      if (context.mounted && res == true) {
+                        ref.invalidate(recentRefleksiProvider);
+                        ref.invalidate(_refleksiTodayStatusProvider);
+                      }
+                    },
+                    icon: const Icon(Icons.group),
+                    label: const Text('Laporkan Kondisi Teman'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            ScaleTransition(
+              scale: Tween<double>(begin: 0.92, end: 1.08).animate(
+                  CurvedAnimation(parent: _c, curve: Curves.easeInOut)),
+              child: const Text('🤝', style: TextStyle(fontSize: 42)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+final _moodTodayProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final token = ref.watch(authControllerProvider.select((s) => s.token));
+  if (token == null) return <String, dynamic>{};
   final api = ref.read(apiClientProvider);
   final res = await api.getMoodToday();
   if (!res.ok || res.data is! Map) return <String, dynamic>{};
   return (res.data as Map).cast<String, dynamic>();
 });
 
-class _MoodQuickEmoji extends StatelessWidget {
-  const _MoodQuickEmoji({required this.label, required this.emoji});
+class _MoodQuickEmoji extends ConsumerStatefulWidget {
+  const _MoodQuickEmoji(
+      {required this.label, required this.emoji, required this.score});
   final String label;
   final String emoji;
+  final int score;
+
+  @override
+  ConsumerState<_MoodQuickEmoji> createState() => _MoodQuickEmojiState();
+}
+
+class _MoodQuickEmojiState extends ConsumerState<_MoodQuickEmoji> {
+  bool _saving = false;
+
+  Future<void> _saveMood() async {
+    if (_saving) return;
+
+    setState(() => _saving = true);
+    final api = ref.read(apiClientProvider);
+    final res = await api.postMood(widget.score);
+
+    if (mounted) {
+      setState(() => _saving = false);
+
+      if (res.ok) {
+        // Refresh providers
+        ref.invalidate(recentMoodProvider);
+        ref.invalidate(_moodTodayProvider);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Mood ${widget.label} tersimpan!')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal menyimpan: ${res.errorMessage}')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => GoRouter.of(context).push('/mood'),
-      child: Column(
-        children: [
-          AnimatedScale(
-            scale: 1.0,
-            duration: const Duration(milliseconds: 150),
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: const [
-                  BoxShadow(
-                      color: Color(0x14000000),
-                      offset: Offset(0, 1),
-                      blurRadius: 3),
-                ],
+      onTap: _saving ? null : _saveMood,
+      child: Opacity(
+        opacity: _saving ? 0.5 : 1.0,
+        child: Column(
+          children: [
+            AnimatedScale(
+              scale: 1.0,
+              duration: const Duration(milliseconds: 150),
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: const [
+                    BoxShadow(
+                        color: Color(0x14000000),
+                        offset: Offset(0, 1),
+                        blurRadius: 3),
+                  ],
+                ),
+                child: _saving
+                    ? const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : Center(
+                        child: Text(widget.emoji,
+                            style: const TextStyle(fontSize: 22))),
               ),
-              child: Center(
-                  child: Text(emoji, style: const TextStyle(fontSize: 22))),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        ],
+            const SizedBox(height: 6),
+            Text(widget.label,
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
       ),
     );
   }
@@ -599,8 +759,10 @@ class _QuickChip extends StatelessWidget {
 }
 
 // Provider untuk fetch bookings saya (digunakan untuk shortcut di dashboard)
-final _myBookingsProvider = FutureProvider.family<Map<String, dynamic>, int>(
-    (ref, refreshCounter) async {
+final _myBookingsProvider = FutureProvider.family
+    .autoDispose<Map<String, dynamic>, int>((ref, refreshCounter) async {
+  final token = ref.watch(authControllerProvider.select((s) => s.token));
+  if (token == null) return <String, dynamic>{'data': []};
   final api = ref.read(apiClientProvider);
   final res = await api.getMyBookings();
   if (!res.ok || res.data is! Map) return <String, dynamic>{'data': []};

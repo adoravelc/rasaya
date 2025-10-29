@@ -45,6 +45,9 @@
                     {{-- Analisis Input (untuk semua guru; wali kelas otomatis dibatasi siswanya sendiri) --}}
                     <a class="nav-link {{ $is('guru.analisis.*') }} {{ $is('guru.bk.analisis.*') }}" href="{{ route('guru.analisis.index') }}">Analisis Input</a>
 
+                    {{-- Tren Emosi Siswa --}}
+                    <a class="nav-link {{ $is('guru.tren_emosi.*') }}" href="{{ route('guru.tren_emosi.index') }}">Tren Emosi Siswa</a>
+
                     {{-- === BARU: Slot Konseling (hanya untuk Guru BK) === --}}
                     @if ($guruJenis === 'bk')
                         <a class="nav-link {{ $is('guru.bk.slots.view') }} {{ $is('guru.guru_bk.slots.*') }}"

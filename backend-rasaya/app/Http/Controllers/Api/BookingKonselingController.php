@@ -35,22 +35,27 @@ class BookingKonselingController extends Controller
     /**
      * GET /api/slots/available
      * Query params: from=YYYY-MM-DD, to=YYYY-MM-DD, guru_id (opsional)
-     * Mengembalikan slot published yang belum penuh.
+     * Mengembalikan slot published yang belum penuh dan belum lewat (WITA).
      */
     public function available(Request $r)
     {
         // Default range: hari ini s/d +30 hari
-    $from = ($r->date('from')?->startOfDay()) ?? now()->startOfDay();
-    // Pastikan batas akhir mencakup seluruh hari ketika parameter 'to' diberikan
-    $to = ($r->date('to')?->endOfDay()) ?? now()->addDays(30)->endOfDay();
+        $from = ($r->date('from')?->startOfDay()) ?? now()->startOfDay();
+        // Pastikan batas akhir mencakup seluruh hari ketika parameter 'to' diberikan
+        $to = ($r->date('to')?->endOfDay()) ?? now()->addDays(30)->endOfDay();
         abort_if($from > $to, 422, 'Rentang tanggal tidak valid.');
+
+        // Waktu sekarang dalam WITA (UTC+8)
+        $nowWita = now()->setTimezone('Asia/Makassar');
 
         $q = SlotKonseling::query()
             // Eager-load user for guru to obtain display name
             ->with(['guru.user'])
             ->where('status', 'published')
             ->whereBetween('start_at', [$from, $to])
-            ->where('booked_count', '<', 1);
+            ->where('booked_count', '<', 1)
+            // Filter: hanya slot yang end_at belum lewat (dalam WITA)
+                ->where('start_at', '>', $nowWita);
 
         if ($r->filled('guru_id')) {
             $q->where('guru_id', (int) $r->guru_id);

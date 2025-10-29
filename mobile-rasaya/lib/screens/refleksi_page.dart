@@ -10,7 +10,9 @@ import '../auth/auth_controller.dart';
 import '../widgets/app_scaffold.dart';
 
 class RefleksiPage extends ConsumerStatefulWidget {
-  const RefleksiPage({super.key});
+  final String? initialJenis;
+
+  const RefleksiPage({super.key, this.initialJenis});
 
   @override
   ConsumerState<RefleksiPage> createState() => _RefleksiPageState();
@@ -35,6 +37,15 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
   bool _loadingSiswa = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Set jenis dari parameter jika ada
+    if (widget.initialJenis == 'laporan') {
+      _jenis = 'laporan';
+    }
+  }
+
+  @override
   void dispose() {
     _teksCtrl.dispose();
     super.dispose();
@@ -44,7 +55,7 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _tanggal,
-      firstDate: DateTime.now().subtract(const Duration(days: 60)),
+      firstDate: DateTime.now(), // tidak bisa pilih tanggal lalu
       lastDate: DateTime.now(),
     );
     if (picked != null) setState(() => _tanggal = picked);
@@ -349,8 +360,11 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
 
     final right = const _PanduanMenulis();
 
+    // Tentukan title berdasarkan jenis
+    final pageTitle = _jenis == 'laporan' ? 'Lapor Teman' : 'Refleksi Harian';
+
     return AppScaffold(
-      title: 'Refleksi Harian',
+      title: pageTitle,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (ctx, c) {

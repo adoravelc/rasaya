@@ -94,7 +94,7 @@ class InputGuruController extends Controller
             'siswa_kelas_id' => ['required', 'integer', Rule::exists('siswa_kelass', 'id')],
             'teks' => ['nullable', 'string'],
             'catatan' => ['nullable', 'string'],
-            'tanggal' => ['nullable', 'date'],
+            // tanggal ditetapkan otomatis (hari ini), abaikan input dari klien
             'kondisi_siswa' => ['required', Rule::in(['green', 'yellow', 'orange', 'red', 'black', 'grey'])],
             'gambar' => ['nullable', 'image', 'max:2048'],
             'kategori_ids' => ['array'],
@@ -118,8 +118,8 @@ class InputGuruController extends Controller
         if ($teks === null || $teks === '')
             $teks = $r->input('catatan', '');
 
-        // tanggal target
-        $tanggal = $r->input('tanggal') ?: now()->toDateString();
+    // tanggal target: selalu hari ini (kunci di server)
+    $tanggal = now()->toDateString();
 
         // duplicate guard: guru + siswa_kelas + tanggal
         $dup = InputGuru::where('guru_id', $guruId)
@@ -167,14 +167,15 @@ class InputGuruController extends Controller
             'siswa_kelas_id' => ['sometimes', 'integer', Rule::exists('siswa_kelass', 'id')],
             'teks' => ['nullable', 'string'],
             'catatan' => ['nullable', 'string'],
-            'tanggal' => ['nullable', 'date'],
+            // tanggal tidak dapat diubah melalui update
             'kondisi_siswa' => ['sometimes', Rule::in(['green', 'yellow', 'orange', 'red', 'black', 'grey'])],
             'gambar' => ['nullable', 'image', 'max:2048'],
             'kategori_ids' => ['array'],
             'kategori_ids.*' => [Rule::exists('kategori_masalahs', 'id')],
         ]);
 
-        $data = $r->only(['siswa_kelas_id', 'tanggal', 'kondisi_siswa']);
+        // Jangan pernah menerima perubahan tanggal via update
+        $data = $r->only(['siswa_kelas_id', 'kondisi_siswa']);
 
         // If WK, ensure new siswa_kelas (if provided) belongs to own kelas
         $wkKelasId = \App\Models\Kelas::where('wali_guru_id', $r->user()->id)->latest('tahun_ajaran_id')->value('id');
@@ -192,8 +193,8 @@ class InputGuruController extends Controller
             $data['teks'] = $teks;
         }
 
-        // duplicate guard on update: if target siswa_kelas/tanggal collide with another row
-    $targetTanggal = $r->input('tanggal') ?: (string) $observasi->tanggal;
+        // duplicate guard on update: tanggal dikunci ke tanggal observasi
+        $targetTanggal = (string) $observasi->tanggal;
         $targetSiswaKelasId = $r->filled('siswa_kelas_id') ? (int)$r->siswa_kelas_id : (int)$observasi->siswa_kelas_id;
         $dup = InputGuru::where('guru_id', $observasi->guru_id)
             ->where('siswa_kelas_id', $targetSiswaKelasId)

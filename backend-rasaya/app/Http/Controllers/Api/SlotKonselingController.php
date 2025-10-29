@@ -16,7 +16,13 @@ class SlotKonselingController extends Controller
     {
         $guruId = optional($r->user()->guru)->user_id ?? $r->user()->id;
 
-        $q = SlotKonseling::where('guru_id', $guruId)->orderBy('start_at');
+        // Waktu sekarang dalam WITA (UTC+8)
+        $nowWita = now()->setTimezone('Asia/Makassar');
+
+        $q = SlotKonseling::where('guru_id', $guruId)
+            // Filter: hanya tampilkan slot yang end_at belum lewat
+                ->where('start_at', '>', $nowWita);
+            
         // map availability to current schema (status='published' + booked_count)
         if ($r->filled('availability')) {
             $av = (string) $r->input('availability');
@@ -34,6 +40,9 @@ class SlotKonselingController extends Controller
             $q->where('start_at', '>=', $r->date('from'));
         if ($r->filled('to'))
             $q->where('start_at', '<=', $r->date('to'));
+
+        // Sort: booked terlebih dahulu (descending booked_count), lalu by start_at
+        $q->orderByDesc('booked_count')->orderBy('start_at');
 
         return response()->json($q->paginate($r->integer('per_page', 20)));
     }
