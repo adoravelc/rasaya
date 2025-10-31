@@ -58,3 +58,11 @@ body {
 }
 
 /* Tables responsive already via .table-responsive wrappers */
+
+/* Pagination tune: slightly smaller buttons */
+.pagination {
+	--bs-pagination-padding-x: .5rem;
+	--bs-pagination-padding-y: .25rem;
+	--bs-pagination-font-size: .9rem;
+	--bs-pagination-border-radius: 8px;
+}

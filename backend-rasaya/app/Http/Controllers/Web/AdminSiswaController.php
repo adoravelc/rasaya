@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSiswaRequest;
 use App\Http\Requests\UpdateSiswaRequest;
 use App\Models\Siswa;
+use App\Models\TahunAjaran;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -15,7 +16,19 @@ class AdminSiswaController extends Controller
     public function index(Request $request)
     {
         $q = trim((string) $request->input('q'));
-        $siswas = Siswa::with('user')
+        
+        // Get active tahun ajaran
+        $activeTa = TahunAjaran::aktif()->first();
+        
+        $siswas = Siswa::with([
+                'user',
+                'kelass' => function ($query) use ($activeTa) {
+                    if ($activeTa) {
+                        $query->where('siswa_kelass.tahun_ajaran_id', $activeTa->id)
+                            ->with('jurusan');
+                    }
+                }
+            ])
             ->when($q, function ($q2) use ($q) {
                 $q2->whereHas('user', function ($u) use ($q) {
                     $like = "%{$q}%";
@@ -27,7 +40,7 @@ class AdminSiswaController extends Controller
             ->orderByDesc('user_id')
             ->paginate(15)
             ->withQueryString();
-        return view('roles.admin.siswa.index', compact('siswas', 'q'));
+        return view('roles.admin.siswa.index', compact('siswas', 'q', 'activeTa'));
     }
 
     public function store(StoreSiswaRequest $request)

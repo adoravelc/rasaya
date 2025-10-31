@@ -21,13 +21,31 @@
             {{-- ================= ADMIN ================= --}}
             @case('admin')
                 <nav class="nav nav-pills flex-column gap-1">
-                    <a class="nav-link {{ $is('admin.dashboard') }}" href="{{ route('admin.dashboard') }}">Dashboard</a>
-                    <a class="nav-link {{ $is('admin.kelas.index') }}" href="{{ route('admin.kelas.index') }}">Manajemen
-                        Kelas</a>
-                    <a class="nav-link {{ $is('admin.kategori.index') }}" href="{{ route('admin.kategori.index') }}">Manajemen
-                        Kategori</a>
-                    <a class="nav-link {{ $is('admin.guru.index') }}" href="{{ route('admin.guru.index') }}">Manajemen Guru</a>
-                    <a class="nav-link {{ $is('admin.siswa.index') }}" href="{{ route('admin.siswa.index') }}">Manajemen Siswa</a>
+                    <a class="nav-link {{ $is('admin.dashboard*') }}" href="{{ route('admin.dashboard') }}">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                    
+                    <div class="text-uppercase text-muted fw-semibold small mb-1 mt-3">Analytics & Monitoring</div>
+                    <a class="nav-link {{ $is('admin.dashboard.login-history') }}" href="{{ route('admin.dashboard.login-history') }}">
+                        <i class="bi bi-clock-history"></i> Login History
+                    </a>
+                    <a class="nav-link {{ $is('admin.dashboard.audit-logs') }}" href="{{ route('admin.dashboard.audit-logs') }}">
+                        <i class="bi bi-journal-text"></i> Audit Logs
+                    </a>
+                    
+                    <div class="text-uppercase text-muted fw-semibold small mb-1 mt-3">Manajemen Data</div>
+                    <a class="nav-link {{ $is('admin.kelas.index') }}" href="{{ route('admin.kelas.index') }}">
+                        <i class="bi bi-door-closed"></i> Manajemen Kelas
+                    </a>
+                    <a class="nav-link {{ $is('admin.kategori.index') }}" href="{{ route('admin.kategori.index') }}">
+                        <i class="bi bi-tags"></i> Manajemen Kategori
+                    </a>
+                    <a class="nav-link {{ $is('admin.guru.index') }}" href="{{ route('admin.guru.index') }}">
+                        <i class="bi bi-person-badge"></i> Manajemen Guru
+                    </a>
+                    <a class="nav-link {{ $is('admin.siswa.index') }}" href="{{ route('admin.siswa.index') }}">
+                        <i class="bi bi-people"></i> Manajemen Siswa
+                    </a>
                     
                 </nav>
             @break

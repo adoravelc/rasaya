@@ -15,8 +15,8 @@ class TahunAjaranSeeder extends Seeder
     {
         $data = [
             ['nama' => '2023/2024', 'mulai' => '2023-07-01', 'selesai' => '2024-06-30', 'is_active' => false],
-            ['nama' => '2024/2025', 'mulai' => '2024-07-01', 'selesai' => '2025-06-30', 'is_active' => true],
-            ['nama' => '2025/2026', 'mulai' => '2025-07-01', 'selesai' => '2026-06-30', 'is_active' => false],
+            ['nama' => '2024/2025', 'mulai' => '2024-07-01', 'selesai' => '2025-06-30', 'is_active' => false],
+            ['nama' => '2025/2026', 'mulai' => '2025-07-01', 'selesai' => '2026-06-30', 'is_active' => true],
         ];
 
         foreach ($data as $ta) {

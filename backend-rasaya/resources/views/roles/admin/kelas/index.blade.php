@@ -64,7 +64,11 @@
         <div class="card-body p-0">
             <div class="d-flex justify-content-between align-items-center px-3 pt-3">
                 <h5 class="mb-0">Kelas</h5>
-                <button class="btn btn-sm btn-primary" onclick="openCreate()">+ Tambah Kelas</button>
+                <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-secondary" href="{{ route('admin.siswa_kelas.index', ['tahun_ajaran_id' => $activeTa]) }}">Kelola Siswa per Kelas</a>
+                    <a class="btn btn-outline-primary" href="{{ route('admin.siswa_kelas.full', ['tahun_ajaran_id' => $activeTa]) }}">Daftar Seluruh Siswa</a>
+                    <button class="btn btn-primary" onclick="openCreate()">+ Tambah Kelas</button>
+                </div>
             </div>
             <div class="table-responsive">
                 <table class="table table-striped mb-0 align-middle">

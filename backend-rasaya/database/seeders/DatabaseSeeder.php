@@ -21,7 +21,14 @@ class DatabaseSeeder extends Seeder
             KategoriMasalahSeeder::class,
             MasterRekomendasiSeeder::class,
             MasterRekomendasiBulkSeeder::class,
-            // SiswaKelasSeeder::class,            
+                // SiswaKelasSeeder::class,            
+            SetupKelasXiiIps2Seeder::class,
+            SiswaXiiIps2Seeder::class,
+            // RefleksiPribadiSeeder::class,
+            // LaporanTemanSeeder::class,
+            // PemantauanEmosiHarianSeeder::class,
+            // ObservasiWaliSeeder::class,
+            // ObservasiBkSeeder::class,
         ]);
     }
 }

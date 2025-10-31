@@ -24,6 +24,7 @@
                 <th>Identifier</th>
                 <th>Nama</th>
                 <th>Email</th>
+                <th>Kelas</th>
                 <th class="text-end">Aksi</th>
             </tr>
         </thead>
@@ -34,6 +35,18 @@
                 <td>{{ $s->user->identifier }}</td>
                 <td>{{ $s->user->name }}</td>
                 <td>{{ $s->user->email }}</td>
+                <td>
+                    @if($s->kelass->isNotEmpty())
+                        @php
+                            $kelas = $s->kelass->first();
+                            $kelasLabel = $kelas->label; // Using the label accessor: "XII IPS 1"
+                            $taName = $activeTa ? ($activeTa->nama ?? ($activeTa->mulai . '/' . $activeTa->selesai)) : '';
+                        @endphp
+                        <span class="badge bg-info">{{ $kelasLabel }} ({{ $taName }})</span>
+                    @else
+                        <span class="text-muted small">-</span>
+                    @endif
+                </td>
                 <td class="text-end">
                     <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditSiswa" data-user="{{ json_encode(['id'=>$s->user->id,'identifier'=>$s->user->identifier,'name'=>$s->user->name,'email'=>$s->user->email]) }}">Edit</button>
                     <form action="{{ route('admin.siswa.destroy', $s->user->id) }}" method="post" class="d-inline" onsubmit="return confirm('Arsipkan siswa ini?')">
@@ -43,11 +56,11 @@
                 </td>
             </tr>
             @empty
-            <tr><td colspan="5" class="text-center text-muted py-5">Belum ada data siswa.</td></tr>
+            <tr><td colspan="6" class="text-center text-muted py-5">Belum ada data siswa.</td></tr>
             @endforelse
         </tbody>
     </table>
-    {{ $siswas->links() }}
+  {{ $siswas->links('pagination::bootstrap-5') }}
 </div>
 
 <!-- Modal Tambah Siswa -->
@@ -94,6 +107,16 @@ document.getElementById('modalEditSiswa')?.addEventListener('show.bs.modal', (ev
   form.querySelector('[name=identifier]').value = data.identifier;
   form.querySelector('[name=name]').value = data.name;
   form.querySelector('[name=email]').value = data.email;
+  // Clear password field when opening modal
+  form.querySelector('[name=password]').value = '';
+});
+
+// Remove empty password field before submit
+document.getElementById('formEditSiswa')?.addEventListener('submit', (e)=>{
+  const passwordInput = e.target.querySelector('[name=password]');
+  if (passwordInput && passwordInput.value.trim() === '') {
+    passwordInput.removeAttribute('name'); // Don't send empty password
+  }
 });
 </script>
 @endpush

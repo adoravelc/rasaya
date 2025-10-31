@@ -108,6 +108,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Flutter Web URL
+    |--------------------------------------------------------------------------
+    |
+    | This URL is used to redirect siswa users to the Flutter web application.
+    | Set FLUTTER_WEB_URL in your .env file to point to your hosted Flutter web.
+    |
+    */
+
+    'flutter_web_url' => env('FLUTTER_WEB_URL', 'http://localhost:8080'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Maintenance Mode Driver
     |--------------------------------------------------------------------------
     |

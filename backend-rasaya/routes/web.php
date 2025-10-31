@@ -12,6 +12,7 @@ use App\Http\Controllers\Web\InputGuruController;
 use App\Http\Controllers\Web\AdminGuruController;
 use App\Http\Controllers\Web\AdminSiswaController;
 use App\Http\Controllers\Web\AdminSiswaKelasController;
+use App\Http\Controllers\Web\SiswaDashboardController;
 use App\Http\Controllers\Web\AdminJurusanController;
 use App\Http\Controllers\Web\TahunAjaranWebController;
 use App\Http\Controllers\Api\SlotKonselingController as SlotApi;
@@ -41,7 +42,12 @@ Route::get('/dashboard', function (Request $request) {
 
 /** ===================== ADMIN ===================== */
 Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
+    // Dashboard & Analytics
     Route::get('/', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
+    Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard.index');
+    Route::get('/dashboard/login-history', [AdminDashboardController::class, 'loginHistory'])->name('admin.dashboard.login-history');
+    Route::get('/dashboard/user-activity/{userId}', [AdminDashboardController::class, 'userActivity'])->name('admin.dashboard.user-activity');
+    Route::get('/dashboard/audit-logs', [AdminDashboardController::class, 'auditLogs'])->name('admin.dashboard.audit-logs');
 
     // Kelas
     Route::get('/kelas', [KelasWebController::class, 'index'])->name('admin.kelas.index');
@@ -75,6 +81,7 @@ Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
 
     // Siswa-Kelas
     Route::get('/siswa-kelas', [AdminSiswaKelasController::class, 'index'])->name('admin.siswa_kelas.index');
+    Route::get('/siswa-kelas/full', [AdminSiswaKelasController::class, 'full'])->name('admin.siswa_kelas.full');
     Route::post('/siswa-kelas', [AdminSiswaKelasController::class, 'store'])->name('admin.siswa_kelas.store');
     Route::post('/siswa-kelas/remove', [AdminSiswaKelasController::class, 'remove'])->name('admin.siswa_kelas.remove');
 
@@ -161,6 +168,11 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
     Route::get('/tren-emosi', [EmosiTrenController::class, 'index'])->name('guru.tren_emosi.index');
     Route::get('/tren-emosi/data', [EmosiTrenController::class, 'data'])->name('guru.tren_emosi.data');
     Route::get('/tren-emosi/siswa', [EmosiTrenController::class, 'siswaByKelas'])->name('guru.tren_emosi.siswa');
+});
+
+/** ===================== SISWA ===================== */
+Route::prefix('siswa')->middleware(['auth', 'role:siswa'])->group(function () {
+    Route::get('/', [SiswaDashboardController::class, 'index'])->name('siswa.dashboard');
 });
 
 Route::redirect('/admin/dashboard', '/admin');

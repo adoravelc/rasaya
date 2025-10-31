@@ -17,21 +17,89 @@ class AdminSiswaKelasController extends Controller
     {
         $tahunAjarans = TahunAjaran::orderByDesc('nama')->get();
         $activeTa = $request->input('tahun_ajaran_id') ?: TahunAjaran::aktif()->value('id');
+        $kelasId = $request->input('kelas_id');
+        $search = trim((string) $request->input('search'));
 
-        $kelas = Kelas::with(['waliGuru'])
+        // All kelas options for dropdown
+        $kelasOptions = Kelas::with(['waliGuru'])
             ->when($activeTa, fn($q) => $q->where('tahun_ajaran_id', $activeTa))
-            ->orderBy('tingkat')->orderByRaw("COALESCE(penjurusan,'')")->orderBy('rombel')
+            ->orderBy('tingkat')
+            ->orderByRaw('COALESCE(jurusan_id, 0)')
+            ->orderBy('rombel')
             ->get();
 
-        // Ambil mapping siswa->kelas aktif
-        $assignments = SiswaKelas::with(['siswa.user', 'kelas'])
-            ->when($activeTa, fn($q) => $q->where('tahun_ajaran_id', $activeTa))
+        // Selected class (if any)
+        $selectedKelas = $kelasId ? $kelasOptions->firstWhere('id', $kelasId) : null;
+
+        // Roster for selected class only (when kelas_id is provided)
+        $assignments = $kelasId 
+            ? SiswaKelas::with(['siswa.user'])
+                ->where('tahun_ajaran_id', $activeTa)
+                ->where('kelas_id', $kelasId)
+                ->where('is_active', true)
+                ->orderBy('siswa_id')
+                ->get()
+            : collect();
+
+        // Search results (all students across all classes in active TA, if search is provided)
+        $searchResults = collect();
+        if ($search) {
+            $searchResults = SiswaKelas::with(['siswa.user', 'kelas'])
+                ->where('tahun_ajaran_id', $activeTa)
+                ->where('is_active', true)
+                ->whereHas('siswa.user', function($q) use ($search) {
+                    $like = "%{$search}%";
+                    $q->where('name', 'like', $like)
+                      ->orWhere('identifier', 'like', $like);
+                })
+                ->orderBy('kelas_id')
+                ->orderBy('siswa_id')
+                ->get();
+        }
+
+        // Available students for "Tambah Siswa" (exclude students already in ANY class for this TA)
+        $registeredSiswaIds = SiswaKelas::where('tahun_ajaran_id', $activeTa)
             ->where('is_active', true)
+            ->pluck('siswa_id');
+        
+        $availableSiswas = Siswa::with('user')
+            ->whereNotIn('user_id', $registeredSiswaIds)
+            ->orderBy('user_id')
             ->get();
 
-        $siswas = Siswa::with('user')->orderBy('user_id')->get();
+        return view('roles.admin.siswa_kelas.index', compact('tahunAjarans', 'activeTa', 'kelasOptions', 'kelasId', 'selectedKelas', 'assignments', 'availableSiswas', 'search', 'searchResults'));
+    }
 
-        return view('roles.admin.siswa_kelas.index', compact('tahunAjarans', 'activeTa', 'kelas', 'assignments', 'siswas'));
+    // Full-page roster/daftar hadir style view
+    public function full(Request $request)
+    {
+        $tahunAjarans = TahunAjaran::orderByDesc('nama')->get();
+        $activeTa = $request->input('tahun_ajaran_id') ?: TahunAjaran::aktif()->value('id');
+        $kelasId = $request->input('kelas_id');
+
+        // Options for dropdown (all classes in active TA)
+        $kelasOptions = Kelas::with('waliGuru')
+            ->when($activeTa, fn($q) => $q->where('tahun_ajaran_id', $activeTa))
+            ->orderBy('tingkat')
+            ->orderByRaw('COALESCE(jurusan_id, 0)')
+            ->orderBy('rombel')
+            ->get();
+
+        // Page content: either all classes or a single class when filtered
+        $kelas = (clone $kelasOptions)
+            ->when($kelasId, fn($q) => $q->where('id', $kelasId));
+
+        // Fetch roster per kelas with siswa user eager-loaded
+        $assignments = SiswaKelas::with(['siswa.user'])
+            ->when($activeTa, fn($q) => $q->where('tahun_ajaran_id', $activeTa))
+            ->when($kelasId, fn($q) => $q->where('kelas_id', $kelasId))
+            ->where('is_active', true)
+            ->orderBy('kelas_id')
+            ->orderBy('siswa_id')
+            ->get()
+            ->groupBy('kelas_id');
+
+        return view('roles.admin.siswa_kelas.full', compact('tahunAjarans', 'activeTa', 'kelasOptions', 'kelasId', 'kelas', 'assignments'));
     }
 
     public function store(Request $request)

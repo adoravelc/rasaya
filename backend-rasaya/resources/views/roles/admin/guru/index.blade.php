@@ -120,6 +120,16 @@ document.getElementById('modalEditGuru')?.addEventListener('show.bs.modal', (ev)
   form.querySelector('[name=name]').value = data.name;
   form.querySelector('[name=email]').value = data.email;
   form.querySelector('[name=jenis]').value = data.jenis;
+  // Clear password field when opening modal
+  form.querySelector('[name=password]').value = '';
+});
+
+// Remove empty password field before submit
+document.getElementById('formEditGuru')?.addEventListener('submit', (e)=>{
+  const passwordInput = e.target.querySelector('[name=password]');
+  if (passwordInput && passwordInput.value.trim() === '') {
+    passwordInput.removeAttribute('name'); // Don't send empty password
+  }
 });
 </script>
 @endpush
