@@ -31,10 +31,43 @@ class MasterRekomendasiPivotSeeder extends Seeder
 
         MasterRekomendasi::chunk(100, function ($masters) use ($byName, $byKode, $tokenToKode) {
             foreach ($masters as $m) {
-                // Normalize tags from JSON array or comma-separated string
-                $tags = collect(is_array($m->tags) ? $m->tags : explode(',', (string) ($m->tags ?? '')))
+                // Collect tags from multiple sources (tags, rules.topik, rules.subtopik)
+                $rawTags = $m->tags ?? [];
+
+                // Parse tags: accept array, JSON string, or comma-separated string
+                if (is_array($rawTags)) {
+                    $tagItems = $rawTags;
+                } else {
+                    $tagItems = [];
+                    $rawStr = (string) $rawTags;
+                    $decoded = json_decode($rawStr, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                        $tagItems = $decoded;
+                    } elseif ($rawStr !== '') {
+                        $tagItems = explode(',', $rawStr);
+                    }
+                }
+
+                // Also pull topik/subtopik from rules if available (array or JSON string)
+                $rules = $m->rules ?? [];
+                $rulesArr = [];
+                if (is_array($rules)) {
+                    $rulesArr = $rules;
+                } elseif (is_string($rules)) {
+                    $decodedRules = json_decode($rules, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decodedRules)) {
+                        $rulesArr = $decodedRules;
+                    }
+                }
+                if (!empty($rulesArr)) {
+                    if (!empty($rulesArr['topik'])) $tagItems[] = $rulesArr['topik'];
+                    if (!empty($rulesArr['subtopik'])) $tagItems[] = $rulesArr['subtopik'];
+                }
+
+                $tags = collect($tagItems)
                     ->map(fn($t) => mb_strtolower(trim((string)$t)))
-                    ->filter()->unique();
+                    ->filter()
+                    ->unique();
 
                 $attachIds = collect();
 
@@ -59,6 +92,13 @@ class MasterRekomendasiPivotSeeder extends Seeder
                             if ($cat) $attachIds->push($cat->id);
                         }
                     }
+                }
+
+                // 4) Map by kode prefix (e.g., EMO_STRES_AKADE_01 -> EMO)
+                if (!empty($m->kode)) {
+                    $prefix = strtoupper(strtok((string)$m->kode, '_'));
+                    $cat = $byKode[$prefix] ?? null;
+                    if ($cat) $attachIds->push($cat->id);
                 }
 
                 $ids = $attachIds->filter()->unique()->values()->all();
