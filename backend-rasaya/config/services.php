@@ -37,6 +37,8 @@ return [
     'ml_api' => [
         'url' => env('ML_API_URL'),
         'key' => env('ML_API_KEY'),
+        'timeout' => env('ML_API_TIMEOUT', 120), // seconds
+        'connect_timeout' => env('ML_API_CONNECT_TIMEOUT', 5), // seconds
     ],
 
 ];

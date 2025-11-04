@@ -58,5 +58,41 @@
   "minggu": {
     "DISIPLIN": -0.6,
     "SOSIAL": -0.15
+  },
+  "echan murung bet damn": {
+    "AKADEMIK": -0.3,
+    "KESEHATAN MENTAL & EMOSI": -0.075,
+    "SOSIAL & PERGAULAN": -0.15,
+    "DISIPLIN & TATA TERTIB": -0.075
+  },
+  "habis kelas langsung": {
+    "AKADEMIK": -0.3,
+    "KESEHATAN MENTAL & EMOSI": -0.075,
+    "SOSIAL & PERGAULAN": -0.15,
+    "DISIPLIN & TATA TERTIB": -0.075
+  },
+  "echan keliatan": {
+    "AKADEMIK": -0.3,
+    "KESEHATAN MENTAL & EMOSI": -0.075,
+    "SOSIAL & PERGAULAN": -0.15,
+    "DISIPLIN & TATA TERTIB": -0.075
+  },
+  "makanan gratis": {
+    "AKADEMIK": -0.3,
+    "KESEHATAN MENTAL & EMOSI": -0.075,
+    "SOSIAL & PERGAULAN": -0.15,
+    "DISIPLIN & TATA TERTIB": -0.075
+  },
+  "kerjain tugas": {
+    "AKADEMIK": -0.3,
+    "KESEHATAN MENTAL & EMOSI": -0.075,
+    "SOSIAL & PERGAULAN": -0.15,
+    "DISIPLIN & TATA TERTIB": -0.075
+  },
+  "capek banget": {
+    "AKADEMIK": -0.3,
+    "KESEHATAN MENTAL & EMOSI": -0.075,
+    "SOSIAL & PERGAULAN": -0.15,
+    "DISIPLIN & TATA TERTIB": -0.075
   }
 }

@@ -7,8 +7,10 @@ from langdetect import detect
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 import os
+import re
 import nltk
 import json
+from typing import List, Dict
 from collections import defaultdict, Counter
 
 def ensure_nltk():
@@ -49,6 +51,10 @@ app = Flask(__name__)
 
 API_KEY = os.environ.get("ML_API_KEY")  # optional
 FEEDBACK_FILE = os.environ.get("ML_FEEDBACK_FILE", "feedback_weights.json")
+LEXICON_DIR = os.environ.get("ML_LEXICON_DIR", os.path.join(os.path.dirname(__file__), "lexicons"))
+ENABLE_BERT = os.environ.get("ML_ENABLE_BERT", "false").lower() in ("1","true","yes")
+BERT_MODEL_NAME = os.environ.get("ML_BERT_MODEL", "indobenchmark/indobert-base-p1")
+ENABLE_BERT_WARMUP = os.environ.get("ML_BERT_WARMUP", "false").lower() in ("1","true","yes")
 
 def check_key():
     if API_KEY:
@@ -118,6 +124,137 @@ def score_categories_for_text(txt: str, categories_map: dict, feedback: dict):
             scores[k] = round(scores[k] / total, 4)
     return scores, {k: sorted(set(v))[:5] for k, v in reasons.items()}
 
+# =====================
+# Cleaning & Lexicon Loader (InSet + optional Barasa)
+# =====================
+
+_RE_MULTISPACE = re.compile(r"\s+")
+_RE_REPEAT = re.compile(r"(.)\1{2,}")  # aaa -> aa
+
+def clean_text(t: str) -> str:
+    t = (t or "").strip().lower()
+    t = _RE_REPEAT.sub(r"\1\1", t)
+    t = _RE_MULTISPACE.sub(" ", t)
+    return t
+
+
+def load_inset_lexicon(base_dir: str) -> Dict[str, float]:
+    """Load InSet format: lexicons/inset/{positive.tsv,negative.tsv}."""
+    out: Dict[str, float] = {}
+    inset_dir = os.path.join(base_dir, "inset")
+    pos = os.path.join(inset_dir, "positive.tsv")
+    neg = os.path.join(inset_dir, "negative.tsv")
+    if os.path.exists(pos):
+        with open(pos, "r", encoding="utf-8") as f:
+            for line in f:
+                w = line.strip().split("\t")[0]
+                if w:
+                    out[w.lower()] = 1.0
+    if os.path.exists(neg):
+        with open(neg, "r", encoding="utf-8") as f:
+            for line in f:
+                w = line.strip().split("\t")[0]
+                if w:
+                    out[w.lower()] = -1.0
+    return out
+
+
+def load_barasa_csv(path: str) -> Dict[str, float]:
+    """Load Barasa CSV with headers; expects at least a 'lemma' column and
+    either a 'score' column (float, negative to positive) or separate
+    'pos'/'neg' columns that can be combined (score = pos - neg).
+    Values are clamped to [-1, 1].
+    """
+    lex: Dict[str, float] = {}
+    try:
+        import csv
+        with open(path, encoding="utf-8") as f:
+            r = csv.DictReader(f)
+            for row in r:
+                lemma = (row.get("lemma") or row.get("word") or row.get("token") or "").strip().lower()
+                if not lemma:
+                    continue
+                score_val = None
+                # Prefer unified score
+                if row.get("score") not in (None, ""):
+                    try:
+                        score_val = float(row.get("score"))
+                    except Exception:
+                        score_val = None
+                # Else try pos/neg columns
+                if score_val is None:
+                    try:
+                        pos = float(row.get("pos") or row.get("positive") or 0)
+                        neg = float(row.get("neg") or row.get("negative") or 0)
+                        score_val = pos - neg
+                    except Exception:
+                        score_val = 0.0
+                score_val = max(-1.0, min(1.0, float(score_val)))
+                lex[lemma] = score_val
+    except Exception:
+        pass
+    return lex
+
+
+def load_barasa_optional(base_dir: str) -> Dict[str, float]:
+    """
+    Try to read Barasa resources if available. The provided file wn-msa-all.tab
+    is a WordNet-style tab file (no explicit polarity). We don't assign scores
+    from it directly; instead we just return empty dict so it doesn't affect
+    sentiment unless in the future we add mapping rules.
+    If you later provide barasa.csv (word,score), we can extend this loader.
+    """
+    barasa_dir = os.path.join(base_dir, "barasa")
+    wn_file = os.path.join(barasa_dir, "wn-msa-all.tab")
+    # Placeholder: no direct sentiment; return empty for now.
+    # Future: map synonyms of existing sentiment words and inherit score * 0.8
+    if os.path.exists(wn_file):
+        return {}
+    # also support barasa.csv if added by user
+    csv_file = os.path.join(base_dir, "barasa.csv")
+    if os.path.exists(csv_file):
+        out: Dict[str, float] = {}
+        with open(csv_file, "r", encoding="utf-8") as f:
+            for line in f:
+                if "," in line:
+                    w, sc = line.strip().split(",", 1)
+                    try:
+                        out[w.lower()] = max(-1.0, min(1.0, float(sc)))
+                    except Exception:
+                        continue
+        return out
+    return {}
+
+
+def build_lexicon() -> Dict[str, float]:
+    # Start from InSet if available
+    lex = load_inset_lexicon(LEXICON_DIR)
+    # Merge Barasa if CSV provided; else try optional WordNet source (no polarity)
+    barasa_csv = os.path.join(LEXICON_DIR, "barasa", "barasa_lexicon.csv")
+    if os.path.exists(barasa_csv):
+        lex.update(load_barasa_csv(barasa_csv))
+    else:
+        bar = load_barasa_optional(LEXICON_DIR)
+        lex.update(bar)
+    # Add custom Kupang/ID extra (normalize roughly to [-1,1])
+    for k, v in ID_EXTRA.items():
+        lex[k.lower()] = max(-1.0, min(1.0, float(v) / 3.0))
+    return lex
+
+
+LEXICON_ID = build_lexicon()
+
+
+def score_with_lexicon(text: str, lex: Dict[str, float]) -> float:
+    toks = clean_text(text).split()
+    if not toks:
+        return 0.0
+    s = 0.0
+    for t in toks:
+        s += lex.get(t, 0.0)
+    # dampen by sqrt length
+    return max(-1.0, min(1.0, s / max(1.0, len(toks) ** 0.5)))
+
 def extract_keyphrases(texts, lang="id"):
     # RAKE pakai stopwords bhs Inggris default; untuk id sederhana kita kasih stopwords id juga
     sw = set(stopwords.words('indonesian')) | set(stopwords.words('english'))
@@ -133,6 +270,55 @@ def extract_keyphrases(texts, lang="id"):
 @app.get("/health")
 def health():
     return jsonify({"status": "ok"})
+
+# =====================
+# IndoBERT caching & optional warmup
+# =====================
+BERT_CACHE = {"tok": None, "mdl": None, "device": "cpu"}
+
+def get_bert():
+    if not ENABLE_BERT:
+        return None, None, None
+    try:
+        from transformers import AutoTokenizer, AutoModel  # type: ignore
+        import torch  # type: ignore
+        dev = "cuda" if torch.cuda.is_available() else "cpu"
+        if BERT_CACHE["tok"] is None:
+            BERT_CACHE["tok"] = AutoTokenizer.from_pretrained(BERT_MODEL_NAME)
+            BERT_CACHE["mdl"] = AutoModel.from_pretrained(BERT_MODEL_NAME).to(dev).eval()
+            BERT_CACHE["device"] = dev
+        return BERT_CACHE["tok"], BERT_CACHE["mdl"], BERT_CACHE["device"]
+    except Exception:
+        return None, None, None
+
+# Warmup at startup if requested (download/load once)
+if ENABLE_BERT and ENABLE_BERT_WARMUP:
+    tok, mdl, dev = get_bert()
+    try:
+        if tok is not None and mdl is not None:
+            import torch  # type: ignore
+            with torch.no_grad():
+                enc = tok(["warmup"], padding=True, truncation=True, max_length=16, return_tensors="pt")
+                _ = mdl(**enc.to(dev))
+    except Exception:
+        pass
+
+@app.get("/warmup")
+def warmup():
+    """Optionally trigger BERT load and a tiny forward pass to avoid first-request latency."""
+    if not ENABLE_BERT:
+        return jsonify({"bert": "disabled"})
+    tok, mdl, dev = get_bert()
+    if tok is None or mdl is None:
+        return jsonify({"bert": "unavailable"}), 500
+    try:
+        import torch  # type: ignore
+        with torch.no_grad():
+            enc = tok(["warmup"], padding=True, truncation=True, max_length=16, return_tensors="pt")
+            _ = mdl(**enc.to(dev))
+        return jsonify({"bert": "ready", "device": dev})
+    except Exception as e:
+        return jsonify({"bert": "error", "message": str(e)}), 500
 
 @app.post("/analyze")
 def analyze():
@@ -162,7 +348,8 @@ def analyze():
 
     for it in items:
         _id = it.get("id") or ""
-        txt = (it.get("text") or "").strip()
+        raw_txt = (it.get("text") or "").strip()
+        txt = clean_text(raw_txt)
         lang_hint = it.get("lang_hint")
         if not txt:
             continue
@@ -170,9 +357,10 @@ def analyze():
         # lang detect simple
         lang = detect_lang(txt, hint=lang_hint)
 
-        # sentiment via VADER + extended lexicon
-        s = sia.polarity_scores(txt)
-        compound = float(s.get("compound", 0.0))
+        # sentiment hybrid: Indonesian lexicon + VADER (raw for emoticons)
+        s_lex = score_with_lexicon(txt, LEXICON_ID)
+        s_vad = sia.polarity_scores(raw_txt).get("compound", 0.0)
+        compound = float(0.7 * s_lex + 0.3 * s_vad)
         lbl = label_from_score(compound)
 
         # keywords per item (pakai RAKE cepat)
@@ -182,7 +370,7 @@ def analyze():
 
         rec = {
             "id": _id,
-            "text": txt,
+            "text": raw_txt,
             "lang": lang,
             "sentiment": compound,
             "label": lbl,
@@ -207,23 +395,66 @@ def analyze():
     # clustering untuk yang negatif
     clusters = []
     if len(negatives) >= 2:
-        vec = TfidfVectorizer(max_features=500, ngram_range=(1, 2))
-        X = vec.fit_transform(negatives)
-        k = 2 if len(negatives) == 2 else min(4, max(2, len(negatives)//2))
-        km = KMeans(n_clusters=k, n_init='auto', random_state=42)
-        y = km.fit_predict(X)
-        # kumpulkan contoh teks per cluster + top terms
-        terms = vec.get_feature_names_out()
-        centroids = km.cluster_centers_
-        for ci in range(k):
-            top_idx = centroids[ci].argsort()[-8:][::-1]
-            top_terms = [terms[j] for j in top_idx]
-            ex = [negatives[i] for i in range(len(negatives)) if y[i] == ci][:5]
-            clusters.append({
-                "cluster": int(ci),
-                "top_terms": top_terms,
-                "examples": ex
-            })
+        used_engine = "tfidf"
+        try:
+            X = None
+            if ENABLE_BERT:
+                tok, mdl, dev = get_bert()
+                if tok is not None and mdl is not None:
+                    import torch
+                    with torch.no_grad():
+                        enc = tok(negatives, padding=True, truncation=True, max_length=160, return_tensors="pt").to(dev)
+                        out = mdl(**enc)
+                        cls = out.last_hidden_state[:, 0, :]
+                        X = cls.detach().cpu().numpy()
+                        used_engine = "bert"
+            if X is None:
+                # fallback TF-IDF
+                vec = TfidfVectorizer(max_features=500, ngram_range=(1, 2))
+                X = vec.fit_transform(negatives)
+            k = 2 if len(negatives) == 2 else min(4, max(2, len(negatives)//2))
+            km = KMeans(n_clusters=k, n_init='auto', random_state=42)
+            y = km.fit_predict(X)
+            # kumpulkan contoh teks per cluster + representative terms if TF-IDF
+            rep_terms = []
+            if 'vec' in locals():
+                terms = vec.get_feature_names_out()
+                try:
+                    centroids = km.cluster_centers_
+                    for ci in range(k):
+                        top_idx = centroids[ci].argsort()[-8:][::-1]
+                        rep_terms.append([terms[j] for j in top_idx])
+                except Exception:
+                    rep_terms = [[] for _ in range(k)]
+            else:
+                rep_terms = [[] for _ in range(k)]
+            for ci in range(k):
+                ex = [negatives[i] for i in range(len(negatives)) if y[i] == ci][:5]
+                clusters.append({
+                    "cluster": int(ci),
+                    "engine": used_engine,
+                    "top_terms": rep_terms[ci] if ci < len(rep_terms) else [],
+                    "examples": ex
+                })
+        except Exception:
+            # Hard fallback to pure TF-IDF if BERT failed
+            vec = TfidfVectorizer(max_features=500, ngram_range=(1, 2))
+            X = vec.fit_transform(negatives)
+            k = 2 if len(negatives) == 2 else min(4, max(2, len(negatives)//2))
+            km = KMeans(n_clusters=k, n_init='auto', random_state=42)
+            y = km.fit_predict(X)
+            terms = vec.get_feature_names_out()
+            centroids = km.cluster_centers_
+            for ci in range(k):
+                top_idx = centroids[ci].argsort()[-8:][::-1]
+                top_terms = [terms[j] for j in top_idx]
+                ex = [negatives[i] for i in range(len(negatives)) if y[i] == ci][:5]
+                clusters.append({
+                    "cluster": int(ci),
+                    "engine": "tfidf",
+                    "top_terms": top_terms,
+                    "examples": ex
+                })
 
     # aggregate category overview (from negative entries only)
     cat_counter = Counter()

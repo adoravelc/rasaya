@@ -21,6 +21,10 @@ class AnalisisService
      */
     public function analisisRentang(int $siswaKelasId, string $from, string $to, int $createdByUserId, bool $includeAllGuruNotes = false): AnalisisEntry
     {
+        // Prevent early timeout during first ML warmup (e.g., IndoBERT download)
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(180);
+        }
         // 1) ambil teks dari refleksi & input guru (sesuaikan field model-mu)
         // Refleksi diri siswa tsb
         $refleksisSelf = InputSiswa::query()

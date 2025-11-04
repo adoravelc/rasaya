@@ -182,6 +182,49 @@ final baseUrl = 'http://127.0.0.1:8000/api'; // Development
 
 Update `baseUrl` sesuai environment.
 
+## ML Service (Python) & Taxonomy
+
+Folder `ml-rasaya` berisi service Python (Flask) untuk analisis teks.
+
+- Konfigurasi taxonomy masalah: `ml-rasaya/taxonomy.json`
+- Service otomatis membaca file ini saat start untuk klasifikasi Topik/Subtopik
+- Jalankan lokal:
+
+```bash
+cd ml-rasaya
+python app.py  # runs on http://127.0.0.1:5001
+```
+
+Deploy gratis (opsi):
+
+- Render.com (Free tier) atau Railway.app
+- Start command:
+
+```bash
+uvicorn app:app --host 0.0.0.0 --port $PORT
+```
+
+Environment variables yang didukung:
+
+```env
+ML_API_KEY=optional-secret-key
+ML_FEEDBACK_FILE=feedback_weights.json
+ML_TAXONOMY_FILE=taxonomy.json
+ML_ENABLE_BERT=false               # set true untuk mengaktifkan IndoBERT embeddings
+ML_BERT_MODEL=indobenchmark/indobert-base-p1
+ML_LEXICON_DIR=lexicons            # folder lokal untuk inset.tsv, barasa.csv, sentimen-bahasa.json
+```
+
+### Indonesian Lexicons (optional)
+
+Letakkan file berikut (jika tersedia) di folder `ml-rasaya/lexicons/`:
+
+- `inset.tsv` (format: `word\tscore`) dari InSet
+- `barasa.csv` (format: `word,score`) dari Barasa
+- `sentimen-bahasa.json` (format: `{word: score}`) dari onpilot
+
+Service akan otomatis memuat dan menggabungkan ketiganya (dengan normalisasi skor). Jika tidak ada, service akan fallback ke kamus internal ringan + VADER.
+
 ## Troubleshooting
 
 ### Siswa tidak redirect?

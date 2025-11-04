@@ -12,6 +12,8 @@ class MlClient
     {
         $base = config('services.ml_api.url');
         $key = config('services.ml_api.key');
+        $timeout = (int) (config('services.ml_api.timeout') ?? 120);
+        $connectTimeout = (int) (config('services.ml_api.connect_timeout') ?? 5);
 
         return Http::baseUrl($base)
             ->withHeaders([
@@ -19,7 +21,8 @@ class MlClient
                 'Content-Type' => 'application/json',
                 // 'X-API-Key' => $key,
             ])
-            ->timeout(60);
+            ->timeout($timeout)
+            ->connectTimeout($connectTimeout);
     }
 
     public function health()
