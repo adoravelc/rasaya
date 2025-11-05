@@ -6,11 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class MasterRekomendasi extends Model
 {
-    protected $fillable = ['kode', 'judul', 'deskripsi', 'severity', 'is_active', 'rules', 'tags'];
+    protected $fillable = ['kode', 'judul', 'deskripsi', 'severity', 'is_active', 'rules'];
     protected $casts = [
         'is_active' => 'boolean',
         'rules' => 'array',
-        'tags' => 'array',
     ];
 
     public function kategoris()

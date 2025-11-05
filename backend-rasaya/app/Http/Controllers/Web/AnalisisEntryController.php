@@ -322,4 +322,32 @@ class AnalisisEntryController extends Controller
         }
         return back()->with('ok', 'Status perhatian diperbarui.');
     }
+
+    // Detail rekomendasi untuk modal (judul tampil saja di list; isi diambil via AJAX)
+    public function detail(Request $r, AnalisisEntry $analisis, int $rekomId)
+    {
+        // Authorization: ensure rekom belongs to this analisis
+        /** @var AnalisisRekomendasi $rec */
+        $rec = $analisis->rekomendasis()->with('master')->findOrFail($rekomId);
+
+        $minScore = null;
+        $rules = $rec->master?->rules;
+        if (is_string($rules)) {
+            $decoded = json_decode($rules, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $rules = $decoded;
+            }
+        }
+        if (is_array($rules) && array_key_exists('min_neg_score', $rules)) {
+            $minScore = (float) $rules['min_neg_score'];
+        }
+
+        return response()->json([
+            'id' => $rec->id,
+            'judul' => $rec->judul,
+            'deskripsi' => $rec->deskripsi,
+            'severity' => $rec->severity,
+            'min_neg_score' => $minScore,
+        ]);
+    }
 }

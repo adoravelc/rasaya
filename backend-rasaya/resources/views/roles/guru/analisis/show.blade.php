@@ -115,10 +115,10 @@
                 @forelse($analisis->rekomendasis as $r)
                     <div class="list-group-item d-flex justify-content-between align-items-start">
                         <div>
-                            <div class="fw-semibold">{{ $r->judul }}</div>
-                            <div class="small text-muted">{{ $r->deskripsi }}</div>
-                            <div class="small">Severity: <span class="badge text-bg-secondary">{{ $r->severity }}</span>
+                            <div class="fw-semibold">
+                                <a href="javascript:void(0)" onclick="openRekomDetail({{ $analisis->id }}, {{ $r->id }})">{{ $r->judul }}</a>
                             </div>
+                            <div class="small text-muted">Klik judul untuk lihat detail</div>
                         </div>
                         <div class="text-end">
                             <div class="small text-muted mb-1">Status: <strong>{{ $r->status }}</strong></div>
@@ -267,6 +267,38 @@
 @endsection
 
 @push('modals')
+    <div class="modal fade" id="rekomDetailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="rekomDetailTitle">Detail Rekomendasi</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <div class="small text-muted">Judul</div>
+                        <div id="rekomDetailJudul" class="fw-semibold">—</div>
+                    </div>
+                    <div class="mb-2">
+                        <div class="small text-muted">Deskripsi</div>
+                        <div id="rekomDetailDeskripsi">—</div>
+                    </div>
+                    <div class="mb-2 d-flex align-items-center gap-2">
+                        <div class="small text-muted">Severity</div>
+                        <span id="rekomDetailSeverity" class="badge text-bg-secondary">—</span>
+                    </div>
+                    <div class="mb-2">
+                        <div class="small text-muted">Skor Sentimen Minimal</div>
+                        <div id="rekomDetailMinScore">—</div>
+                        <div class="form-text">Rekomendasi muncul jika skor sentimen siswa sama atau lebih rendah dari nilai ini (lebih negatif).</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -307,11 +339,38 @@
 <script>
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
     let rejModal;
+    let rekomDetailModal;
     document.addEventListener('DOMContentLoaded', ()=>{
         rejModal = new bootstrap.Modal(document.getElementById('rejectModal'), {backdrop:'static'});
+        rekomDetailModal = new bootstrap.Modal(document.getElementById('rekomDetailModal'), {backdrop:'static'});
         const sel = document.getElementById('rej-kategori');
         if (sel) sel.addEventListener('change', loadAlternatives);
     });
+
+    async function openRekomDetail(analisisId, rekomId){
+        try{
+            // reset content
+            document.getElementById('rekomDetailTitle').textContent = 'Detail Rekomendasi';
+            document.getElementById('rekomDetailJudul').textContent = '—';
+            document.getElementById('rekomDetailDeskripsi').textContent = '—';
+            document.getElementById('rekomDetailSeverity').textContent = '—';
+            document.getElementById('rekomDetailMinScore').textContent = '—';
+
+            const url = `${location.origin}/guru/analisis/${analisisId}/rekomendasi/${rekomId}`;
+            const res = await fetch(url, { headers: { 'Accept':'application/json' } });
+            if(!res.ok) throw new Error('Gagal memuat detail');
+            const data = await res.json();
+            document.getElementById('rekomDetailTitle').textContent = data.judul || 'Detail Rekomendasi';
+            document.getElementById('rekomDetailJudul').textContent = data.judul || '—';
+            document.getElementById('rekomDetailDeskripsi').textContent = data.deskripsi || '—';
+            document.getElementById('rekomDetailSeverity').textContent = (data.severity || '—');
+            const ms = (typeof data.min_neg_score === 'number') ? data.min_neg_score : null;
+            document.getElementById('rekomDetailMinScore').textContent = (ms !== null) ? ms.toFixed(2) : '—';
+            rekomDetailModal.show();
+        }catch(err){
+            alert(err.message || 'Gagal memuat detail rekomendasi');
+        }
+    }
 
     function openReject(analisisId, rekomId){
         document.getElementById('rej-analisis-id').value = analisisId;

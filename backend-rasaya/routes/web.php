@@ -15,6 +15,7 @@ use App\Http\Controllers\Web\AdminSiswaKelasController;
 use App\Http\Controllers\Web\SiswaDashboardController;
 use App\Http\Controllers\Web\AdminJurusanController;
 use App\Http\Controllers\Web\TahunAjaranWebController;
+use App\Http\Controllers\Web\RekomendasiWebController;
 use App\Http\Controllers\Api\SlotKonselingController as SlotApi;
 use App\Http\Controllers\Web\MlBridgeController;
 use App\Http\Controllers\Web\AnalisisEntryController;
@@ -99,6 +100,14 @@ Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
     Route::delete('/tahun-ajaran/{tahunAjaran}', [TahunAjaranWebController::class, 'destroy'])->name('admin.tahun_ajaran.destroy');
     Route::post('/tahun-ajaran/{id}/restore', [TahunAjaranWebController::class, 'restore'])->name('admin.tahun_ajaran.restore');
     Route::delete('/tahun-ajaran/{id}/force', [TahunAjaranWebController::class, 'forceDelete'])->name('admin.tahun_ajaran.force');
+
+    // Rekomendasi Tindakan (Master Rekomendasi)
+    Route::get('/rekomendasi', [RekomendasiWebController::class, 'index'])->name('admin.rekomendasi.index');
+    Route::post('/rekomendasi', [RekomendasiWebController::class, 'store'])->name('admin.rekomendasi.store');
+    Route::put('/rekomendasi/{rekomendasi}', [RekomendasiWebController::class, 'update'])->name('admin.rekomendasi.update');
+    Route::delete('/rekomendasi/{rekomendasi}', [RekomendasiWebController::class, 'destroy'])->name('admin.rekomendasi.destroy');
+    Route::patch('/rekomendasi/{rekomendasi}/active', [RekomendasiWebController::class, 'toggleActive'])->name('admin.rekomendasi.toggle');
+    Route::get('/rekomendasi/suggest-kode', [RekomendasiWebController::class, 'suggestKode'])->name('admin.rekomendasi.suggest_kode');
 });
 
 /** ===================== GURU (BK & WALI KELAS) ===================== */
@@ -159,6 +168,8 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
         Route::post('/', [AnalisisEntryController::class, 'store'])->name('guru.analisis.store');
         Route::get('/{analisis}', [AnalisisEntryController::class, 'show'])->name('guru.analisis.show');
             Route::post('/{analisis}/rekomendasi/{rid}', [AnalisisEntryController::class, 'decide'])->name('guru.analisis.decide');
+        // Detail rekomendasi (JSON) untuk modal
+        Route::get('/{analisis}/rekomendasi/{rid}', [AnalisisEntryController::class, 'detail'])->name('guru.analisis.rekomendasi.detail');
             Route::post('/{analisis}/finalize', [AnalisisEntryController::class, 'finalize'])->name('guru.analisis.finalize');
         Route::post('/{analisis}/attention', [AnalisisEntryController::class, 'attention'])->name('guru.analisis.attention');
         Route::get('/{analisis}/rekomendasi/{rid}/alternatives', [AnalisisEntryController::class, 'alternatives'])->name('guru.analisis.alternatives');

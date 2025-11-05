@@ -40,6 +40,9 @@
                     <a class="nav-link {{ $is('admin.kategori.index') }}" href="{{ route('admin.kategori.index') }}">
                         <i class="bi bi-tags"></i> Manajemen Kategori
                     </a>
+                    <a class="nav-link {{ $is('admin.rekomendasi.index') }}" href="{{ route('admin.rekomendasi.index') }}">
+                        <i class="bi bi-list-check"></i> Manajemen Rekomendasi
+                    </a>
                     <a class="nav-link {{ $is('admin.guru.index') }}" href="{{ route('admin.guru.index') }}">
                         <i class="bi bi-person-badge"></i> Manajemen Guru
                     </a>

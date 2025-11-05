@@ -5,7 +5,7 @@
 @section('page-header')
     <div>
         <h3 class="mb-1">Manajemen Kategori</h3>
-        <div class="text-muted">Kelola kode unik, nama, deskripsi, dan status aktif.</div>
+    <div class="text-muted">Kelola kode, nama, deskripsi, dan status aktif.</div>
     </div>
     <div class="d-flex gap-2">
         <select class="form-select form-select-sm" onchange="location.href='?aktif='+this.value" style="width:180px">
@@ -105,11 +105,6 @@
                         @csrf
                         <input type="hidden" id="m-id">
                         <div class="mb-3">
-                            <label class="form-label">Kode</label>
-                            <input id="m-kode" class="form-control" maxlength="10" required>
-                            <div class="form-text">Huruf/angka tanpa spasi (mis: AKD, EMO).</div>
-                        </div>
-                        <div class="mb-3">
                             <label class="form-label">Nama</label>
                             <input id="m-nama" class="form-control" maxlength="100" required>
                         </div>
@@ -172,7 +167,6 @@
         function openCreate() {
             document.getElementById('m-title').innerText = 'Tambah Kategori';
             document.getElementById('m-id').value = '';
-            document.getElementById('m-kode').value = '';
             document.getElementById('m-nama').value = '';
             document.getElementById('m-deskripsi').value = '';
             document.getElementById('m-active').checked = true;
@@ -184,7 +178,6 @@
             const tr = document.querySelector(`tr[data-id="${id}"]`);
             document.getElementById('m-title').innerText = 'Edit Kategori';
             document.getElementById('m-id').value = id;
-            document.getElementById('m-kode').value = tr.querySelector('.td-kode').innerText.trim();
             document.getElementById('m-nama').value = tr.querySelector('.td-nama').innerText.trim();
             const desc = tr.querySelector('.td-deskripsi').innerText.trim();
             document.getElementById('m-deskripsi').value = (desc === '—' ? '' : desc);
@@ -198,7 +191,6 @@
             e.preventDefault();
             const id = document.getElementById('m-id').value;
             const payload = {
-                kode: document.getElementById('m-kode').value.trim(),
                 nama: document.getElementById('m-nama').value.trim(),
                 deskripsi: document.getElementById('m-deskripsi').value.trim() || null,
                 is_active: document.getElementById('m-active').checked ? 1 : 0,

@@ -26,10 +26,10 @@ class UserSeeder extends Seeder
         ]);
 
         // Guru BK
-        $guruUser = User::updateOrCreate(['email' => 'gurubk@rasaya.id'], [
-            'identifier' => 'bk',
+        $guruUser = User::updateOrCreate(['email' => 'eva@rasaya.id'], [
+            'identifier' => 'bk_eva',
             'role' => 'guru',
-            'name' => 'Natalia',
+            'name' => 'Eva Alicia',
             'password' => Hash::make('1'),
             'email_verified_at' => now(),
         ]);
@@ -39,30 +39,30 @@ class UserSeeder extends Seeder
         $guruUser = User::updateOrCreate(['email' => 'guruwk@rasaya.id'], [
             'identifier' => 'wk',
             'role' => 'guru',
-            'name' => 'Alfonsius',
+            'name' => 'Eric Chou',
             'password' => Hash::make('1'),
             'email_verified_at' => now(),
         ]);
         Guru::updateOrCreate(['user_id' => $guruUser->id], ['jenis' => 'wali_kelas']);
 
         // Siswa
-        $siswaUser = User::updateOrCreate(['email' => 'siswa@rasaya.id'], [
-            'identifier' => '1234',
-            'role' => 'siswa',
-            'name' => 'Chavelle',
-            'password' => Hash::make('1'),
-            'email_verified_at' => now(),
-        ]);
-        Siswa::updateOrCreate(['user_id' => $siswaUser->id], []);
+        // $siswaUser = User::updateOrCreate(['email' => 'siswa@rasaya.id'], [
+        //     'identifier' => '1234',
+        //     'role' => 'siswa',
+        //     'name' => 'Chavelle',
+        //     'password' => Hash::make('1'),
+        //     'email_verified_at' => now(),
+        // ]);
+        // Siswa::updateOrCreate(['user_id' => $siswaUser->id], []);
 
-        // Siswa2
-        $siswaUser2 = User::updateOrCreate(['email' => 'siswa2@rasaya.id'], [
-            'identifier' => '5678',
-            'role' => 'siswa',
-            'name' => 'Bellatrix',
-            'password' => Hash::make('1'),
-            'email_verified_at' => now(),
-        ]);
-        Siswa::updateOrCreate(['user_id' => $siswaUser2->id], []);
+        // // Siswa2
+        // $siswaUser2 = User::updateOrCreate(['email' => 'siswa2@rasaya.id'], [
+        //     'identifier' => '5678',
+        //     'role' => 'siswa',
+        //     'name' => 'Bellatrix',
+        //     'password' => Hash::make('1'),
+        //     'email_verified_at' => now(),
+        // ]);
+        // Siswa::updateOrCreate(['user_id' => $siswaUser2->id], []);
     }
 }

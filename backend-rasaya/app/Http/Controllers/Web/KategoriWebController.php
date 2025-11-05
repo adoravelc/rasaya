@@ -37,37 +37,57 @@ class KategoriWebController extends Controller
     public function store(Request $r)
     {
         $data = $r->validate([
-            'kode' => [
-                'required',
-                'max:10',
-                'alpha_num',
-                Rule::unique('kategori_masalahs', 'kode')->whereNull('deleted_at'),
-            ],
             'nama' => ['required', 'max:100'],
             'deskripsi' => ['nullable', 'max:255'],
             'is_active' => ['boolean'],
         ]);
 
+        // === Generate kode otomatis ===
+        $nama = strtoupper($data['nama']);
+        $words = preg_split('/\s+/', $nama);
+
+        // Ambil huruf pertama dari setiap kata (maksimal 4 huruf)
+        $kode = '';
+        foreach ($words as $w) {
+            $kode .= substr($w, 0, 1);
+            if (strlen($kode) >= 4)
+                break;
+        }
+
+        // Kalau hasil kurang dari 4 huruf, isi dengan huruf dari kata pertama
+        if (strlen($kode) < 4) {
+            $kode .= substr(preg_replace('/\s+/', '', $nama), 0, 4 - strlen($kode));
+        }
+
+        // Pastikan kode unik
+        $originalKode = $kode;
+        $i = 2;
+        while (KategoriMasalah::withTrashed()->where('kode', $kode)->exists()) {
+            $kode = $originalKode . $i;
+            $i++;
+        }
+
+        $data['kode'] = $kode;
+
+        // Simpan data
         $row = KategoriMasalah::create($data);
         return response()->json(['ok' => true, 'data' => $row], 201);
     }
 
+
     // AJAX update
     public function update(Request $r, KategoriMasalah $kategori)
     {
+        // Kode bersifat otomatis dan tidak bisa diedit dari UI,
+        // jadi kita tidak memvalidasi / memperbolehkan perubahan 'kode' di sini.
         $data = $r->validate([
-            'kode' => [
-                'required',
-                'max:10',
-                'alpha_num',
-                Rule::unique('kategori_masalahs', 'kode')
-                    ->ignore($kategori->id)
-                    ->whereNull('deleted_at'),
-            ],
             'nama' => ['required', 'max:100'],
             'deskripsi' => ['nullable', 'max:255'],
             'is_active' => ['boolean'],
         ]);
+
+        // Pastikan field 'kode' yang mungkin ikut terkirim diabaikan
+        unset($data['kode']);
 
         $kategori->update($data);
         return ['ok' => true, 'data' => $kategori->fresh()];

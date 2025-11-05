@@ -17,8 +17,7 @@ return new class extends Migration {
 
             // tag/aturan sederhana utk auto-suggest (berbasis kata kunci & sentimen)
             // contoh: { "any_keywords": ["telat","bolos"], "min_neg_score": -0.2 }
-            $t->json('rules')->nullable();
-            $t->json('tags')->nullable();             // opsional: ["disiplin","motivasi"]
+            $t->json('rules')->nullable();          // opsional: ["disiplin","motivasi"]
 
             $t->timestamps();
         });

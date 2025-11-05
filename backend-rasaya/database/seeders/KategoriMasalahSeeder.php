@@ -13,27 +13,31 @@ class KategoriMasalahSeeder extends Seeder
     public function run()
     {
         \App\Models\KategoriMasalah::upsert([
-            // Akademik & Disiplin
-            ['kode' => 'AKD', 'nama' => 'Akademik', 'deskripsi' => 'Stres akademik, motivasi belajar, prokrastinasi, ketidakhadiran', 'is_active' => true],
-            ['kode' => 'DIS', 'nama' => 'Disiplin & Tata Tertib', 'deskripsi' => 'Pelanggaran aturan, keterlambatan, manajemen waktu buruk', 'is_active' => true],
-
-            // Mental & Emosi
-            ['kode' => 'EMO', 'nama' => 'Kesehatan Mental & Emosi', 'deskripsi' => 'Depresi ringan, kecemasan sosial, gangguan tidur, regulasi emosi', 'is_active' => true],
-
-            // Sosial & Keluarga
-            ['kode' => 'SOS', 'nama' => 'Sosial & Pergaulan', 'deskripsi' => 'Bullying, cyberbullying, tekanan teman sebaya, kesepian', 'is_active' => true],
-            ['kode' => 'KEL', 'nama' => 'Keluarga & Pola Asuh', 'deskripsi' => 'Konflik orang tua, broken home, tekanan prestasi keluarga', 'is_active' => true],
-
-            // Fisik & Gaya Hidup
-            ['kode' => 'FIS', 'nama' => 'Kesehatan Fisik & Gaya Hidup', 'deskripsi' => 'Kurang aktivitas fisik, pola tidur & gizi buruk', 'is_active' => true],
-
-            // Relasi & Karier
-            ['kode' => 'REL', 'nama' => 'Relasi & Percintaan', 'deskripsi' => 'Konflik percintaan, putus & kehilangan', 'is_active' => true],
-            ['kode' => 'KAR', 'nama' => 'Karier & Masa Depan', 'deskripsi' => 'Kebingungan jurusan/karier, hambatan ekonomi', 'is_active' => true],
-
-            // Digital & Keamanan
-            ['kode' => 'DWB', 'nama' => 'Digital Wellbeing', 'deskripsi' => 'Overuse media sosial, game berlebihan', 'is_active' => true],
-            ['kode' => 'KAM', 'nama' => 'Keamanan & Keselamatan', 'deskripsi' => 'Kekerasan fisik/verbal oleh dewasa, perundungan berbasis gender', 'is_active' => true],
+            ['kode' => 'SAKD', 'nama' => 'Stres Akademik', 'deskripsi' => 'Tekanan akademik, beban belajar tinggi, dan stres karena tugas sekolah.', 'is_active' => true],
+            ['kode' => 'KSOS', 'nama' => 'Kecemasan Sosial', 'deskripsi' => 'Rasa takut atau canggung saat berinteraksi sosial di lingkungan sekolah.', 'is_active' => true],
+            ['kode' => 'DPRN', 'nama' => 'Depresi Ringan', 'deskripsi' => 'Perasaan sedih berkepanjangan, kehilangan minat, atau semangat belajar.', 'is_active' => true],
+            ['kode' => 'GTDR', 'nama' => 'Gangguan Tidur', 'deskripsi' => 'Kesulitan tidur, insomnia, atau tidur berlebihan.', 'is_active' => true],
+            ['kode' => 'BTMK', 'nama' => 'Bullying Tatap Muka', 'deskripsi' => 'Perundungan secara langsung seperti ejekan, dorongan, atau pengucilan.', 'is_active' => true],
+            ['kode' => 'CBUL', 'nama' => 'Cyberbullying', 'deskripsi' => 'Perundungan di dunia maya melalui media sosial atau chat.', 'is_active' => true],
+            ['kode' => 'TTSP', 'nama' => 'Tekanan Teman Sebaya', 'deskripsi' => 'Dorongan negatif dari teman sebaya untuk melakukan hal tertentu.', 'is_active' => true],
+            ['kode' => 'KISO', 'nama' => 'Kesepian / Isolasi', 'deskripsi' => 'Perasaan terasing atau tidak memiliki teman dekat.', 'is_active' => true],
+            ['kode' => 'KOTH', 'nama' => 'Konflik Orang Tua / Broken Home', 'deskripsi' => 'Masalah dalam keluarga, perceraian, atau hubungan orang tua yang tidak harmonis.', 'is_active' => true],
+            ['kode' => 'TPKL', 'nama' => 'Tekanan Prestasi Keluarga', 'deskripsi' => 'Tuntutan tinggi dari keluarga untuk berprestasi di bidang akademik.', 'is_active' => true],
+            ['kode' => 'MBRD', 'nama' => 'Motivasi Belajar Rendah', 'deskripsi' => 'Kurangnya semangat atau minat dalam kegiatan belajar.', 'is_active' => true],
+            ['kode' => 'PRTG', 'nama' => 'Prokrastinasi Tugas', 'deskripsi' => 'Kebiasaan menunda pekerjaan atau tugas sekolah.', 'is_active' => true],
+            ['kode' => 'KBLN', 'nama' => 'Ketidakhadiran / Bolos', 'deskripsi' => 'Sering absen atau menghindari kegiatan sekolah.', 'is_active' => true],
+            ['kode' => 'KAFK', 'nama' => 'Kurang Aktivitas Fisik', 'deskripsi' => 'Jarang berolahraga atau bergerak secara aktif.', 'is_active' => true],
+            ['kode' => 'PTGB', 'nama' => 'Pola Tidur & Gizi Buruk', 'deskripsi' => 'Tidur tidak teratur dan kebiasaan makan yang tidak sehat.', 'is_active' => true],
+            ['kode' => 'KPCR', 'nama' => 'Konflik Percintaan', 'deskripsi' => 'Pertengkaran atau masalah dalam hubungan romantis.', 'is_active' => true],
+            ['kode' => 'PTKH', 'nama' => 'Putus & Kehilangan', 'deskripsi' => 'Kesedihan akibat putus cinta atau kehilangan orang terdekat.', 'is_active' => true],
+            ['kode' => 'KJUR', 'nama' => 'Kebingungan Jurusan / Karier', 'deskripsi' => 'Kebingungan menentukan jurusan kuliah atau arah karier masa depan.', 'is_active' => true],
+            ['kode' => 'HEKO', 'nama' => 'Hambatan Ekonomi', 'deskripsi' => 'Kesulitan finansial yang menghambat kegiatan belajar.', 'is_active' => true],
+            ['kode' => 'PTTB', 'nama' => 'Pelanggaran Tata Tertib', 'deskripsi' => 'Melanggar aturan sekolah seperti keterlambatan atau perilaku tidak sopan.', 'is_active' => true],
+            ['kode' => 'MWBK', 'nama' => 'Manajemen Waktu Buruk', 'deskripsi' => 'Kesulitan mengatur waktu antara belajar dan aktivitas lain.', 'is_active' => true],
+            ['kode' => 'OMSO', 'nama' => 'Overuse Media Sosial', 'deskripsi' => 'Penggunaan media sosial secara berlebihan hingga mengganggu aktivitas.', 'is_active' => true],
+            ['kode' => 'GBRL', 'nama' => 'Game Berlebihan', 'deskripsi' => 'Kecanduan bermain game hingga mengganggu belajar dan kehidupan sosial.', 'is_active' => true],
+            ['kode' => 'KFVD', 'nama' => 'Kekerasan Fisik / Verbal oleh Dewasa', 'deskripsi' => 'Kekerasan atau perlakuan kasar dari orang dewasa di sekitar.', 'is_active' => true],
+            ['kode' => 'PBGD', 'nama' => 'Perundungan Berbasis Gender', 'deskripsi' => 'Diskriminasi atau perundungan karena identitas atau ekspresi gender.', 'is_active' => true],
         ], ['kode'], ['nama', 'deskripsi', 'is_active']);
     }
 }
