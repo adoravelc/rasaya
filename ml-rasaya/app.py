@@ -79,14 +79,8 @@ def label_from_score(compound: float) -> str:
     if compound >= 0.05: return "positif"
     if compound <= -0.05: return "negatif"
     return "netral"
-
-# Default category keyword map (can be overridden by request payload)
-DEFAULT_CATEGORIES = {
-    "AKADEMIK": ["tugas","ujian","nilai","pr","belajar","deadline","remedial","bimbel","kelas","mapel","catatan","jadwal"],
-    "EMOSI": ["sedih","cemas","stres","marah","bahagia","semangat","mindfulness","psikolog","tidur","lelah","gelisah","murung"],
-    "SOSIAL": ["teman","berantem","cekcok","konflik","bully","perundungan","orang tua","keluarga","komunikasi","mediasi","inklusif"],
-    "DISIPLIN": ["telat","bolos","alpha","aturan","hadir","absen","sanksi","gadget","ketertiban","izin","terlambat"],
-}
+ 
+# Legacy default map removed in favor of taxonomy-derived categories
 
 def load_feedback_weights():
     try:
@@ -341,6 +335,28 @@ def _taxonomy_keywords():
 
 BUCKET_KW, SUBTOPICS = _taxonomy_keywords()
 
+def build_topic_index_and_categories_map():
+    """Builds an index of taxonomy topics and a categories_map for quick keyword scoring.
+    Returns (topic_index, categories_map) where topic_index keys are UPPER(topic_name).
+    categories_map has the same keys mapping to a flat list of keywords aggregated from
+    topic-level keywords and all of its subtopics' keywords.
+    """
+    topic_index = {}
+    categories_map = {}
+    for tp in _TAX.get("topics", []):
+        topic_id = tp.get("id") or "TOPIC"
+        topic_name = tp.get("name") or topic_id
+        bucket = tp.get("bucket") or ""
+        key = str(topic_name).upper()
+        kw = set([str(w).lower() for w in (tp.get("keywords") or []) if w])
+        for st in tp.get("subtopics", []) or []:
+            for w in st.get("keywords", []) or []:
+                if w:
+                    kw.add(str(w).lower())
+        topic_index[key] = {"id": topic_id, "name": topic_name, "bucket": bucket}
+        categories_map[key] = sorted(list(kw))
+    return topic_index, categories_map
+
 def extract_keyphrases(texts, lang="id"):
     # RAKE pakai stopwords bhs Inggris default; untuk id sederhana kita kasih stopwords id juga
     sw = set(stopwords.words('indonesian')) | set(stopwords.words('english'))
@@ -352,6 +368,37 @@ def extract_keyphrases(texts, lang="id"):
     for score, phrase in ranked[:20]:
         out.append({"term": phrase, "weight": float(score)})
     return out
+
+def _build_cluster_vectorizer():
+    """Vectorizer for clustering top-terms: single-word tokens, heavy stopwords cleanup."""
+    try:
+        sw_id = set(stopwords.words('indonesian'))
+    except Exception:
+        sw_id = set()
+    try:
+        sw_en = set(stopwords.words('english'))
+    except Exception:
+        sw_en = set()
+    extra = {
+        # connectors/intensifiers/pronouns/common fillers
+        'dan','atau','yang','di','ke','dengan','pada','untuk','dari','lagi','banget','sekali','paling','sih','deh','dong','lah','ya',
+        'aku','saya','gue','gua','dia','kamu','kau','ko','kami','kita','mereka',
+        'punya','dengar','dng','sm','nih','tuh','kok','kan','udah','lagi','aja','de','si',
+    }
+    stopset = sw_id | sw_en | extra
+    # Use our cleaner as preprocessor; single-word tokens only
+    vec = TfidfVectorizer(
+        preprocessor=clean_text,
+        tokenizer=str.split,
+        token_pattern=None,
+        lowercase=True,
+        stop_words=list(stopset),
+        ngram_range=(1,1),
+        max_df=0.95,
+        min_df=1,
+        max_features=1000,
+    )
+    return vec
 
 @app.get("/health")
 def health():
@@ -421,6 +468,8 @@ def analyze():
             "lang_hint": (data.get("context") or {}).get("lang_hint") if isinstance(data.get("context"), dict) else None
         }]
     categories_override = data.get("categories")  # optional: { name: [keywords] }
+    # Build taxonomy-driven default categories (topics) and index
+    TOPIC_INDEX, TAXONOMY_CATEGORIES = build_topic_index_and_categories_map()
     categories_map = {}
     if isinstance(categories_override, dict) and categories_override:
         # sanitize override
@@ -428,7 +477,8 @@ def analyze():
             if isinstance(v, list):
                 categories_map[str(k).upper()] = [str(x) for x in v if isinstance(x, (str, int))]
     if not categories_map:
-        categories_map = DEFAULT_CATEGORIES
+        # fall back to taxonomy topics aggregated keywords
+        categories_map = TAXONOMY_CATEGORIES
 
     feedback = load_feedback_weights()
     if not isinstance(items, list) or not items:
@@ -467,20 +517,20 @@ def analyze():
 
         cluster = None
         if best_cat:
-            # Try map best_cat to taxonomy subtopic if exists, else use category as bucket
-            st_meta = SUBTOPICS.get(best_cat)
-            if st_meta:
+            # Prefer mapping to taxonomy TOPIC if available
+            tp_meta = TOPIC_INDEX.get(str(best_cat).upper())
+            if tp_meta:
                 cluster = {
-                    "id": best_cat,              # taxonomy subtopic id
-                    "subtopic_code": st_meta.get("code"),  # matches kategori_masalahs.kode
-                    "label": st_meta["name"],
-                    "bucket": st_meta["bucket"],
-                    "topic_id": st_meta.get("topic_id"),
-                    "topic_name": st_meta.get("topic_name"),
+                    "id": tp_meta.get("id"),
+                    "label": tp_meta.get("name"),
+                    "bucket": tp_meta.get("bucket"),
+                    "topic_id": tp_meta.get("id"),
+                    "topic_name": tp_meta.get("name"),
                     "confidence": 0.5
                 }
             else:
-                cluster = {"id": best_cat, "label": best_cat, "bucket": best_cat, "confidence": 0.4}
+                # Fallback to raw category name
+                cluster = {"id": best_cat, "label": best_cat, "bucket": str(best_cat).upper(), "confidence": 0.4}
 
         # Keyphrases (RAKE) per-entry + normalization & dedup
         try:
@@ -578,8 +628,8 @@ def analyze():
                         X = cls.detach().cpu().numpy()
                         used_engine = "bert"
             if X is None:
-                # fallback TF-IDF
-                vec = TfidfVectorizer(max_features=500, ngram_range=(1, 2))
+                # fallback TF-IDF with unigram-only and heavy stopwords for clean top terms
+                vec = _build_cluster_vectorizer()
                 X = vec.fit_transform(negatives)
             k = 2 if len(negatives) == 2 else min(4, max(2, len(negatives)//2))
             km = KMeans(n_clusters=k, n_init='auto', random_state=42)
@@ -607,7 +657,7 @@ def analyze():
                 })
         except Exception:
             # Hard fallback to pure TF-IDF if BERT failed
-            vec = TfidfVectorizer(max_features=500, ngram_range=(1, 2))
+            vec = _build_cluster_vectorizer()
             X = vec.fit_transform(negatives)
             k = 2 if len(negatives) == 2 else min(4, max(2, len(negatives)//2))
             km = KMeans(n_clusters=k, n_init='auto', random_state=42)
