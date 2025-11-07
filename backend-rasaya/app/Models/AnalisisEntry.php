@@ -22,6 +22,10 @@ class AnalisisEntry extends Model
         'skor_sentimen',          // rata-rata skor dari rentang data
         'avg_mood',
         'kata_kunci',             // JSON: [{term:"telat",count:5}, ...]
+        'summary',                // JSON ringkasan global dari ML service
+        'clusters',               // JSON cluster negatif
+        'categories_overview',    // JSON ranking kategori hasil analisis
+        'auto_summary',           // teks kesimpulan otomatis untuk tampilan guru
         'used_items',             // JSON snapshot of used sources: [{type:"ref_self|ref_friend|guru", id:123}]
         'source',                 // lihat konstanta SRC_*
         'source_id',              // jika per-item, id sumbernya
@@ -34,6 +38,9 @@ class AnalisisEntry extends Model
         'skor_sentimen' => 'float',
         'avg_mood' => 'float',
         'kata_kunci' => 'array',
+        'summary' => 'array',
+        'clusters' => 'array',
+        'categories_overview' => 'array',
         'used_items' => 'array',
         'tanggal_awal_proses' => 'datetime',
         'tanggal_akhir_proses' => 'datetime',

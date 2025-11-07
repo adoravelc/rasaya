@@ -156,6 +156,24 @@ def clean_text(t: str) -> str:
     t = _RE_REPEAT.sub(r"\1\1", t)
     t = _norm_negasi(t)
     t = _RE_MULTISPACE.sub(" ", t).strip()
+    # Dialect normalization (Kupang/common variants)
+    dialect = {
+        "pung": "punya",
+        "puny": "punya",
+        "beta": "saya",
+        "b": "saya",
+        "sy": "saya",
+        "aku": "saya",  # unify first person
+        "deng": "dengan",
+        "dng": "dengan",
+        "sm": "sama",
+        "ko": "kamu",
+        "kau": "kamu",
+    }
+    toks = []
+    for tk in t.split():
+        toks.append(dialect.get(tk, tk))
+    t = " ".join(toks)
     return t
 
 
@@ -301,14 +319,21 @@ def _taxonomy_keywords():
     subtopics = {}
     for tp in _TAX.get("topics", []):
         bucket = tp.get("bucket") or ""
+        topic_id = tp.get("id") or bucket or "TOPIC"
+        topic_name = tp.get("name") or topic_id
         buckets.setdefault(bucket, set()).update([str(w).lower() for w in tp.get("keywords", []) if w])
         for st in tp.get("subtopics", []) or []:
+            # Maintain internal id (taxonomy id) and external 'code' matching kategori_masalahs.kode
             st_id = st.get("id") or st.get("code") or st.get("name")
+            st_code = st.get("code") or st_id
             if not st_id:
                 continue
             subtopics[st_id] = {
                 "name": st.get("name") or st_id,
                 "bucket": bucket,
+                "topic_id": topic_id,
+                "topic_name": topic_name,
+                "code": st_code,
                 "keywords": set([str(w).lower() for w in st.get("keywords", []) if w]),
                 "examples": st.get("examples", []) or []
             }
@@ -445,17 +470,39 @@ def analyze():
             # Try map best_cat to taxonomy subtopic if exists, else use category as bucket
             st_meta = SUBTOPICS.get(best_cat)
             if st_meta:
-                cluster = {"id": best_cat, "label": st_meta["name"], "bucket": st_meta["bucket"], "confidence": 0.5}
+                cluster = {
+                    "id": best_cat,              # taxonomy subtopic id
+                    "subtopic_code": st_meta.get("code"),  # matches kategori_masalahs.kode
+                    "label": st_meta["name"],
+                    "bucket": st_meta["bucket"],
+                    "topic_id": st_meta.get("topic_id"),
+                    "topic_name": st_meta.get("topic_name"),
+                    "confidence": 0.5
+                }
             else:
                 cluster = {"id": best_cat, "label": best_cat, "bucket": best_cat, "confidence": 0.4}
 
-        # Keyphrases (RAKE) per-entry
+        # Keyphrases (RAKE) per-entry + normalization & dedup
         try:
             rk = Rake()
             rk.extract_keywords_from_text(raw_txt)
-            phrases = [p for p in rk.get_ranked_phrases()[:5]]
+            raw_phrases = [p.lower() for p in rk.get_ranked_phrases()[:8]]
         except Exception:
-            phrases = []
+            raw_phrases = []
+        dialect_map = {
+            "pung": "punya", "puny": "punya", "beta": "saya", "b": "saya", "sy": "saya", "aku": "saya",
+            "deng": "dengan", "dng": "dengan", "sm": "sama", "ko": "kamu", "kau": "kamu"
+        }
+        norm_set = []
+        seen = set()
+        for phr in raw_phrases:
+            toks = [dialect_map.get(t, t) for t in phr.split()]
+            norm = " ".join(toks).strip()
+            if not norm or norm in seen:
+                continue
+            seen.add(norm)
+            norm_set.append(norm)
+        phrases = norm_set[:5]
 
         # Simple rule-based summary per entry
         if cluster:
@@ -500,8 +547,19 @@ def analyze():
                 "reasons": {c: reasons.get(c, []) for c, _ in ranked[:3]}
             }
 
-    # global keyphrases
+    # global keyphrases + normalization & dedup
     keyphrases = extract_keyphrases(all_texts) if all_texts else []
+    if keyphrases:
+        dmap = {"pung": "punya", "puny": "punya", "beta": "saya", "b": "saya", "sy": "saya", "aku": "saya", "deng": "dengan", "dng": "dengan", "sm": "sama", "ko": "kamu", "kau": "kamu"}
+        agg = {}
+        for kp in keyphrases:
+            term = kp.get("term", "").lower()
+            toks = [dmap.get(t, t) for t in term.split()]
+            norm = " ".join(toks).strip()
+            if not norm:
+                continue
+            agg[norm] = max(float(kp.get("weight", 0.0)), agg.get(norm, 0.0))
+        keyphrases = [{"term": k, "weight": v} for k, v in sorted(agg.items(), key=lambda x: x[1], reverse=True)[:30]]
 
     # clustering untuk yang negatif
     clusters = []
@@ -630,8 +688,11 @@ def analyze():
                             prev_conf = (results[i].get("cluster") or {}).get("confidence", 0.0)
                             results[i]["cluster"] = {
                                 "id": best_sid,
+                                "subtopic_code": meta.get("code"),
                                 "label": meta["name"],
                                 "bucket": meta["bucket"],
+                                "topic_id": meta.get("topic_id"),
+                                "topic_name": meta.get("topic_name"),
                                 "confidence": round(max(prev_conf, float(best_sim)), 3)
                             }
         except Exception:

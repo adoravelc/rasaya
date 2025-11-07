@@ -15,4 +15,14 @@ class KategoriMasalah extends Model
     {
         return $this->belongsToMany(\App\Models\MasterRekomendasi::class, 'kategori_masalah_master_rekomendasi', 'kategori_masalah_id', 'master_rekomendasi_id');
     }
+
+    public function topikBesars()
+    {
+        return $this->belongsToMany(
+            \App\Models\MasterKategoriMasalah::class,
+            'master_kategori_masalah_kategori_masalah',
+            'kategori_masalah_id',
+            'master_kategori_masalah_id'
+        )->withTimestamps();
+    }
 }

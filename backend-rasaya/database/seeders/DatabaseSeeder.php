@@ -19,6 +19,8 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,   // seeder punyamu yg sudah isi identifier & role
             TahunAjaranSeeder::class,
             KategoriMasalahSeeder::class,
+            MasterKategoriMasalahSeeder::class,
+            MasterKategoriPivotFromTaxonomySeeder::class,
             // MasterRekomendasiBulkSeeder::class,
             MasterRekomendasiPsychSeeder::class,
             MasterRekomendasiPivotSeeder::class,

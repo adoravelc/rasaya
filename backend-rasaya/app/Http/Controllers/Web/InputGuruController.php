@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\InputGuru;
 use App\Models\SiswaKelas;
 use App\Models\KategoriMasalah;
+use App\Models\MasterKategoriMasalah;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\JsonResponse;
@@ -17,7 +18,7 @@ class InputGuruController extends Controller
     {
         $guruId = data_get($r->user(), 'guru.user_id') ?? $r->user()->id;
 
-        $q = InputGuru::with(['siswaKelas.siswa.user', 'siswaKelas.kelas.jurusan', 'kategoris'])
+        $q = InputGuru::with(['siswaKelas.siswa.user', 'siswaKelas.kelas.jurusan', 'masterKategori'])
             ->where('guru_id', $guruId)
             ->latest();
 
@@ -39,13 +40,10 @@ class InputGuruController extends Controller
             $text = '%'.(string)$r->input('q').'%';
             $q->where('teks', 'like', $text); // khusus cari di catatan saja
         }
-        // optional kategori filter (multi)
-        $filterKategori = (array) $r->input('filter_kategori_ids', []);
-        $filterKategori = array_values(array_filter(array_map('intval', $filterKategori)));
-        if (!empty($filterKategori)) {
-            $q->whereHas('kategoris', function ($kk) use ($filterKategori) {
-                $kk->whereIn('kategori_masalahs.id', $filterKategori);
-            });
+        // optional filter by topik besar (single)
+        $filterMaster = (string) $r->input('filter_master_kategori_id', '');
+        if ($filterMaster !== '') {
+            $q->where('master_kategori_masalah_id', (int) $filterMaster);
         }
 
         $rows = $q->paginate(15)->withQueryString();
@@ -72,8 +70,9 @@ class InputGuruController extends Controller
             ->get()
             ->map(fn($sk) => ['id' => $sk->id, 'label' => $sk->label]);
 
-        $opsiKondisi = ['green', 'yellow', 'orange', 'red', 'black', 'grey'];
-        $kategoris = KategoriMasalah::orderBy('nama')->get(['id', 'nama']);
+    $opsiKondisi = ['green', 'yellow', 'orange', 'red', 'black', 'grey'];
+    // Topik besar (master) untuk pilihan guru (hanya satu)
+    $masterKategoris = MasterKategoriMasalah::aktif()->orderBy('nama')->get(['id','nama']);
 
         // Pass filters back to view
         $filters = [
@@ -82,10 +81,10 @@ class InputGuruController extends Controller
             'kondisi' => (string) $r->input('kondisi',''),
             'date_from' => (string) $r->input('date_from',''),
             'date_to' => (string) $r->input('date_to',''),
-            'filter_kategori_ids' => $filterKategori,
+            'filter_master_kategori_id' => $filterMaster,
         ];
 
-    return view('roles.guru.observasi.index', compact('rows', 'siswaKelas', 'kategoris', 'opsiKondisi', 'filters', 'kelasOptions', 'wkKelasId'));
+    return view('roles.guru.observasi.index', compact('rows', 'siswaKelas', 'masterKategoris', 'opsiKondisi', 'filters', 'kelasOptions', 'wkKelasId'));
     }
 
     public function store(Request $r): JsonResponse
@@ -97,8 +96,7 @@ class InputGuruController extends Controller
             // tanggal ditetapkan otomatis (hari ini), abaikan input dari klien
             'kondisi_siswa' => ['required', Rule::in(['green', 'yellow', 'orange', 'red', 'black', 'grey'])],
             'gambar' => ['nullable', 'image', 'max:2048'],
-            'kategori_ids' => ['array'],
-            'kategori_ids.*' => [Rule::exists('kategori_masalahs', 'id')],
+            'master_kategori_masalah_id' => ['nullable','integer', Rule::exists('master_kategori_masalahs','id')],
         ]);
 
         // ambil id guru dari relasi; fallback ke user->id (karena gurus.user_id == users.id)
@@ -142,15 +140,14 @@ class InputGuruController extends Controller
         $row = InputGuru::create([
             'guru_id' => $guruId,
             'siswa_kelas_id' => (int) $r->siswa_kelas_id,
+            'master_kategori_masalah_id' => $r->integer('master_kategori_masalah_id'),
             'tanggal' => $tanggal,
             'teks' => $teks,
             'gambar' => $gambarPath,
             'kondisi_siswa' => $r->input('kondisi_siswa'),
         ]);
 
-        if ($r->filled('kategori_ids')) {
-            $row->kategoris()->sync($r->input('kategori_ids', []));
-        }
+        // sub-kategori tidak lagi dipilih manual; akan diisi otomatis via analisis di langkah terpisah
 
         return response()->json($row->load('siswaKelas.siswa', 'siswaKelas.kelas', 'kategoris'), 201);
     }
@@ -170,12 +167,11 @@ class InputGuruController extends Controller
             // tanggal tidak dapat diubah melalui update
             'kondisi_siswa' => ['sometimes', Rule::in(['green', 'yellow', 'orange', 'red', 'black', 'grey'])],
             'gambar' => ['nullable', 'image', 'max:2048'],
-            'kategori_ids' => ['array'],
-            'kategori_ids.*' => [Rule::exists('kategori_masalahs', 'id')],
+            'master_kategori_masalah_id' => ['sometimes','nullable','integer', Rule::exists('master_kategori_masalahs','id')],
         ]);
 
         // Jangan pernah menerima perubahan tanggal via update
-        $data = $r->only(['siswa_kelas_id', 'kondisi_siswa']);
+    $data = $r->only(['siswa_kelas_id', 'kondisi_siswa','master_kategori_masalah_id']);
 
         // If WK, ensure new siswa_kelas (if provided) belongs to own kelas
         $wkKelasId = \App\Models\Kelas::where('wali_guru_id', $r->user()->id)->latest('tahun_ajaran_id')->value('id');
@@ -218,11 +214,9 @@ class InputGuruController extends Controller
 
         $observasi->update($data);
 
-        if ($r->has('kategori_ids')) {
-            $observasi->kategoris()->sync($r->input('kategori_ids', []));
-        }
+        // tidak lagi menerima kategori_ids manual
 
-        return response()->json($observasi->load('siswaKelas.siswa', 'siswaKelas.kelas', 'kategoris'));
+        return response()->json($observasi->load('siswaKelas.siswa', 'siswaKelas.kelas', 'masterKategori'));
     }
 
     public function destroy(InputGuru $observasi)

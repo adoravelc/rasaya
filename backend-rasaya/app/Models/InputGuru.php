@@ -13,6 +13,7 @@ class InputGuru extends Model
     protected $fillable = [
         'guru_id',        // FK -> gurus.user_id
         'siswa_kelas_id', // FK -> siswa_kelass.id
+        'master_kategori_masalah_id', // top-level topic chosen by guru (nullable)
         'tanggal',        // date
         'teks',           // catatan/isi observasi
         'gambar',         // optional
@@ -34,5 +35,10 @@ class InputGuru extends Model
         // pivot: kategori_input_gurus (input_guru_id, kategori_id)
         return $this->belongsToMany(KategoriMasalah::class, 'kategori_input_gurus', 'input_guru_id', 'kategori_id')
             ->withTimestamps();
+    }
+
+    public function masterKategori()
+    {
+        return $this->belongsTo(MasterKategoriMasalah::class, 'master_kategori_masalah_id');
     }
 }

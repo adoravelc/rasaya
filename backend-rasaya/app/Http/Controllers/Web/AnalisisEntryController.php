@@ -213,6 +213,17 @@ class AnalisisEntryController extends Controller
 
         $kategoris = \App\Models\KategoriMasalah::aktif()->orderBy('nama')->get(['id','nama','kode']);
 
+        // Simple ML caveat notes for the UI
+        $mlWarnings = [];
+        $co = collect($analisis->categories_overview ?? []);
+        if ($co->isEmpty()) {
+            $mlWarnings[] = 'Kategori otomatis belum tersedia (teks negatif sangat sedikit atau kata kunci kurang jelas).';
+        }
+        $cl = collect($analisis->clusters ?? []);
+        if ($cl->count() < 1) {
+            $mlWarnings[] = 'Belum ada klasterisasi khusus data negatif (data negatif kurang dari 2).';
+        }
+
         return view('roles.guru.analisis.show', [
             'analisis' => $analisis,
             'refleksisSelf' => $refleksisSelf,
@@ -226,6 +237,7 @@ class AnalisisEntryController extends Controller
             'moodDesc' => $moodDesc,
             'sentimenScaleInfo' => $sentimenScaleInfo,
             'moodScaleInfo' => $moodScaleInfo,
+            'mlWarnings' => $mlWarnings,
         ]);
     }
 

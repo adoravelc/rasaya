@@ -47,15 +47,13 @@
             </div>
             @if (!empty($wkKelasId))
             <div class="col-md-4">
-                <label class="form-label">Kategori</label>
-                <div class="d-flex flex-wrap gap-2">
-                    @foreach ($kategoris as $k)
-                        @php $fid = 'fk-'.$k->id; @endphp
-                        <input type="checkbox" class="btn-check" id="{{ $fid }}" name="filter_kategori_ids[]" value="{{ $k->id }}" autocomplete="off"
-                          @checked(in_array($k->id, $filters['filter_kategori_ids'] ?? []))>
-                        <label class="btn btn-outline-secondary btn-sm" for="{{ $fid }}">{{ $k->nama }}</label>
+                <label class="form-label">Topik Besar (Filter)</label>
+                <select name="filter_master_kategori_id" class="form-select">
+                    <option value="">— Semua —</option>
+                    @foreach ($masterKategoris as $mk)
+                        <option value="{{ $mk->id }}" @selected(($filters['filter_master_kategori_id'] ?? '') == (string)$mk->id)>{{ $mk->nama }}</option>
                     @endforeach
-                </div>
+                </select>
             </div>
             @endif
             <div class="col-md-2">
@@ -83,26 +81,26 @@
                             <th>Tanggal</th>
                             <th>Siswa (Kelas)</th>
                             <th>Kondisi</th>
-                            <th>Kategori</th>
+                            <th>Topik Besar</th>
                             <th>Lampiran</th>
                             <th style="width:160px">Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="rows">
                         @forelse($rows as $i => $r)
-                            <tr data-id="{{ $r->id }}" data-kategoris="{{ $r->kategoris->pluck('id')->join(',') }}" data-tanggal="{{ optional($r->tanggal)->format('Y-m-d') }}">
+                            <tr data-id="{{ $r->id }}" data-tanggal="{{ optional($r->tanggal)->format('Y-m-d') }}">
                                 <td>{{ $rows->firstItem() + $i }}</td>
                                 <td class="td-tanggal">{{ optional($r->tanggal)->locale('id')->translatedFormat('l, d F Y') }}</td>
                                 <td class="td-siswakelas" data-siswakelas="{{ $r->siswa_kelas_id }}">
                                     {{ $r->siswaKelas->label ?? '-' }}
                                 </td>
                                 <td class="td-kondisi">{{ strtoupper($r->kondisi_siswa) }}</td>
-                                <td class="td-kategoris">
-                                    @forelse($r->kategoris as $k)
-                                        <span class="badge text-bg-secondary me-1">{{ $k->nama }}</span>
-                                    @empty
+                                <td class="td-topik">
+                                    @if ($r->masterKategori)
+                                        <span class="badge text-bg-secondary">{{ $r->masterKategori->nama }}</span>
+                                    @else
                                         <span class="text-muted">—</span>
-                                    @endforelse
+                                    @endif
                                 </td>
                                 <td class="td-gambar">
                                     @if ($r->gambar)
@@ -190,14 +188,14 @@
                             </div>
 
                             <div class="col-md-8">
-                                <label class="form-label">Kategori</label>
-                                <div id="kategori-group" class="d-flex flex-wrap gap-2">
-                                    @foreach ($kategoris as $k)
-                                        @php $kid = 'kat-'.$k->id; @endphp
-                                        <input class="btn-check" id="{{ $kid }}" type="checkbox" name="kategori_ids[]" value="{{ $k->id }}" autocomplete="off">
-                                        <label class="btn btn-outline-secondary btn-sm" for="{{ $kid }}" style="border-radius:20px">{{ $k->nama }}</label>
+                                <label class="form-label">Topik Besar</label>
+                                <select id="m-master-kategori" class="form-select">
+                                    <option value="">— Pilih Topik —</option>
+                                    @foreach ($masterKategoris as $mk)
+                                        <option value="{{ $mk->id }}">{{ $mk->nama }}</option>
                                     @endforeach
-                                </div>
+                                </select>
+                                <div class="form-text">Guru memilih satu topik besar; sub-topik akan dipetakan otomatis oleh sistem analisis.</div>
                             </div>
 
                             <div class="col-12">
@@ -324,8 +322,8 @@
                 const label = (kond || '-').toUpperCase();
                 const ket = ketMap[kond] ? ` — ${ketMap[kond]}` : '';
                 document.getElementById('d-kondisi').innerHTML = `${dot}${label}${ket}`;
-                const kat = Array.isArray(d.kategoris) ? d.kategoris.map(k=>k.nama).join(', ') : '-';
-                document.getElementById('d-kategori').innerText = kat || '-';
+                const topik = d.master_kategori ? (d.master_kategori.nama || '-') : (d.master_kategori_masalah?.nama || d.master_kategori_masalah_id || '-');
+                document.getElementById('d-kategori').innerText = topik || '-';
                 document.getElementById('d-catatan').innerText = d.teks || '-';
                 const gambar = d.gambar ? `<a href="${location.origin}/storage/${d.gambar}" target="_blank">Lihat Lampiran</a>` : '-';
                 document.getElementById('d-gambar').innerHTML = gambar;
@@ -360,7 +358,7 @@
             }catch(_){ document.getElementById('m-tanggal-display').innerText = iso; }
             document.getElementById('m-siswakelas').value = '';
             document.getElementById('m-kondisi').value = "{{ $opsiKondisi[0] ?? 'aman' }}";
-            document.querySelectorAll('#kategori-group input[type="checkbox"]').forEach(el=> el.checked=false);
+            document.getElementById('m-master-kategori').value = '';
             const file = document.getElementById('m-gambar'); if (file) file.value = '';
             document.getElementById('m-catatan').value = '';
             document.getElementById('m-error').innerText = '';
@@ -392,11 +390,7 @@
                     }catch(_){ document.getElementById('m-tanggal-display').innerText = raw || '-'; }
                     document.getElementById('m-siswakelas').value = tr.querySelector('.td-siswakelas').dataset.siswakelas;
                     document.getElementById('m-kondisi').value = tr.querySelector('.td-kondisi').innerText.trim().toLowerCase();
-                    const ids = (tr.getAttribute('data-kategoris')||'').split(',').filter(Boolean).map(x=>Number(x));
-                    document.querySelectorAll('#kategori-group input[type="checkbox"]').forEach(el=> {
-                        const v = Number(el.value);
-                        el.checked = ids.includes(v);
-                    });
+                    // no subkategori editing in new flow
                     document.getElementById('m-catatan').value = '';
                 }
             }
@@ -418,11 +412,7 @@
             document.getElementById('m-siswakelas').value = String(siswakelasId);
             const kondisi = (d.kondisi_siswa || '').toLowerCase();
             if (kondisi) document.getElementById('m-kondisi').value = kondisi;
-            const katIds = Array.isArray(d.kategoris) ? d.kategoris.map(k=>Number(k.id)) : [];
-            document.querySelectorAll('#kategori-group input[type="checkbox"]').forEach(el=> {
-                const v = Number(el.value);
-                el.checked = katIds.includes(v);
-            });
+            document.getElementById('m-master-kategori').value = d.master_kategori_masalah_id || '';
             document.getElementById('m-catatan').value = d.teks || '';
         }
 
@@ -434,9 +424,8 @@
             fd.append('tanggal', document.getElementById('m-tanggal').value);
             fd.append('siswa_kelas_id', String(Number(document.getElementById('m-siswakelas').value)));
             fd.append('kondisi_siswa', document.getElementById('m-kondisi').value);
-            document.querySelectorAll('#kategori-group input[name="kategori_ids[]"]:checked').forEach(el=> {
-                fd.append('kategori_ids[]', el.value);
-            });
+            const mk = document.getElementById('m-master-kategori').value;
+            if (mk) fd.append('master_kategori_masalah_id', mk);
             const catatan = document.getElementById('m-catatan').value || '';
             fd.append('teks', catatan);
             const file = document.getElementById('m-gambar');

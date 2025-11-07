@@ -63,13 +63,35 @@
                                 class="text-muted">×{{ $kw['count'] ?? 1 }}</small></span>
                     @endforeach
                 </div>
+                @if (!empty($analisis->categories_overview))
+                    <div class="mt-2">
+                        <span class="text-muted">Kategori Sistem (ranking):</span>
+                        @foreach (($analisis->categories_overview ?? []) as $co)
+                            <span class="badge text-bg-secondary">{{ $co['category'] ?? '-' }}
+                                <small class="text-muted">{{ isset($co['score']) ? number_format($co['score'] * 100, 1) . '%' : '' }}</small>
+                            </span>
+                        @endforeach
+                    </div>
+                @endif
             </div>
         </div>
 
-        @if (!empty($analisis->summary))
+        @if (!empty($analisis->summary) || !empty($analisis->auto_summary))
             <div class="mt-3">
                 <h6>Catatan Sistem</h6>
-                <p class="text-muted small mb-0">{{ $analisis->summary['notes'] ?? '—' }}</p>
+                @if (!empty($analisis->summary))
+                    <p class="text-muted small mb-1">{{ $analisis->summary['notes'] ?? '—' }}</p>
+                @endif
+                @if (!empty($analisis->auto_summary))
+                    <div class="small">Kesimpulan Otomatis: <span class="text-muted">{{ $analisis->auto_summary }}</span></div>
+                @endif
+                @if (!empty($mlWarnings))
+                    <div class="mt-2 small">
+                        @foreach ($mlWarnings as $w)
+                            <div class="text-warning">⚠ {{ $w }}</div>
+                        @endforeach
+                    </div>
+                @endif
             </div>
         @endif
 
