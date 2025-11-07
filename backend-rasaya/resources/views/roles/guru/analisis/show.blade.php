@@ -40,8 +40,14 @@
                     Rentang: {{ \Illuminate\Support\Carbon::parse($analisis->tanggal_awal_proses)->toDateString() }} —
                     {{ \Illuminate\Support\Carbon::parse($analisis->tanggal_akhir_proses)->toDateString() }}
                 </div>
-                <div>Skor Sentimen Rata-rata: <strong>{{ $analisis->skor_sentimen }}</strong></div>
-                <div>Skor Mood Rata-rata: <strong>{{ $avgMood ?? $analisis->avg_mood }}</strong></div>
+                <div>Skor Sentimen Rata-rata: <strong>{{ $analisis->skor_sentimen }}</strong>
+                    <span class="d-block small text-muted">{{ $sentimenDesc }}</span>
+                    <span class="d-block small text-muted fst-italic">{{ $sentimenScaleInfo }}</span>
+                </div>
+                <div class="mt-2">Skor Mood Rata-rata: <strong>{{ $avgMood ?? $analisis->avg_mood }}</strong>
+                    <span class="d-block small text-muted">{{ $moodDesc }}</span>
+                    <span class="d-block small text-muted fst-italic">{{ $moodScaleInfo }}</span>
+                </div>
                 @if(($topEmojis ?? collect())->isNotEmpty())
                     <div class="mt-2">
                         <span class="text-muted">Top Emojis:</span>

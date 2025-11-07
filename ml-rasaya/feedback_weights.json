@@ -94,5 +94,38 @@
     "KESEHATAN MENTAL & EMOSI": -0.075,
     "SOSIAL & PERGAULAN": -0.15,
     "DISIPLIN & TATA TERTIB": -0.075
+  },
+  "pung nilai rapor jelek": {
+    "PUTUS & KEHILANGAN": -0.2,
+    "DEPRESI RINGAN": 0.25,
+    "STRES AKADEMIK": -0.15
+  },
+  "naykilla keliatan sedih": {
+    "PUTUS & KEHILANGAN": -0.1,
+    "DEPRESI RINGAN": 0.125,
+    "STRES AKADEMIK": -0.075
+  },
+  "nilai naykilla": {
+    "PUTUS & KEHILANGAN": -0.1,
+    "DEPRESI RINGAN": 0.125,
+    "STRES AKADEMIK": -0.075
+  },
+  "penerimaan rapor": {
+    "PUTUS & KEHILANGAN": -0.1,
+    "DEPRESI RINGAN": 0.125,
+    "STRES AKADEMIK": -0.075
+  },
+  "keliatan murung": {
+    "PUTUS & KEHILANGAN": -0.1,
+    "DEPRESI RINGAN": 0.125,
+    "STRES AKADEMIK": -0.075
+  },
+  "lulus sonde": {
+    "PUTUS & KEHILANGAN": -0.1,
+    "DEPRESI RINGAN": 0.2
+  },
+  "jelek": {
+    "PUTUS & KEHILANGAN": -0.1,
+    "DEPRESI RINGAN": 0.2
   }
 }

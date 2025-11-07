@@ -10,12 +10,14 @@ import os
 import re
 import nltk
 import json
+import math
+from datetime import datetime
 from typing import List, Dict
 from collections import defaultdict, Counter
 
 def ensure_nltk():
     # pastikan paket-paket penting ada
-    needed = ["punkt", "punkt_tab", "stopwords"]
+    needed = ["punkt", "punkt_tab", "stopwords", "vader_lexicon"]
     for pkg in needed:
         try:
             # 'punkt' dan 'punkt_tab' = tokenizers; 'stopwords' = corpora
@@ -50,26 +52,28 @@ sia.lexicon.update({k.lower(): v for k, v in ID_EXTRA.items()})
 app = Flask(__name__)
 
 API_KEY = os.environ.get("ML_API_KEY")  # optional
-FEEDBACK_FILE = os.environ.get("ML_FEEDBACK_FILE", "feedback_weights.json")
+FEEDBACK_FILE = os.environ.get("ML_FEEDBACK_FILE", os.path.join(os.path.dirname(__file__), "feedback_weights.json"))
 LEXICON_DIR = os.environ.get("ML_LEXICON_DIR", os.path.join(os.path.dirname(__file__), "lexicons"))
 ENABLE_BERT = os.environ.get("ML_ENABLE_BERT", "false").lower() in ("1","true","yes")
 BERT_MODEL_NAME = os.environ.get("ML_BERT_MODEL", "indobenchmark/indobert-base-p1")
 ENABLE_BERT_WARMUP = os.environ.get("ML_BERT_WARMUP", "false").lower() in ("1","true","yes")
+SERVICE_VERSION = os.environ.get("ML_VERSION", "ml-rasaya:2025.11.0")
 
 def check_key():
     if API_KEY:
-        key = request.headers.get("X-API-Key")
+        # accept both header casings/variants for compatibility
+        key = request.headers.get("X-API-KEY") or request.headers.get("X-API-Key")
         if key != API_KEY:
             return False
     return True
 
 def detect_lang(txt, hint=None):
-    if hint: 
+    if hint:
         return hint
     try:
-        return detect(txt)
+        return detect(txt) if txt and txt.strip() else "id"
     except Exception:
-        return "unknown"
+        return "id"
 
 def label_from_score(compound: float) -> str:
     if compound >= 0.05: return "positif"
@@ -124,17 +128,34 @@ def score_categories_for_text(txt: str, categories_map: dict, feedback: dict):
             scores[k] = round(scores[k] / total, 4)
     return scores, {k: sorted(set(v))[:5] for k, v in reasons.items()}
 
-# =====================
-# Cleaning & Lexicon Loader (InSet + optional Barasa)
-# =====================
+"""
+Cleaning & Lexicon Loader (InSet + optional Barasa)
+"""
 
+_RE_URL = re.compile(r"https?://\S+|www\.\S+", re.I)
+_RE_MENTION = re.compile(r"[@#]\w+")
+_RE_NON_ALNUM = re.compile(r"[^0-9a-zA-Z\u00C0-\u024F\u1E00-\u1EFF\u0600-\u06FF\u0900-\u097F\u0980-\u09FF\u0A00-\u0AFF\u0B00-\u0B7F\u0C00-\u0C7F\u0D00-\u0D7F\u0E00-\u0E7F ]+")
 _RE_MULTISPACE = re.compile(r"\s+")
 _RE_REPEAT = re.compile(r"(.)\1{2,}")  # aaa -> aa
 
+def _norm_negasi(t: str) -> str:
+    repl = {
+        "gak": "tidak", "ga": "tidak", "gk": "tidak", "nggak": "tidak",
+        "ngga": "tidak", "engga": "tidak", "enggak": "tidak", "kagak": "tidak",
+        "ndak": "tidak", "tak": "tidak"
+    }
+    for k, v in repl.items():
+        t = re.sub(rf"\b{k}\b", v, t)
+    return t
+
 def clean_text(t: str) -> str:
     t = (t or "").strip().lower()
+    t = _RE_URL.sub(" ", t)
+    t = _RE_MENTION.sub(" ", t)
+    t = _RE_NON_ALNUM.sub(" ", t)
     t = _RE_REPEAT.sub(r"\1\1", t)
-    t = _RE_MULTISPACE.sub(" ", t)
+    t = _norm_negasi(t)
+    t = _RE_MULTISPACE.sub(" ", t).strip()
     return t
 
 
@@ -249,11 +270,51 @@ def score_with_lexicon(text: str, lex: Dict[str, float]) -> float:
     toks = clean_text(text).split()
     if not toks:
         return 0.0
-    s = 0.0
-    for t in toks:
-        s += lex.get(t, 0.0)
+    s = sum(lex.get(t, 0.0) for t in toks)
     # dampen by sqrt length
-    return max(-1.0, min(1.0, s / max(1.0, len(toks) ** 0.5)))
+    return max(-1.0, min(1.0, s / max(1.0, math.sqrt(len(toks)))))
+
+INTENSIFIERS = {"banget": 1.0, "sangat": 0.8, "parah": 0.9, "amat": 0.5}
+
+def negative_gate(aggregate: float, raw_txt: str) -> tuple[bool, float]:
+    # severity from magnitude + intensifiers + punctuation and repeats
+    clean = clean_text(raw_txt)
+    toks = clean.split()
+    intens = sum(INTENSIFIERS.get(t, 0.0) for t in toks)
+    exclam = min(raw_txt.count("!"), 3) * 0.1
+    repeat = 0.1 if _RE_REPEAT.search(raw_txt) else 0.0
+    sev = max(0.0, min(1.0, (-aggregate) * 0.7 + intens * 0.2 + exclam + repeat))
+    return (aggregate <= -0.05), round(sev, 3)
+
+# =====================
+# Taxonomy (topics/subtopics) for semi-supervised labeling
+# =====================
+TAXONOMY_PATH = os.path.join(os.path.dirname(__file__), "taxonomy.json")
+try:
+    with open(TAXONOMY_PATH, "r", encoding="utf-8") as _f:
+        _TAX = json.load(_f)
+except Exception:
+    _TAX = {"topics": []}
+
+def _taxonomy_keywords():
+    buckets = {}
+    subtopics = {}
+    for tp in _TAX.get("topics", []):
+        bucket = tp.get("bucket") or ""
+        buckets.setdefault(bucket, set()).update([str(w).lower() for w in tp.get("keywords", []) if w])
+        for st in tp.get("subtopics", []) or []:
+            st_id = st.get("id") or st.get("code") or st.get("name")
+            if not st_id:
+                continue
+            subtopics[st_id] = {
+                "name": st.get("name") or st_id,
+                "bucket": bucket,
+                "keywords": set([str(w).lower() for w in st.get("keywords", []) if w]),
+                "examples": st.get("examples", []) or []
+            }
+    return buckets, subtopics
+
+BUCKET_KW, SUBTOPICS = _taxonomy_keywords()
 
 def extract_keyphrases(texts, lang="id"):
     # RAKE pakai stopwords bhs Inggris default; untuk id sederhana kita kasih stopwords id juga
@@ -269,7 +330,7 @@ def extract_keyphrases(texts, lang="id"):
 
 @app.get("/health")
 def health():
-    return jsonify({"status": "ok"})
+    return jsonify({"status": "ok", "version": SERVICE_VERSION, "bert": ENABLE_BERT})
 
 # =====================
 # IndoBERT caching & optional warmup
@@ -326,7 +387,14 @@ def analyze():
         return jsonify({"error": "unauthorized"}), 401
 
     data = request.get_json(force=True) or {}
-    items = data.get("items", [])
+    # Support single or batch
+    items = data.get("items")
+    if items is None:
+        items = [{
+            "id": data.get("id") or "item-1",
+            "text": data.get("text") or "",
+            "lang_hint": (data.get("context") or {}).get("lang_hint") if isinstance(data.get("context"), dict) else None
+        }]
     categories_override = data.get("categories")  # optional: { name: [keywords] }
     categories_map = {}
     if isinstance(categories_override, dict) and categories_override:
@@ -341,7 +409,10 @@ def analyze():
     if not isinstance(items, list) or not items:
         return jsonify({"error": "items required"}), 422
 
-    per = []
+    # New detailed results per item
+    results = []
+    # Legacy structures we keep for compatibility
+    per_legacy = []
     all_texts = []
     negatives = []
     per_entry_cats = {}
@@ -349,40 +420,80 @@ def analyze():
     for it in items:
         _id = it.get("id") or ""
         raw_txt = (it.get("text") or "").strip()
-        txt = clean_text(raw_txt)
+        clean = clean_text(raw_txt)
         lang_hint = it.get("lang_hint")
-        if not txt:
+        if not clean:
             continue
 
         # lang detect simple
-        lang = detect_lang(txt, hint=lang_hint)
+        lang = detect_lang(raw_txt, hint=lang_hint)
 
         # sentiment hybrid: Indonesian lexicon + VADER (raw for emoticons)
-        s_lex = score_with_lexicon(txt, LEXICON_ID)
+        s_lex = score_with_lexicon(clean, LEXICON_ID)
         s_vad = sia.polarity_scores(raw_txt).get("compound", 0.0)
-        compound = float(0.7 * s_lex + 0.3 * s_vad)
-        lbl = label_from_score(compound)
+        aggregate = float(0.7 * s_lex + 0.3 * s_vad)
+        lbl = label_from_score(aggregate)
 
-        # keywords per item (pakai RAKE cepat)
-        rk = Rake()
-        rk.extract_keywords_from_text(txt)
-        kps = rk.get_ranked_phrases()[:5]
+        neg_flag, severity = negative_gate(aggregate, raw_txt)
 
-        rec = {
+        # keyword category scoring (quick)
+        cat_scores, reasons = score_categories_for_text(clean, categories_map, feedback)
+        best_cat = max(cat_scores, key=cat_scores.get) if cat_scores else None
+
+        cluster = None
+        if best_cat:
+            # Try map best_cat to taxonomy subtopic if exists, else use category as bucket
+            st_meta = SUBTOPICS.get(best_cat)
+            if st_meta:
+                cluster = {"id": best_cat, "label": st_meta["name"], "bucket": st_meta["bucket"], "confidence": 0.5}
+            else:
+                cluster = {"id": best_cat, "label": best_cat, "bucket": best_cat, "confidence": 0.4}
+
+        # Keyphrases (RAKE) per-entry
+        try:
+            rk = Rake()
+            rk.extract_keywords_from_text(raw_txt)
+            phrases = [p for p in rk.get_ranked_phrases()[:5]]
+        except Exception:
+            phrases = []
+
+        # Simple rule-based summary per entry
+        if cluster:
+            summary = f"Masalah utama: {cluster['label']}. Gejala: {', '.join(phrases[:3])}."
+        else:
+            summary = f"Inti keluhan: {', '.join(phrases[:3])}."
+
+        results.append({
+            "id": _id,
+            "clean_text": clean,
+            "lang": lang,
+            "sentiment": {
+                "barasa": s_lex,  # merged Indo lexicon score
+                "kupang": 0.0,    # placeholder if you split later
+                "english": s_vad, # VADER compound
+                "aggregate": aggregate,
+                "label": lbl
+            },
+            "negative_flag": neg_flag,
+            "severity": severity,
+            "cluster": cluster,
+            "summary": summary,
+            "key_phrases": phrases,
+            "recommendations": []  # filled later
+        })
+
+        # legacy aggregation inputs
+        per_legacy.append({
             "id": _id,
             "text": raw_txt,
             "lang": lang,
-            "sentiment": compound,
+            "sentiment": aggregate,
             "label": lbl,
-            "keywords": kps
-        }
-        per.append(rec)
-        all_texts.append(txt)
-        if compound <= -0.05:
-            negatives.append(txt)
-            # category scoring only for negatives
-            cat_scores, reasons = score_categories_for_text(txt, categories_map, feedback)
-            # keep top categories with non-zero scores
+            "keywords": phrases
+        })
+        all_texts.append(clean)
+        if aggregate <= -0.05:
+            negatives.append(clean)
             ranked = sorted([(c, s) for c, s in cat_scores.items() if s > 0], key=lambda x: x[1], reverse=True)
             per_entry_cats[_id] = {
                 "ranked": ranked[:3],
@@ -467,15 +578,90 @@ def analyze():
         {"category": cat, "score": round(score, 4)} for cat, score in cat_counter.most_common()
     ]
 
-    avg = sum([x["sentiment"] for x in per]) / len(per) if per else 0.0
+    avg = sum([x["sentiment"] for x in per_legacy]) / len(per_legacy) if per_legacy else 0.0
     summary = {
         "avg_sentiment": round(avg, 3),
-        "negative_ratio": round(sum(1 for x in per if x["label"]=="negatif")/len(per), 3) if per else 0.0,
+        "negative_ratio": round(sum(1 for x in per_legacy if x["label"]=="negatif")/len(per_legacy), 3) if per_legacy else 0.0,
         "notes": "Rangkuman kasar berdasar skor rata-rata & proporsi negatif."
     }
 
+    # Optional semi-supervised subtopic assignment via BERT centroids
+    if ENABLE_BERT and results:
+        # build centroids from taxonomy examples
+        st_ids, st_texts = [], []
+        for st_id, meta in SUBTOPICS.items():
+            ex = meta.get("examples") or list(meta.get("keywords", []))
+            ex = [e for e in ex if isinstance(e, str) and e.strip()]
+            if not ex:
+                continue
+            st_ids.extend([st_id] * len(ex))
+            st_texts.extend(ex)
+        try:
+            import numpy as np
+            tok, mdl, dev = get_bert()
+            if tok is not None and mdl is not None and st_texts:
+                # embed examples
+                import torch
+                with torch.no_grad():
+                    enc = tok(st_texts, padding=True, truncation=True, max_length=160, return_tensors="pt").to(dev)
+                    out = mdl(**enc)
+                    ex_cls = out.last_hidden_state[:, 0, :].detach().cpu().numpy()
+                by = {}
+                for sid, vec in zip(st_ids, ex_cls):
+                    by.setdefault(sid, []).append(vec)
+                centroids = {sid: np.vstack(arr).mean(axis=0) for sid, arr in by.items()}
+                # embed inputs and assign
+                texts = [r["clean_text"] for r in results]
+                with torch.no_grad():
+                    enc2 = tok(texts, padding=True, truncation=True, max_length=160, return_tensors="pt").to(dev)
+                    out2 = mdl(**enc2)
+                    in_cls = out2.last_hidden_state[:, 0, :].detach().cpu().numpy()
+                for i, vec in enumerate(in_cls):
+                    best_sid, best_sim = None, -1.0
+                    for sid, cvec in centroids.items():
+                        num = float((vec * cvec).sum())
+                        den = float((vec**2).sum())**0.5 * float((cvec**2).sum())**0.5 + 1e-8
+                        sim = num / den
+                        if sim > best_sim:
+                            best_sid, best_sim = sid, sim
+                    if best_sid:
+                        meta = SUBTOPICS.get(best_sid)
+                        if meta:
+                            prev_conf = (results[i].get("cluster") or {}).get("confidence", 0.0)
+                            results[i]["cluster"] = {
+                                "id": best_sid,
+                                "label": meta["name"],
+                                "bucket": meta["bucket"],
+                                "confidence": round(max(prev_conf, float(best_sim)), 3)
+                            }
+        except Exception:
+            pass
+
+    # Rule-based recommendations based on bucket & severity
+    def recommend_rules(bucket: str, severity_val: float, negative: bool):
+        recs = []
+        if not bucket:
+            return recs
+        if negative and severity_val >= 0.7:
+            recs.append({"tag": "KONSELING_INDIVIDU", "title": "Sesi konseling individu", "priority": 1, "rationale": "Severity tinggi"})
+        if bucket in ("SOSIAL", "DISIPLIN") and negative:
+            recs.append({"tag": "MEDIASI_WALI", "title": "Mediasi dengan wali kelas/pihak terkait", "priority": 2, "rationale": f"Kategori {bucket}"})
+        if bucket == "AKADEMIK":
+            recs.append({"tag": "RAPAT_JADWAL_TUGAS", "title": "Penataan jadwal/tugas", "priority": 3, "rationale": "Kendala akademik"})
+        if bucket == "EMOSI":
+            recs.append({"tag": "PSYCHOEDU_EMOSI", "title": "Psychoeducation regulasi emosi", "priority": 3, "rationale": "Keluhan emosi"})
+        return recs
+
+    for r in results:
+        bucket = (r.get("cluster") or {}).get("bucket")
+        r["recommendations"] = recommend_rules(bucket, r.get("severity") or 0.0, r.get("negative_flag") or False)
+
     return jsonify({
-        "per_entry": per,
+        "version": SERVICE_VERSION,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "items": results,
+        # legacy outputs for compatibility with earlier UI/bridge
+        "per_entry": per_legacy,
         "summary": summary,
         "keyphrases": keyphrases,
         "clusters": clusters,

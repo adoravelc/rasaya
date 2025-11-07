@@ -15,12 +15,17 @@ class MlClient
         $timeout = (int) (config('services.ml_api.timeout') ?? 120);
         $connectTimeout = (int) (config('services.ml_api.connect_timeout') ?? 5);
 
+        $headers = [
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ];
+        if (!empty($key)) {
+            // ML service accepts both X-API-KEY and X-API-Key
+            $headers['X-API-KEY'] = $key;
+        }
+
         return Http::baseUrl($base)
-            ->withHeaders([
-                'Accept' => 'application/json',
-                'Content-Type' => 'application/json',
-                // 'X-API-Key' => $key,
-            ])
+            ->withHeaders($headers)
             ->timeout($timeout)
             ->connectTimeout($connectTimeout);
     }

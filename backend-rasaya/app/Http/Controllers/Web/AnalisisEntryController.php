@@ -181,6 +181,36 @@ class AnalisisEntryController extends Controller
             }
         }
 
+        // ===================== Interpretasi skor untuk tampilan guru (awam) =====================
+        $sentimenScore = (float) ($analisis->skor_sentimen ?? 0.0); // asumsi sudah di [-1,1]
+        $sentimenDesc = match (true) {
+            $sentimenScore <= -0.80 => 'Sangat negatif: indikasi tekanan emosional berat atau keluhan serius; perlu perhatian segera.',
+            $sentimenScore <= -0.60 => 'Negatif berat: banyak ekspresi stres/keluhan; monitor intensif disarankan.',
+            $sentimenScore <= -0.35 => 'Negatif cukup kuat: muncul beberapa keluhan atau penurunan motivasi.',
+            $sentimenScore <= -0.15 => 'Agak negatif: ada tanda masalah ringan atau kejadian tidak menyenangkan.',
+            $sentimenScore < 0.15 => 'Netral: ekspresi campuran atau minim emosi kuat.',
+            $sentimenScore < 0.35 => 'Agak positif: ada nuansa semangat atau sikap cukup baik.',
+            $sentimenScore < 0.60 => 'Positif cukup kuat: menunjukkan motivasi dan emosi relatif sehat.',
+            $sentimenScore < 0.80 => 'Sangat positif: konsisten menampilkan sikap optimis dan stabil.',
+            default => 'Positif tinggi sekali: antusias / sangat konstruktif (cek konsistensi agar bukan sekadar euforia sementara).'
+        };
+
+        // Mood range diasumsikan 1–10 (1 sangat buruk, 10 sangat baik)
+        $avgMoodVal = (float) ($avgMood ?? $analisis->avg_mood ?? 0.0);
+        $moodDesc = match (true) {
+            $avgMoodVal <= 0 => 'Tidak ada data mood pada rentang ini.',
+            $avgMoodVal <= 2 => 'Sangat rendah / tertekan: perasaan negatif dominan.',
+            $avgMoodVal <= 4 => 'Rendah: sering muncul rasa tidak nyaman / beban emosional.',
+            $avgMoodVal <= 6 => 'Sedang: kondisi wajar atau sedikit lelah, masih dalam batas normal.',
+            $avgMoodVal <= 8 => 'Baik: kestabilan emosi cukup terjaga.',
+            $avgMoodVal <= 9 => 'Sangat baik: menunjukkan kesejahteraan emosional tinggi.',
+            default => 'Sangat tinggi / euforia: perasaan sangat positif; tetap pantau agar stabil.'
+        };
+
+        // Penjelasan skala singkat
+        $sentimenScaleInfo = 'Skor Sentimen: -1 (sangat negatif) sampai +1 (sangat positif). Nilai mendekati 0 berarti netral.';
+        $moodScaleInfo = 'Skor Mood: 1 (sangat buruk) → 10 (sangat baik). Semakin tinggi biasanya semakin stabil dan positif.';
+
         $kategoris = \App\Models\KategoriMasalah::aktif()->orderBy('nama')->get(['id','nama','kode']);
 
         return view('roles.guru.analisis.show', [
@@ -192,6 +222,10 @@ class AnalisisEntryController extends Controller
             'topEmojis' => $topEmojis,
             'avgMood' => $avgMood,
             'kategoris' => $kategoris,
+            'sentimenDesc' => $sentimenDesc,
+            'moodDesc' => $moodDesc,
+            'sentimenScaleInfo' => $sentimenScaleInfo,
+            'moodScaleInfo' => $moodScaleInfo,
         ]);
     }
 
