@@ -36,54 +36,90 @@
                         </span>
                     </form>
                 </div>
-                <div class="text-muted small mb-2">
+                <div class="text-muted small mb-3">
                     Rentang: {{ \Illuminate\Support\Carbon::parse($analisis->tanggal_awal_proses)->toDateString() }} —
                     {{ \Illuminate\Support\Carbon::parse($analisis->tanggal_akhir_proses)->toDateString() }}
                 </div>
-                <div>Skor Sentimen Rata-rata: <strong>{{ $analisis->skor_sentimen }}</strong>
+                <div class="mb-3">Skor Sentimen Rata-rata: <strong>{{ $analisis->skor_sentimen }}</strong>
                     <span class="d-block small text-muted">{{ $sentimenDesc }}</span>
                     <span class="d-block small text-muted fst-italic">{{ $sentimenScaleInfo }}</span>
                 </div>
-                <div class="mt-2">Skor Mood Rata-rata: <strong>{{ $avgMood ?? $analisis->avg_mood }}</strong>
+                <div class="mt-3 mb-3">Skor Mood Rata-rata: <strong>{{ $avgMood ?? $analisis->avg_mood }}</strong>
                     <span class="d-block small text-muted">{{ $moodDesc }}</span>
                     <span class="d-block small text-muted fst-italic">{{ $moodScaleInfo }}</span>
                 </div>
                 @if(($topEmojis ?? collect())->isNotEmpty())
-                    <div class="mt-2">
-                        <span class="text-muted">Top Emojis:</span>
-                        @foreach ($topEmojis as $e)
-                            <span class="badge text-bg-light" title="skor {{ $e['skor'] }}">{{ $e['emoji'] }} <small class="text-muted">×{{ $e['count'] }}</small></span>
-                        @endforeach
-                    </div>
+                    @php $topE = ($topEmojis[0] ?? null); @endphp
+                    @if($topE)
+                        <div class="mt-3 mb-3">
+                            <span class="text-muted">Emoji paling sering:</span>
+                            <span class="badge text-bg-light" title="muncul ×{{ $topE['count'] }}">{{ $topE['emoji'] }} <small class="text-muted">×{{ $topE['count'] }}</small></span>
+                        </div>
+                    @endif
                 @endif
-                <div class="mt-2">
-                    <span class="text-muted">Kata kunci:</span>
-                    @foreach ($analisis->kata_kunci ?? [] as $kw)
-                        <span class="badge text-bg-light">{{ $kw['term'] ?? '' }} <small
-                                class="text-muted">×{{ $kw['count'] ?? 1 }}</small></span>
-                    @endforeach
-                </div>
+                <div class="border-top my-3"></div>
+                {{-- Kata kunci disembunyikan sesuai permintaan untuk fokus ke kategori --}}
                 @if (!empty($analisis->categories_overview))
-                    <div class="mt-2">
-                        <span class="text-muted">Kategori Sistem (ranking):</span>
-                        @foreach (($analisis->categories_overview ?? []) as $co)
-                            <span class="badge text-bg-secondary">{{ $co['category'] ?? '-' }}
-                                <small class="text-muted">{{ isset($co['score']) ? number_format($co['score'] * 100, 1) . '%' : '' }}</small>
-                            </span>
-                        @endforeach
+                    <div class="mt-3">
+                        <h6 class="mb-2">Top Kategori (Ranking)</h6>
+                        <div class="small text-muted mb-2">Ditentukan dari gabungan pernyataan negatif dan tingkat keparahan.</div>
+                        @php
+                            $allCats = collect($analisis->categories_overview ?? [])
+                                ->sortByDesc(fn($r)=> (float)($r['score'] ?? 0))
+                                ->values();
+                            // filter kategori kecil (default: >= 5%)
+                            $minScore = 0.05; 
+                            $cats = $allCats->filter(fn($r)=> (float)($r['score'] ?? 0) >= $minScore)->values();
+                            if ($cats->isEmpty()) { $cats = $allCats->take(5); }
+                            $max = max(0.0001, (float) ($cats->first()['score'] ?? 0.0001));
+                        @endphp
+                        <div class="list-group">
+                            @foreach ($cats as $row)
+                                @php
+                                    $name = (string)($row['category'] ?? '-');
+                                    $score = (float)($row['score'] ?? 0);
+                                    $pct = (int) round(($score / $max) * 100);
+                                    $pctTxt = number_format($score * 100, 1) . '%';
+                                    $reasons = collect($row['reasons'] ?? [])->filter()->values()->take(3)->all();
+                                @endphp
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <strong>{{ $name }}</strong>
+                                        <span class="small text-muted">{{ $pctTxt }}</span>
+                                    </div>
+                                    <div class="progress mt-1" style="height:8px;">
+                                        <div class="progress-bar" role="progressbar" style="width: {{ $pct }}%" aria-valuenow="{{ $pct }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                    @if(!empty($reasons))
+                                        <div class="small text-muted mt-1">
+                                            Alasan: 
+                                            @foreach ($reasons as $i => $r)
+                                                <span class="badge rounded-pill text-bg-light ms-0 me-1 mb-1">{{ $r }}</span>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                        @if($allCats->count() > $cats->count())
+                            <div class="form-text mt-1">Kategori dengan porsi di bawah 5% disembunyikan.</div>
+                        @endif
                     </div>
                 @endif
             </div>
         </div>
 
-        @if (!empty($analisis->summary) || !empty($analisis->auto_summary))
-            <div class="mt-3">
+                @if (!empty($analisis->summary) || !empty($analisis->auto_summary))
+            <div class="mt-4">
                 <h6>Catatan Sistem</h6>
                 @if (!empty($analisis->summary))
                     <p class="text-muted small mb-1">{{ $analisis->summary['notes'] ?? '—' }}</p>
                 @endif
                 @if (!empty($analisis->auto_summary))
-                    <div class="small">Kesimpulan Otomatis: <span class="text-muted">{{ $analisis->auto_summary }}</span></div>
+                    <div class="alert alert-primary py-2 px-3 small mb-0">
+                        <strong>Kesimpulan Otomatis:</strong>
+                        <span class="ms-1">{{ $analisis->auto_summary }}</span>
+                    </div>
                 @endif
                 @if (!empty($mlWarnings))
                     <div class="mt-2 small">
@@ -95,49 +131,10 @@
             </div>
         @endif
 
-        @if (!empty($analisis->clusters))
-            <div class="mt-4">
-                <h5 class="mb-2">Hasil Klasterisasi (Data Negatif)</h5>
-                <div class="accordion" id="clusterAccordion">
-                    @foreach ($analisis->clusters as $ci => $cl)
-                        <div class="accordion-item">
-                            <h2 class="accordion-header" id="heading{{ $ci }}">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#collapse{{ $ci }}" aria-expanded="false"
-                                    aria-controls="collapse{{ $ci }}">
-                                    Klaster {{ $ci + 1 }} — Topik:
-                                    <span class="ms-1 text-primary small">
-                                        {{ implode(', ', array_slice($cl['top_terms'] ?? [], 0, 3)) }}
-                                    </span>
-                                </button>
-                            </h2>
-                            <div id="collapse{{ $ci }}" class="accordion-collapse collapse"
-                                aria-labelledby="heading{{ $ci }}" data-bs-parent="#clusterAccordion">
-                                <div class="accordion-body small">
-                                    <div class="mb-2">
-                                        <strong>Top Terms:</strong>
-                                        @foreach ($cl['top_terms'] ?? [] as $term)
-                                            <span class="badge text-bg-light">{{ $term }}</span>
-                                        @endforeach
-                                    </div>
-                                    <div>
-                                        <strong>Contoh Teks:</strong>
-                                        <ul class="small text-muted mb-0">
-                                            @foreach ($cl['examples'] ?? [] as $ex)
-                                                <li>{{ $ex }}</li>
-                                            @endforeach
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        @endif
+        {{-- Klasterisasi disembunyikan sesuai permintaan. Fokus pada ranking kategori dan alasannya. --}}
 
 
-        <div class="card">
+        <div class="card mt-4">
             <div class="card-header"><strong>Rekomendasi Sistem</strong></div>
             <div class="list-group list-group-flush">
                 @forelse($analisis->rekomendasis as $r)
