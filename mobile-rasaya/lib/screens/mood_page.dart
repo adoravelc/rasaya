@@ -30,13 +30,14 @@ class _MoodPageState extends ConsumerState<MoodPage>
     '🤩', //10 Rad
   ];
 
-  // Main 5 for quick pick: Awful, Bad, Meh, Good, Rad → map to scores 1,3,5,7,10
+  // Main 5 for quick pick (left → right: lowest to highest):
+  // Awful(1), Bad(3), Meh(5), Good(7), Rad(10)
   static const _mainMap = [
-    {'label': 'Rad', 'emoji': '🤩', 'score': 10},
-    {'label': 'Good', 'emoji': '😊', 'score': 7},
-    {'label': 'Meh', 'emoji': '😐', 'score': 5},
-    {'label': 'Bad', 'emoji': '😔', 'score': 3},
     {'label': 'Awful', 'emoji': '😓', 'score': 1},
+    {'label': 'Bad', 'emoji': '😔', 'score': 3},
+    {'label': 'Meh', 'emoji': '😐', 'score': 5},
+    {'label': 'Good', 'emoji': '😊', 'score': 7},
+    {'label': 'Rad', 'emoji': '🤩', 'score': 10},
   ];
 
   int _selectedScore = 5; // default Meh

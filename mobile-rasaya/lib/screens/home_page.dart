@@ -5,6 +5,8 @@ import '../auth/auth_controller.dart';
 import '../widgets/app_scaffold.dart';
 import 'package:intl/intl.dart';
 
+// Clean rebuild of the Home page to fix corruption and match new design
+
 // Helpers
 String _fmtTanggal(BuildContext context, String? iso) {
   if (iso == null) return '-';
@@ -17,11 +19,9 @@ String _fmtTanggal(BuildContext context, String? iso) {
   }
 }
 
-// Providers: ambil beberapa item terakhir, mirip History
-// NOTE: autoDispose + depend on auth token so they refresh when user changes
+// Providers
 final recentRefleksiProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-  // tie lifecycle to auth token
   final token = ref.watch(authControllerProvider.select((s) => s.token));
   if (token == null) return <Map<String, dynamic>>[];
   final api = ref.read(apiClientProvider);
@@ -48,13 +48,33 @@ final recentMoodProvider =
       .toList();
 });
 
-// Status refleksi hari ini (self/friend) untuk reminder
 final _refleksiTodayStatusProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final token = ref.watch(authControllerProvider.select((s) => s.token));
   if (token == null) return <String, dynamic>{};
   final api = ref.read(apiClientProvider);
   final res = await api.getRefleksiTodayStatus();
+  if (!res.ok || res.data is! Map) return <String, dynamic>{};
+  return (res.data as Map).cast<String, dynamic>();
+});
+
+final _myBookingsProvider = FutureProvider.family
+    .autoDispose<Map<String, dynamic>, int>((ref, refreshCounter) async {
+  final token = ref.watch(authControllerProvider.select((s) => s.token));
+  if (token == null) return <String, dynamic>{'data': []};
+  final api = ref.read(apiClientProvider);
+  final res = await api.getMyBookings();
+  if (!res.ok || res.data is! Map) return <String, dynamic>{'data': []};
+  return (res.data as Map).cast<String, dynamic>();
+});
+
+// Mood status for today (to know whether the current session has a mood entry)
+final _moodTodayProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final token = ref.watch(authControllerProvider.select((s) => s.token));
+  if (token == null) return <String, dynamic>{};
+  final api = ref.read(apiClientProvider);
+  final res = await api.getMoodToday();
   if (!res.ok || res.data is! Map) return <String, dynamic>{};
   return (res.data as Map).cast<String, dynamic>();
 });
@@ -66,7 +86,6 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(authControllerProvider);
     final me = state.me ?? {};
-
     if (state.loading && me.isEmpty) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -75,11 +94,10 @@ class HomePage extends ConsumerWidget {
     final nis = (me['nis'] ?? me['identifier'] ?? '-').toString();
     final kelasLabel = (me['kelas_label'] ?? me['role'] ?? '-').toString();
 
-    // status cepat: fetch daftar terbaru
     final refleksiAsync = ref.watch(recentRefleksiProvider);
     final moodAsync = ref.watch(recentMoodProvider);
     final todayRefleksiStatus = ref.watch(_refleksiTodayStatusProvider);
-    // ambil jadwal saya untuk shortcut, tergantung pada refresh counter
+    final moodToday = ref.watch(_moodTodayProvider);
     final refreshCounter = ref.watch(bookingRefreshCounterProvider);
     final futureMyBookings = ref.watch(_myBookingsProvider(refreshCounter));
 
@@ -88,345 +106,200 @@ class HomePage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Salam header dengan gradient (now placed above mood prompt)
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Theme.of(context).colorScheme.primary,
-                    Theme.of(context).colorScheme.secondary
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: Colors.white,
-                    child: Text(
-                      name.isNotEmpty
-                          ? name.characters.first.toUpperCase()
-                          : '?',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Halo, $name 👋',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            )),
-                        const SizedBox(height: 4),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: -8,
-                          children: [
-                            Chip(
-                              label: Text(
-                                'NIS: $nis',
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                              backgroundColor: Colors.white,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            Chip(
-                              label: Text(
-                                kelasLabel,
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                              backgroundColor: Colors.white,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        const Text('Semoga harimu menyenangkan!',
-                            style: TextStyle(color: Colors.white70)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _IdentityHeader(name: name, nis: nis, kelasLabel: kelasLabel),
           const SizedBox(height: 16),
-          // Quick Mood Prompt (show only if not filled for current session)
-          _QuickMoodPrompt(),
+          // 1) Mood shortcut first (if not yet filled for current session)
+          moodToday.when(
+            data: (m) => _QuickMoodShortcut.fromTodayMap(m, onSaved: () {
+              ref.invalidate(_moodTodayProvider);
+              ref.invalidate(recentMoodProvider);
+            }),
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
           const SizedBox(height: 12),
-
-          // Fun reminder untuk refleksi/laporan teman
+          // 2) Daily reflection/friend reminder above the big menu (swap order)
           todayRefleksiStatus.when(
             data: (m) {
               final hasSelf = m['has_self_today'] == true;
-              // Backend mengirim key 'has_friend_report_today'; fallback ke 'has_friend_today' bila ada versi lama
               final hasFriend = (m['has_friend_report_today'] == true) ||
                   (m['has_friend_today'] == true);
-
-              // Jika belum ada refleksi diri, tampilkan reminder refleksi diri
-              if (!hasSelf) {
-                return const _SelfRefleksiReminder();
-              }
-
-              // Jika sudah ada refleksi diri tapi belum laporan teman, tampilkan reminder laporan teman
-              if (hasSelf && !hasFriend) {
-                return const _FriendReportReminder();
-              }
-
-              // Jika sudah lengkap, tidak tampilkan apa-apa
+              if (!hasSelf) return const _SelfRefleksiReminder();
+              if (hasSelf && !hasFriend) return const _FriendReportReminder();
               return const SizedBox.shrink();
             },
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
           ),
-          const SizedBox(height: 12),
-
-          // Quick actions (horizontal chips)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(children: [
-              _QuickChip(
-                icon: Icons.edit_note,
-                label: 'Tulis Refleksi',
-                onTap: () async {
-                  final res = await context.push('/refleksi');
-                  if (context.mounted && res == true) {
-                    ref.invalidate(recentRefleksiProvider);
-                    ref.invalidate(_refleksiTodayStatusProvider);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Refleksi tersimpan.')),
-                    );
-                  }
-                },
-              ),
-              const SizedBox(width: 8),
-              _QuickChip(
-                icon: Icons.history,
-                label: 'Riwayat',
-                onTap: () => context.push('/history'),
-              ),
-              const SizedBox(width: 8),
-              _QuickChip(
-                icon: Icons.mood,
-                label: 'Mood Tracker',
-                onTap: () async {
-                  final res = await context.push('/mood');
-                  if (context.mounted && res == true) {
-                    ref.invalidate(recentMoodProvider);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Mood tersimpan.')),
-                    );
-                  }
-                },
-              ),
-            ]),
-          ),
-
           const SizedBox(height: 16),
+          // 3) Big menu grid after reminders (swapped)
+          _BigMenuGrid(
+            onRefleksiDiri: () async {
+              final res = await context.push('/refleksi');
+              if (context.mounted && res == true) {
+                ref.invalidate(recentRefleksiProvider);
+                ref.invalidate(_refleksiTodayStatusProvider);
+              }
+            },
+            onRefleksiTeman: () async {
+              final res = await context.push('/refleksi?jenis=laporan');
+              if (context.mounted && res == true) {
+                ref.invalidate(recentRefleksiProvider);
+                ref.invalidate(_refleksiTodayStatusProvider);
+              }
+            },
+            onBooking: () => context.push('/booking'),
+            onHistory: () => context.push('/history'),
+          ),
+          const SizedBox(height: 16),
+          const Text('Status Booking Konseling',
+              style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          _UpcomingCounselingSection(futureMyBookings: futureMyBookings),
+          const SizedBox(height: 16),
+          const Text('Refleksi Terbaru',
+              style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 150),
+            child: refleksiAsync.when(
+              data: (items) {
+                if (items.isEmpty) {
+                  return const Text('Belum ada riwayat refleksi.');
+                }
+                return Column(
+                  children: items.map((m) {
+                    final tanggal = _fmtTanggal(
+                        context, (m['tanggal'] ?? m['created_at'])?.toString());
+                    final teks = (m['teks'] ?? '').toString();
+                    final draft =
+                        (m['status_upload']?.toString() ?? '1') == '0';
+                    final jenis = (m['meta']?['jenis'] ??
+                            (m['siswa_dilapor_id'] != null
+                                ? 'laporan'
+                                : 'pribadi'))
+                        .toString();
+                    final kategori = (m['kategoris'] as List?) ?? const [];
 
-          // Status Cepat - tampil sama seperti di History
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Status Cepat',
-                        style: TextStyle(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 8),
-
-                    // Shortcut Konseling Terjadwal
-                    _UpcomingCounselingSection(
-                        futureMyBookings: futureMyBookings),
-                    const SizedBox(height: 16),
-
-                    // Refleksi terbaru (beberapa item)
-                    const Text('Refleksi Terbaru',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 150),
-                      child: refleksiAsync.when(
-                        data: (items) {
-                          if (items.isEmpty) {
-                            return const Text('Belum ada riwayat refleksi.');
-                          }
-                          return Column(
-                            children: items.map((m) {
-                              final tanggal = _fmtTanggal(
-                                  context,
-                                  (m['tanggal'] ?? m['created_at'])
-                                      ?.toString());
-                              final teks = (m['teks'] ?? '').toString();
-                              final draft =
-                                  (m['status_upload']?.toString() ?? '1') ==
-                                      '0';
-                              final jenis = (m['meta']?['jenis'] ??
-                                      (m['siswa_dilapor_id'] != null
-                                          ? 'laporan'
-                                          : 'pribadi'))
-                                  .toString();
-                              final kategori =
-                                  (m['kategoris'] as List?) ?? const [];
-
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Card(
-                                  clipBehavior: Clip.antiAlias,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(children: [
-                                            Text(tanggal,
-                                                style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.w700)),
-                                            const SizedBox(width: 8),
-                                            if (draft)
-                                              const Chip(
-                                                label: Text('Draft',
-                                                    style: TextStyle(
-                                                        fontSize: 12)),
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                              ),
-                                            const SizedBox(width: 6),
-                                            Chip(
-                                              label: Text(
-                                                  jenis == 'laporan'
-                                                      ? 'Laporan Teman'
-                                                      : 'Pribadi',
-                                                  style: const TextStyle(
-                                                      fontSize: 12)),
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                            ),
-                                          ]),
-                                          const SizedBox(height: 8),
-                                          Text(teks,
-                                              maxLines: 4,
-                                              overflow: TextOverflow.ellipsis),
-                                          if (kategori.isNotEmpty) ...[
-                                            const SizedBox(height: 8),
-                                            Wrap(
-                                              spacing: 6,
-                                              runSpacing: -6,
-                                              children: kategori.map((k) {
-                                                final nama = (k['nama'] ?? '')
-                                                    .toString();
-                                                return Chip(
-                                                  label: Text(nama,
-                                                      style: const TextStyle(
-                                                          fontSize: 12)),
-                                                  visualDensity:
-                                                      VisualDensity.compact,
-                                                );
-                                              }).toList(),
-                                            ),
-                                          ],
-                                        ]),
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Card(
+                        clipBehavior: Clip.antiAlias,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(children: [
+                                Text(tanggal,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700)),
+                                const SizedBox(width: 8),
+                                if (draft)
+                                  const Chip(
+                                    label: Text('Draft',
+                                        style: TextStyle(fontSize: 12)),
+                                    visualDensity: VisualDensity.compact,
                                   ),
+                                const SizedBox(width: 6),
+                                Chip(
+                                  label: Text(
+                                      jenis == 'laporan'
+                                          ? 'Laporan Teman'
+                                          : 'Pribadi',
+                                      style: const TextStyle(fontSize: 12)),
+                                  visualDensity: VisualDensity.compact,
                                 ),
-                              );
-                            }).toList(),
-                          );
-                        },
-                        loading: () => const Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: LinearProgressIndicator(minHeight: 2),
-                        ),
-                        error: (_, __) => const Text('Gagal memuat refleksi.'),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Mood terbaru (beberapa item)
-                    const Text('Mood Terbaru',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 150),
-                      child: moodAsync.when(
-                        data: (items) {
-                          if (items.isEmpty) {
-                            return const Text('Belum ada riwayat mood.');
-                          }
-                          const emojis = [
-                            '😓', //1 Awful
-                            '😭', //2 Overwhelmed
-                            '😔', //3 Bad
-                            '😟', //4 Stressed
-                            '😐', //5 Meh
-                            '😴', //6 Tired (also score 5)
-                            '😊', //7 Good
-                            '😎', //8 Chill
-                            '😍', //9 In Love
-                            '🤩', //10 Rad
-                          ];
-                          return Column(
-                            children: items.map((m) {
-                              final tgl = _fmtTanggal(
-                                  context, (m['tanggal'] ?? '').toString());
-                              final sesi =
-                                  (m['sesi'] ?? '').toString().toUpperCase();
-                              final s =
-                                  int.tryParse((m['skor'] ?? '').toString()) ??
-                                      0;
-                              final emoji =
-                                  (s >= 1 && s <= 10) ? emojis[s - 1] : '•';
-                              final adaLampiran = (m['gambar'] != null &&
-                                  (m['gambar'] as String).isNotEmpty);
-
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Card(
-                                  child: ListTile(
-                                    leading: Text(emoji,
-                                        style: const TextStyle(fontSize: 24)),
-                                    title: Text(tgl),
-                                    subtitle: Text('Sesi $sesi'),
-                                    trailing: adaLampiran
-                                        ? const Icon(Icons.attachment)
-                                        : null,
-                                  ),
+                              ]),
+                              const SizedBox(height: 8),
+                              Text(teks,
+                                  maxLines: 4, overflow: TextOverflow.ellipsis),
+                              if (kategori.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: -6,
+                                  children: kategori.map((k) {
+                                    final nama = (k['nama'] ?? '').toString();
+                                    return Chip(
+                                      label: Text(nama,
+                                          style: const TextStyle(fontSize: 12)),
+                                      visualDensity: VisualDensity.compact,
+                                    );
+                                  }).toList(),
                                 ),
-                              );
-                            }).toList(),
-                          );
-                        },
-                        loading: () => const Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: LinearProgressIndicator(minHeight: 2),
+                              ],
+                            ],
+                          ),
                         ),
-                        error: (_, __) => const Text('Gagal memuat mood.'),
                       ),
-                    ),
-                  ]),
+                    );
+                  }).toList(),
+                );
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: LinearProgressIndicator(minHeight: 2),
+              ),
+              error: (_, __) => const Text('Gagal memuat refleksi.'),
             ),
           ),
+          const SizedBox(height: 16),
+          const Text('Mood Terbaru',
+              style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 150),
+            child: moodAsync.when(
+              data: (items) {
+                if (items.isEmpty) {
+                  return const Text('Belum ada riwayat mood.');
+                }
+                const emojis = [
+                  '😓',
+                  '😭',
+                  '😔',
+                  '😟',
+                  '😐',
+                  '😴',
+                  '😊',
+                  '😎',
+                  '😍',
+                  '🤩'
+                ];
+                return Column(
+                  children: items.map((m) {
+                    final tgl =
+                        _fmtTanggal(context, (m['tanggal'] ?? '').toString());
+                    final sesi = (m['sesi'] ?? '').toString().toUpperCase();
+                    final s = int.tryParse((m['skor'] ?? '').toString()) ?? 0;
+                    final emoji = (s >= 1 && s <= 10) ? emojis[s - 1] : '•';
+                    final adaLampiran = (m['gambar'] != null &&
+                        (m['gambar'] as String).isNotEmpty);
 
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Card(
+                        child: ListTile(
+                          leading:
+                              Text(emoji, style: const TextStyle(fontSize: 24)),
+                          title: Text(tgl),
+                          subtitle: Text('Sesi $sesi'),
+                          trailing:
+                              adaLampiran ? const Icon(Icons.attachment) : null,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: LinearProgressIndicator(minHeight: 2),
+              ),
+              error: (_, __) => const Text('Gagal memuat mood.'),
+            ),
+          ),
           const SizedBox(height: 24),
         ],
       ),
@@ -434,60 +307,308 @@ class HomePage extends ConsumerWidget {
   }
 }
 
-class _QuickMoodPrompt extends ConsumerWidget {
+class _IdentityHeader extends StatelessWidget {
+  const _IdentityHeader(
+      {required this.name, required this.nis, required this.kelasLabel});
+  final String name;
+  final String nis;
+  final String kelasLabel;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(_moodTodayProvider);
-    return async.when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (m) {
-        final sesiNow = (m['sesi_now'] ?? '').toString().toUpperCase();
-        final items = (m['items'] as List? ?? const []);
-        final filled = items
-            .any((e) => (e['sesi'] ?? '').toString().toUpperCase() == sesiNow);
-        if (sesiNow.isEmpty || filled) return const SizedBox.shrink();
-        final theme = Theme.of(context);
-        return Card(
-          clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('How are you?',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    _MoodQuickEmoji(label: 'Rad', emoji: '🤩', score: 10),
-                    _MoodQuickEmoji(label: 'Good', emoji: '😊', score: 7),
-                    _MoodQuickEmoji(label: 'Meh', emoji: '😐', score: 5),
-                    _MoodQuickEmoji(label: 'Bad', emoji: '😔', score: 3),
-                    _MoodQuickEmoji(label: 'Awful', emoji: '😓', score: 1),
-                  ],
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tt = theme.textTheme;
+    return Card(
+      elevation: 6,
+      shadowColor: cs.primary.withOpacity(0.4),
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+        decoration: BoxDecoration(
+          color: cs.primary, // solid navy
+        ),
+        child: Stack(
+          children: [
+            // subtle decorative soft pink circles
+            Positioned(
+              right: -20,
+              top: -10,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: cs.secondary.withOpacity(0.20),
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(height: 6),
-                Text('Sesi sekarang: $sesiNow',
-                    style: TextStyle(color: theme.hintColor)),
+              ),
+            ),
+            Positioned(
+              right: 30,
+              bottom: -15,
+              child: Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  color: cs.secondary.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: cs.secondary,
+                    shape: BoxShape.circle,
+                    boxShadow: const [
+                      BoxShadow(
+                          color: Color(0x33000000),
+                          offset: Offset(0, 4),
+                          blurRadius: 10)
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      name.isNotEmpty
+                          ? name.characters.first.toUpperCase()
+                          : '?',
+                      style: TextStyle(
+                        color: cs.primary,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 26,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Halo! 👋',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: cs.secondary,
+                              fontSize: 14)),
+                      Text(name,
+                          style: tt.headlineSmall?.copyWith(
+                            color: cs.secondary,
+                          )),
+                      const SizedBox(height: 8),
+                      Wrap(spacing: 8, runSpacing: -8, children: [
+                        _IdentityChip(label: 'NIS: $nis'),
+                        _IdentityChip(label: kelasLabel),
+                      ]),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text('🧑‍🎓',
+                    style: TextStyle(fontSize: 44, color: cs.secondary)),
               ],
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _SelfRefleksiReminder extends StatefulWidget {
+class _IdentityChip extends StatelessWidget {
+  const _IdentityChip({required this.label});
+  final String label;
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: cs.secondary.withOpacity(0.8), width: 1.4),
+        color: cs.primary.withOpacity(0.25),
+      ),
+      child: Text(label,
+          style: TextStyle(
+              color: cs.secondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2)),
+    );
+  }
+}
+
+class _BigMenuGrid extends StatelessWidget {
+  const _BigMenuGrid({
+    required this.onRefleksiDiri,
+    required this.onRefleksiTeman,
+    required this.onBooking,
+    required this.onHistory,
+  });
+  final VoidCallback onRefleksiDiri;
+  final VoidCallback onRefleksiTeman;
+  final VoidCallback onBooking;
+  final VoidCallback onHistory;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GridView.count(
+      crossAxisCount: 2,
+      childAspectRatio: 1.2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        _BigTile(
+          label: 'Refleksi Harian',
+          emoji: '✍️',
+          bg: cs.secondary,
+          fg: Colors.black,
+          onTap: onRefleksiDiri,
+        ),
+        _BigTile(
+          label: 'Refleksi Teman',
+          emoji: '👥',
+          bg: cs.primary,
+          fg: Colors.white,
+          onTap: onRefleksiTeman,
+        ),
+        _BigTile(
+          label: 'Booking Konseling',
+          emoji: '📅',
+          bg: cs.primary,
+          fg: Colors.white,
+          onTap: onBooking,
+        ),
+        _BigTile(
+          label: 'Riwayat Input',
+          emoji: '🕒',
+          bg: cs.secondary,
+          fg: Colors.black,
+          onTap: onHistory,
+        ),
+      ],
+    );
+  }
+}
+
+class _BigTile extends StatefulWidget {
+  const _BigTile({
+    required this.label,
+    required this.emoji,
+    required this.bg,
+    required this.fg,
+    required this.onTap,
+  });
+  final String label;
+  final String emoji;
+  final Color bg;
+  final Color fg;
+  final VoidCallback onTap;
+
+  @override
+  State<_BigTile> createState() => _BigTileState();
+}
+
+class _BigTileState extends State<_BigTile>
+    with SingleTickerProviderStateMixin {
+  double _scale = 1.0;
+
+  void _press(bool down) {
+    setState(() => _scale = down ? 0.98 : 1.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTapDown: (_) => _press(true),
+      onTapCancel: () => _press(false),
+      onTapUp: (_) => _press(false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 110),
+        curve: Curves.easeOut,
+        scale: _scale,
+        child: Container(
+          decoration: BoxDecoration(
+            color: widget.bg,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                  color: cs.primary.withOpacity(0.18),
+                  offset: const Offset(0, 6),
+                  blurRadius: 14,
+                  spreadRadius: 1),
+            ],
+          ),
+          child: Stack(
+            children: [
+              // decorative soft pink/navy glows
+              Positioned(
+                right: -10,
+                top: -10,
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                      color: widget.fg.withOpacity(0.08),
+                      shape: BoxShape.circle),
+                ),
+              ),
+              Positioned(
+                left: -16,
+                bottom: -16,
+                child: Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                      color: widget.fg.withOpacity(0.06),
+                      shape: BoxShape.circle),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(widget.emoji, style: const TextStyle(fontSize: 40)),
+                    const SizedBox(height: 12),
+                    Text(
+                      widget.label,
+                      style: TextStyle(
+                        color: widget.fg,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                      ),
+                      maxLines: 2,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SelfRefleksiReminder extends ConsumerStatefulWidget {
   const _SelfRefleksiReminder();
 
   @override
-  State<_SelfRefleksiReminder> createState() => _SelfRefleksiReminderState();
+  ConsumerState<_SelfRefleksiReminder> createState() =>
+      _SelfRefleksiReminderState();
 }
 
-class _SelfRefleksiReminderState extends State<_SelfRefleksiReminder>
+class _SelfRefleksiReminderState extends ConsumerState<_SelfRefleksiReminder>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
@@ -516,28 +637,37 @@ class _SelfRefleksiReminderState extends State<_SelfRefleksiReminder>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Yuk, isi refleksi dirimu hari ini ✍️',
+                    'Yuk isi refleksi hari ini ✍️',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Cuma 1 menit. Biar konselormu tau kabarmu 💛',
+                    'Ambil 1-2 menit buat cerita singkat. Kamu hebat sudah sampai sini 💙',
                     style: TextStyle(color: theme.hintColor),
                   ),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    children: const [
-                      Chip(
-                          label: Text('Belum ada refleksi diri hari ini'),
-                          visualDensity: VisualDensity.compact),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
                   FilledButton.icon(
-                    onPressed: () => GoRouter.of(context).push('/refleksi'),
+                    style: FilledButton.styleFrom(
+                      elevation: 4,
+                      shadowColor: theme.colorScheme.primary.withOpacity(0.5),
+                      backgroundColor: theme.colorScheme.primary,
+                      foregroundColor: theme.colorScheme.secondary,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 14),
+                      textStyle: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 14),
+                    ),
+                    onPressed: () async {
+                      final res = await GoRouter.of(context).push('/refleksi');
+                      if (context.mounted && res == true) {
+                        ref.invalidate(recentRefleksiProvider);
+                        ref.invalidate(_refleksiTodayStatusProvider);
+                      }
+                    },
                     icon: const Icon(Icons.edit),
-                    label: const Text('Refleksi Diri Sekarang'),
+                    label: const Text('Tulis Refleksi Harian'),
                   ),
                 ],
               ),
@@ -592,7 +722,7 @@ class _FriendReportReminderState extends ConsumerState<_FriendReportReminder>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Apakah ada kondisi temanmu yang perlu diperhatikan? 👥',
+                    'Mau cerita tentang keadaan temanmu nggak? 👥',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 6),
@@ -611,6 +741,18 @@ class _FriendReportReminderState extends ConsumerState<_FriendReportReminder>
                   ),
                   const SizedBox(height: 12),
                   FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      elevation: 4,
+                      shadowColor: theme.colorScheme.primary.withOpacity(0.5),
+                      backgroundColor: theme.colorScheme.primary,
+                      foregroundColor: theme.colorScheme.secondary,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 14),
+                      textStyle: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 14),
+                    ),
                     onPressed: () async {
                       final res = await GoRouter.of(context)
                           .push('/refleksi?jenis=laporan');
@@ -638,96 +780,129 @@ class _FriendReportReminderState extends ConsumerState<_FriendReportReminder>
   }
 }
 
-final _moodTodayProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
-  final token = ref.watch(authControllerProvider.select((s) => s.token));
-  if (token == null) return <String, dynamic>{};
-  final api = ref.read(apiClientProvider);
-  final res = await api.getMoodToday();
-  if (!res.ok || res.data is! Map) return <String, dynamic>{};
-  return (res.data as Map).cast<String, dynamic>();
-});
+// =============== Quick Mood Shortcut ===============
+class _QuickMoodShortcut extends ConsumerStatefulWidget {
+  const _QuickMoodShortcut({required this.sesiNow, required this.hasNow});
+  final String sesiNow;
+  final bool hasNow;
 
-class _MoodQuickEmoji extends ConsumerStatefulWidget {
-  const _MoodQuickEmoji(
-      {required this.label, required this.emoji, required this.score});
-  final String label;
-  final String emoji;
-  final int score;
+  // Factory: derive from API map structure
+  factory _QuickMoodShortcut.fromTodayMap(Map<String, dynamic> m,
+      {required VoidCallback onSaved}) {
+    final sesiNow = (m['sesi_now'] ?? '').toString();
+    final items = (m['items'] as List?) ?? const [];
+    final hasNow = items.any((e) =>
+        (e is Map) &&
+        ((e['sesi'] ?? '').toString().toLowerCase() == sesiNow.toLowerCase()));
+    // If already has mood for this session → return an empty placeholder
+    if (hasNow || sesiNow.isEmpty) {
+      return _QuickMoodShortcutHidden(onSaved: onSaved);
+    }
+    return _QuickMoodShortcut._internal(sesiNow: sesiNow, hasNow: hasNow);
+  }
+
+  // Private named to use in factory
+  const _QuickMoodShortcut._internal(
+      {required this.sesiNow, required this.hasNow});
 
   @override
-  ConsumerState<_MoodQuickEmoji> createState() => _MoodQuickEmojiState();
+  ConsumerState<_QuickMoodShortcut> createState() => _QuickMoodShortcutState();
 }
 
-class _MoodQuickEmojiState extends ConsumerState<_MoodQuickEmoji> {
+// Hidden variant to avoid branching in the caller
+class _QuickMoodShortcutHidden extends _QuickMoodShortcut {
+  final VoidCallback onSaved;
+  const _QuickMoodShortcutHidden({required this.onSaved})
+      : super(sesiNow: '', hasNow: true);
+  @override
+  ConsumerState<_QuickMoodShortcut> createState() => _HiddenState();
+}
+
+class _HiddenState extends ConsumerState<_QuickMoodShortcut> {
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
+class _QuickMoodShortcutState extends ConsumerState<_QuickMoodShortcut> {
   bool _saving = false;
+  // Left → right should go from lowest to highest score
+  static const _mainQuick = [
+    {'label': 'Awful', 'emoji': '😓', 'score': 1},
+    {'label': 'Bad', 'emoji': '😔', 'score': 3},
+    {'label': 'Meh', 'emoji': '😐', 'score': 5},
+    {'label': 'Good', 'emoji': '😊', 'score': 7},
+    {'label': 'Rad', 'emoji': '🤩', 'score': 10},
+  ];
 
-  Future<void> _saveMood() async {
+  Future<void> _save(int score) async {
     if (_saving) return;
-
     setState(() => _saving = true);
     final api = ref.read(apiClientProvider);
-    final res = await api.postMood(widget.score);
-
-    if (mounted) {
-      setState(() => _saving = false);
-
-      if (res.ok) {
-        // Refresh providers
-        ref.invalidate(recentMoodProvider);
-        ref.invalidate(_moodTodayProvider);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Mood ${widget.label} tersimpan!')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal menyimpan: ${res.errorMessage}')),
-        );
-      }
+    final res = await api.postMood(score);
+    setState(() => _saving = false);
+    if (!mounted) return;
+    if (res.ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mood tersimpan. Terima kasih!')),
+      );
+      // Invalidate providers from parent by reading and invalidating
+      ref.invalidate(_moodTodayProvider);
+      ref.invalidate(recentMoodProvider);
+    } else {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Gagal menyimpan mood'),
+          content: Text(res.errorMessage),
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _saving ? null : _saveMood,
-      child: Opacity(
-        opacity: _saving ? 0.5 : 1.0,
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AnimatedScale(
-              scale: 1.0,
-              duration: const Duration(milliseconds: 150),
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: const [
-                    BoxShadow(
-                        color: Color(0x14000000),
-                        offset: Offset(0, 1),
-                        blurRadius: 3),
-                  ],
-                ),
-                child: _saving
-                    ? const Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : Center(
-                        child: Text(widget.emoji,
-                            style: const TextStyle(fontSize: 22))),
-              ),
+            Text(
+              'Bagaimana perasaanmu sesi ini?',
+              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 6),
-            Text(widget.label,
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: _mainQuick.map((m) {
+                final score = m['score'] as int;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        backgroundColor: cs.secondary,
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: _saving ? null : () => _save(score),
+                      child: Text(m['emoji'] as String,
+                          style: const TextStyle(fontSize: 20)),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            if (_saving) ...[
+              const SizedBox(height: 8),
+              const LinearProgressIndicator(minHeight: 2),
+            ],
           ],
         ),
       ),
@@ -735,39 +910,7 @@ class _MoodQuickEmojiState extends ConsumerState<_MoodQuickEmoji> {
   }
 }
 
-class _QuickChip extends StatelessWidget {
-  const _QuickChip(
-      {required this.icon, required this.label, required this.onTap});
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
-      child: ActionChip(
-        avatar: Icon(icon, size: 18),
-        label: Text(label),
-        onPressed: onTap,
-        shape: const StadiumBorder(),
-        backgroundColor: Theme.of(context).chipTheme.backgroundColor,
-        side: BorderSide(color: Theme.of(context).dividerColor),
-      ),
-    );
-  }
-}
-
-// Provider untuk fetch bookings saya (digunakan untuk shortcut di dashboard)
-final _myBookingsProvider = FutureProvider.family
-    .autoDispose<Map<String, dynamic>, int>((ref, refreshCounter) async {
-  final token = ref.watch(authControllerProvider.select((s) => s.token));
-  if (token == null) return <String, dynamic>{'data': []};
-  final api = ref.read(apiClientProvider);
-  final res = await api.getMyBookings();
-  if (!res.ok || res.data is! Map) return <String, dynamic>{'data': []};
-  return (res.data as Map).cast<String, dynamic>();
-});
+// Removed unused quick mood widgets and duplicate providers
 
 class _UpcomingCounselingSection extends ConsumerWidget {
   const _UpcomingCounselingSection({required this.futureMyBookings});

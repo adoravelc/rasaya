@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -91,45 +92,118 @@ class _AppState extends ConsumerState<App> {
   @override
   Widget build(BuildContext context) {
     const brokenWhite = Color(0xFFF7F7F2);
-    const primary = Color(0xFF192653); // deep indigo-blue hint
-    const secondary = Color(0xFF0F6A49); // green hint
+    const primary = Color(0xFF073763); // navy
+    const secondary = Color(0xFFEBDAE3); // soft pink
 
     final colorScheme = const ColorScheme(
       brightness: Brightness.light,
       primary: primary,
       onPrimary: Colors.white,
       secondary: secondary,
-      onSecondary: Colors.white,
+      onSecondary: Colors.black,
       error: Color(0xFFB3261E),
       onError: Colors.white,
       surface: brokenWhite,
-      onSurface: Color(0xFF1B1B1F),
+      onSurface: Color(0xFF111111),
+    );
+
+    final baseText = ThemeData.light().textTheme;
+    // Base: Poppins for most text, override titles/headlines with Lora
+    final poppins = GoogleFonts.poppinsTextTheme(baseText).apply(
+      bodyColor: const Color(0xFF111111),
+      displayColor: const Color(0xFF111111),
+    );
+    final textTheme = poppins.copyWith(
+      // Larger title-like styles use Lora
+      displayLarge: GoogleFonts.lora(
+        fontWeight: FontWeight.w700,
+        fontSize: 44,
+        letterSpacing: -0.2,
+        color: const Color(0xFF111111),
+      ),
+      displayMedium: GoogleFonts.lora(
+        fontWeight: FontWeight.w700,
+        fontSize: 36,
+        letterSpacing: -0.2,
+        color: const Color(0xFF111111),
+      ),
+      displaySmall: GoogleFonts.lora(
+        fontWeight: FontWeight.w700,
+        fontSize: 30,
+        letterSpacing: -0.2,
+        color: const Color(0xFF111111),
+      ),
+      headlineLarge: GoogleFonts.lora(
+        fontWeight: FontWeight.w700,
+        fontSize: 28,
+        letterSpacing: -0.2,
+        color: const Color(0xFF111111),
+      ),
+      headlineMedium: GoogleFonts.lora(
+        fontWeight: FontWeight.w700,
+        fontSize: 24,
+        letterSpacing: -0.2,
+        color: const Color(0xFF111111),
+      ),
+      titleLarge: GoogleFonts.lora(
+        fontWeight: FontWeight.w700,
+        fontSize: 20,
+        letterSpacing: -0.2,
+        color: const Color(0xFF111111),
+      ),
+      // Keep other text sizes in Poppins
+      titleMedium: GoogleFonts.poppins(
+        fontWeight: FontWeight.w600,
+        fontSize: 16,
+        color: const Color(0xFF111111),
+      ),
+      bodyLarge: GoogleFonts.poppins(
+        fontWeight: FontWeight.w400,
+        fontSize: 14,
+        height: 1.4,
+        color: const Color(0xFF111111),
+      ),
+      bodyMedium: GoogleFonts.poppins(
+        fontWeight: FontWeight.w400,
+        fontSize: 13,
+        height: 1.5,
+        color: const Color(0xFF111111),
+      ),
+      labelLarge: GoogleFonts.poppins(
+        fontWeight: FontWeight.w600,
+        fontSize: 13,
+        color: Colors.white,
+      ),
     );
 
     final theme = ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
+      textTheme: textTheme,
       scaffoldBackgroundColor: brokenWhite,
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: brokenWhite,
         foregroundColor: primary,
         elevation: 0,
         centerTitle: false,
+        titleTextStyle: textTheme.titleLarge,
       ),
       pageTransitionsTheme: const PageTransitionsTheme(builders: {
-        TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.android: ZoomPageTransitionsBuilder(),
         TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-        TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
-        TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+        TargetPlatform.linux: ZoomPageTransitionsBuilder(),
         TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
       }),
       cardTheme: CardThemeData(
         color: Colors.white,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 1,
       ),
-      inputDecorationTheme: const InputDecorationTheme(
-        border: OutlineInputBorder(
+      inputDecorationTheme: InputDecorationTheme(
+        hintStyle: textTheme.bodyMedium?.copyWith(color: Colors.black54),
+        border: const OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(12))),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -137,23 +211,29 @@ class _AppState extends ConsumerState<App> {
           backgroundColor: primary,
           foregroundColor: Colors.white,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
+          elevation: 3,
+          shadowColor: primary.withOpacity(0.35),
+          textStyle: textTheme.labelLarge,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: primary,
-          foregroundColor: Colors.white,
+          foregroundColor: secondary,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
+          elevation: 3,
+          shadowColor: primary.withOpacity(0.35),
+          textStyle: textTheme.labelLarge,
         ),
       ),
       chipTheme: ChipThemeData(
         shape: const StadiumBorder(),
-        labelStyle: const TextStyle(fontSize: 12),
-        backgroundColor: Colors.white.withOpacity(.9),
+        labelStyle: textTheme.bodyMedium?.copyWith(fontSize: 12),
+        backgroundColor: secondary.withOpacity(.5),
       ),
     );
 

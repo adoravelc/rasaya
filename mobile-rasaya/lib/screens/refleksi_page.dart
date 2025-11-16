@@ -317,9 +317,8 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
   @override
   Widget build(BuildContext context) {
     final hintText = _jenis == 'laporan'
-        ? 'Ceritakan apa yang kamu ketahui tentang keadaan temanmu, '
-            'kronologi singkat, dan hal penting yang perlu diketahui guru BK.'
-        : 'Ceritakan perasaan, pengalaman, atau hal penting yang kamu alami hari ini…';
+        ? 'Mau ngasih heads-up soal temanmu? Ceritain singkat apa yang terjadi, kronologi, dan hal penting yang perlu guru tau biar bisa bantu dengan tepat.'
+        : 'Cerita dikit tentang harimu yuk—lagi ngerasa apa? Ada momen yang bikin kamu ke-trigger, seneng, atau capek? Tulis santai aja ✍️';
 
     final displayFilename = _pickedFile?.name ?? _webFilename;
     final left = _FormKiri(
@@ -418,8 +417,8 @@ class _FormKiri extends StatelessWidget {
     required this.onSaveDraft,
     required this.onSubmit,
     required this.fmtTanggal,
-    super.key,
-  });
+    Key? key,
+  }) : super(key: key);
 
   final GlobalKey<FormState> formKey;
   final DateTime tanggal;

@@ -1,14 +1,20 @@
 @use "bootstrap/scss/bootstrap";
 
+/* Google Font: playful but readable */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
 /* RASAYA theme variables (Bootstrap CSS variables override) */
 :root {
 	--ras-broken-white: #F7F7F2;
-	--ras-primary: #192653; /* deep indigo-blue */
-	--ras-secondary: #0F6A49; /* green */
+	--ras-primary: #073763; /* navy */
+	--ras-secondary: #EBDAE3; /* soft pink */
+	--ras-text-dark: #111111; /* near black for readability */
+	--ras-text-light: #ffffff;
 
 	/* Bootstrap palette overrides */
+	--bs-body-font-family: 'Poppins', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
 	--bs-body-bg: var(--ras-broken-white);
-	--bs-body-color: #1B1B1F;
+	--bs-body-color: var(--ras-text-dark);
 	--bs-primary: var(--ras-primary);
 	--bs-secondary: var(--ras-secondary);
 	--bs-link-color: var(--ras-primary);
@@ -46,8 +52,17 @@ body {
 .btn-primary {
 	--bs-btn-bg: var(--ras-primary);
 	--bs-btn-border-color: var(--ras-primary);
-	--bs-btn-hover-bg: #111a3c;
-	--bs-btn-hover-border-color: #111a3c;
+	--bs-btn-hover-bg: #042646; /* slightly darker navy */
+	--bs-btn-hover-border-color: #042646;
+	--bs-btn-color: var(--ras-text-light);
+}
+
+.btn-secondary {
+	--bs-btn-bg: var(--ras-secondary);
+	--bs-btn-border-color: var(--ras-secondary);
+	--bs-btn-color: var(--ras-text-dark);
+	--bs-btn-hover-bg: #e4c9d4; /* slightly darker pink */
+	--bs-btn-hover-border-color: #e4c9d4;
 }
 
 .btn-outline-secondary {
@@ -55,6 +70,7 @@ body {
 	--bs-btn-border-color: var(--ras-primary);
 	--bs-btn-hover-bg: var(--ras-primary);
 	--bs-btn-hover-border-color: var(--ras-primary);
+	--bs-btn-hover-color: var(--ras-text-light);
 }
 
 /* Tables responsive already via .table-responsive wrappers */
@@ -65,4 +81,16 @@ body {
 	--bs-pagination-padding-y: .25rem;
 	--bs-pagination-font-size: .9rem;
 	--bs-pagination-border-radius: 8px;
+}
+
+/* Playful emoji badges for guru dashboards (optional utility) */
+.emoji-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: .35rem;
+	background: var(--ras-secondary);
+	color: var(--ras-text-dark);
+	border-radius: 999px;
+	padding: .25rem .6rem;
+	font-weight: 600;
 }
