@@ -17,13 +17,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final name = (me['name'] ?? me['nama'] ?? '-').toString();
     final email = (me['email'] ?? '-').toString();
     final nis = (me['nis'] ?? me['identifier'] ?? '-').toString();
+    final kelasLabel = (me['kelas_label'] ?? me['role'] ?? '').toString();
 
     return AppScaffold(
       title: 'Profil',
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: _HeaderCard(name: name, email: email),
+            child: _IdentityHeaderProfile(
+              name: name,
+              nis: nis,
+              kelasLabel: kelasLabel,
+            ),
           ),
           SliverToBoxAdapter(child: const SizedBox(height: 12)),
           SliverToBoxAdapter(
@@ -34,67 +39,39 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ),
           SliverToBoxAdapter(child: const SizedBox(height: 12)),
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: FilledButton.icon(
-                onPressed: () => context.push('/profile/change-password'),
-                icon: const Icon(Icons.lock_reset),
-                label: const Text('Ubah Password'),
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(child: const SizedBox(height: 12)),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: OutlinedButton.icon(
-                onPressed: () => context.push('/history'),
-                icon: const Icon(Icons.history),
-                label: const Text('Lihat History Input'),
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(child: const SizedBox(height: 12)),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red.shade700,
-                  side: BorderSide(color: Colors.red.shade300),
-                ),
-                onPressed: () async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Keluar dari akun?'),
-                      content: const Text(
-                          'Kamu akan keluar dari aplikasi dan perlu login kembali.'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('Batal'),
+            child: _ActionGrid(
+              onChangePassword: () => context.push('/profile/change-password'),
+              onHistory: () => context.push('/history'),
+              onSchedule: () => context.push('/my-schedule'),
+              onLogout: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Keluar dari akun?'),
+                    content: const Text(
+                        'Kamu akan keluar dari aplikasi dan perlu login kembali.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Batal'),
+                      ),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.red.shade600,
                         ),
-                        FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.red.shade600,
-                          ),
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('Logout'),
-                        ),
-                      ],
-                    ),
-                  );
-                  if (confirm == true) {
-                    await ref.read(authControllerProvider.notifier).logout();
-                    if (context.mounted) {
-                      GoRouter.of(context).go('/');
-                    }
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Logout'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await ref.read(authControllerProvider.notifier).logout();
+                  if (context.mounted) {
+                    GoRouter.of(context).go('/');
                   }
-                },
-                icon: const Icon(Icons.logout),
-                label: const Text('Logout'),
-              ),
+                }
+              },
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
@@ -104,44 +81,96 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 }
 
-class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({required this.name, required this.email});
+class _IdentityHeaderProfile extends StatelessWidget {
+  const _IdentityHeaderProfile(
+      {required this.name, required this.nis, required this.kelasLabel});
   final String name;
-  final String email;
+  final String nis;
+  final String kelasLabel;
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tt = theme.textTheme;
+    return Card(
+      elevation: 6,
+      shadowColor: cs.primary.withOpacity(0.4),
+      clipBehavior: Clip.antiAlias,
+      margin: const EdgeInsets.all(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+        decoration: BoxDecoration(color: cs.primary),
+        child: Stack(children: [
+          Positioned(
+            right: -20,
+            top: -10,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: cs.secondary.withOpacity(0.20),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Positioned(
+            right: 30,
+            bottom: -15,
+            child: Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                color: cs.secondary.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Row(children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Profil',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: cs.secondary,
+                          fontSize: 16)),
+                  Text(name,
+                      style: tt.headlineSmall?.copyWith(color: cs.secondary)),
+                  const SizedBox(height: 10),
+                  Wrap(spacing: 10, runSpacing: -8, children: [
+                    _IdentityChip(label: 'NIS: $nis'),
+                    if (kelasLabel.isNotEmpty) _IdentityChip(label: kelasLabel),
+                  ]),
+                ],
+              ),
+            ),
+          ])
+        ]),
+      ),
+    );
+  }
+}
+
+class _IdentityChip extends StatelessWidget {
+  const _IdentityChip({required this.label});
+  final String label;
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          colors: [cs.primary, cs.secondary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: cs.secondary.withOpacity(0.8), width: 1.4),
+        color: cs.primary.withOpacity(0.25),
       ),
-      child: Column(
-        children: [
-          const SizedBox(height: 24),
-          const CircleAvatar(
-              radius: 36,
-              backgroundColor: Colors.white,
-              child: Icon(Icons.person, size: 40, color: Colors.black54)),
-          const SizedBox(height: 12),
-          Text(name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-              )),
-          const SizedBox(height: 4),
-          if (email.isNotEmpty)
-            Text(email,
-                style: const TextStyle(color: Colors.white70, fontSize: 12)),
-        ],
-      ),
+      child: Text(label,
+          style: TextStyle(
+              color: cs.secondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2)),
     );
   }
 }
@@ -152,7 +181,8 @@ class _InfoList extends StatelessWidget {
   final String email;
   @override
   Widget build(BuildContext context) {
-    final iconColor = Theme.of(context).colorScheme.primary;
+    final cs = Theme.of(context).colorScheme;
+    final iconColor = cs.primary;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -192,6 +222,139 @@ class _InfoTile extends StatelessWidget {
       leading: Icon(icon, color: iconColor),
       title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(value.isEmpty ? '-' : value),
+    );
+  }
+}
+
+class _ActionGrid extends StatelessWidget {
+  const _ActionGrid({
+    required this.onChangePassword,
+    required this.onHistory,
+    required this.onSchedule,
+    required this.onLogout,
+  });
+  final VoidCallback onChangePassword;
+  final VoidCallback onHistory;
+  final VoidCallback onSchedule;
+  final VoidCallback onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: GridView.count(
+        crossAxisCount: 2,
+        childAspectRatio: 2.8,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          _SmallActionButton(
+            label: 'Ubah Password',
+            icon: Icons.lock_reset,
+            fg: cs.primary,
+            onTap: onChangePassword,
+          ),
+          _SmallActionButton(
+            label: 'Riwayat Input',
+            icon: Icons.history,
+            fg: cs.primary,
+            onTap: onHistory,
+          ),
+          _SmallActionButton(
+            label: 'Jadwal Saya',
+            icon: Icons.event_available,
+            fg: cs.primary,
+            onTap: onSchedule,
+          ),
+          _SmallActionButton(
+            label: 'Logout',
+            icon: Icons.logout,
+            fg: Colors.red,
+            bg: Colors.white,
+            border: Border.all(color: Colors.red.shade300),
+            onTap: onLogout,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SmallActionButton extends StatefulWidget {
+  const _SmallActionButton({
+    required this.label,
+    required this.icon,
+    required this.fg,
+    this.bg,
+    this.border,
+    required this.onTap,
+  });
+  final String label;
+  final IconData icon;
+  final Color fg;
+  final Color? bg;
+  final BoxBorder? border;
+  final VoidCallback onTap;
+
+  @override
+  State<_SmallActionButton> createState() => _SmallActionButtonState();
+}
+
+class _SmallActionButtonState extends State<_SmallActionButton>
+    with SingleTickerProviderStateMixin {
+  double _scale = 1.0;
+
+  void _press(bool down) => setState(() => _scale = down ? 0.98 : 1.0);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final cardBg = widget.bg ?? Theme.of(context).cardColor;
+    return GestureDetector(
+      onTapDown: (_) => _press(true),
+      onTapCancel: () => _press(false),
+      onTapUp: (_) => _press(false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 110),
+        curve: Curves.easeOut,
+        scale: _scale,
+        child: Container(
+          decoration: BoxDecoration(
+            color: cardBg,
+            border: widget.border,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: cs.primary.withOpacity(0.10),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              Icon(widget.icon, color: widget.fg),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: widget.fg,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

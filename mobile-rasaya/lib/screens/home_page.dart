@@ -8,18 +8,66 @@ import 'package:intl/intl.dart';
 // Clean rebuild of the Home page to fix corruption and match new design
 
 // Helpers
-String _fmtTanggal(BuildContext context, String? iso) {
-  if (iso == null) return '-';
+String _fmtTanggal(BuildContext context, String? raw) {
+  if (raw == null || raw.isEmpty) return '-';
   try {
-    final d = DateTime.parse(iso);
-    final l = MaterialLocalizations.of(context);
-    return l.formatFullDate(d);
+    // If backend sends full ISO (e.g. 2025-11-16T16:00:00.000000Z representing midnight WITA),
+    // parse as UTC then shift +8h to get the intended local date.
+    if (raw.contains('T')) {
+      final dt = DateTime.parse(raw);
+      final dtWita = dt.isUtc ? dt.toUtc().add(const Duration(hours: 8)) : dt;
+      final d = DateTime(dtWita.year, dtWita.month, dtWita.day);
+      return DateFormat('EEEE, d MMMM y', 'id_ID').format(d);
+    }
+    // Plain date string yyyy-MM-dd
+    final p = raw.split('-');
+    if (p.length == 3) {
+      final y = int.parse(p[0]);
+      final m = int.parse(p[1]);
+      final d = int.parse(p[2]);
+      final dt = DateTime(y, m, d);
+      return DateFormat('EEEE, d MMMM y', 'id_ID').format(dt);
+    }
+    // Fallback
+    final dt = DateTime.parse(raw);
+    return DateFormat('EEEE, d MMMM y', 'id_ID').format(dt);
   } catch (_) {
-    return iso;
+    return raw;
   }
 }
 
-// Providers
+// Mood helpers (color & icon mapping 1..10)
+Color _moodColorForScore(int s, {double opacity = 1}) {
+  final t = ((s.clamp(1, 10) - 1) / 9.0);
+  final hue = 120.0 * t; // 0=red -> 120=green
+  final hsv = HSVColor.fromAHSV(1, hue, 0.85, 0.95);
+  return hsv.toColor().withOpacity(opacity);
+}
+
+IconData _moodIconForScore(int s, {bool filled = false}) {
+  final b = s.clamp(1, 10);
+  if (b <= 2) {
+    return filled
+        ? Icons.sentiment_very_dissatisfied
+        : Icons.sentiment_very_dissatisfied_outlined;
+  } else if (b <= 4) {
+    return filled
+        ? Icons.sentiment_dissatisfied
+        : Icons.sentiment_dissatisfied_outlined;
+  } else if (b <= 6) {
+    return filled ? Icons.sentiment_neutral : Icons.sentiment_neutral_outlined;
+  } else if (b <= 8) {
+    return filled
+        ? Icons.sentiment_satisfied
+        : Icons.sentiment_satisfied_outlined;
+  } else {
+    return filled
+        ? Icons.sentiment_very_satisfied
+        : Icons.sentiment_very_satisfied_outlined;
+  }
+}
+
+// Providers (restored)
 final recentRefleksiProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   final token = ref.watch(authControllerProvider.select((s) => s.token));
@@ -68,7 +116,6 @@ final _myBookingsProvider = FutureProvider.family
   return (res.data as Map).cast<String, dynamic>();
 });
 
-// Mood status for today (to know whether the current session has a mood entry)
 final _moodTodayProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final token = ref.watch(authControllerProvider.select((s) => s.token));
@@ -98,41 +145,55 @@ class HomePage extends ConsumerWidget {
     final moodAsync = ref.watch(recentMoodProvider);
     final todayRefleksiStatus = ref.watch(_refleksiTodayStatusProvider);
     final moodToday = ref.watch(_moodTodayProvider);
+    final showMoodShortcut = moodToday.maybeWhen(
+      data: (m) {
+        final sesiNow = (m['sesi_now'] ?? '').toString();
+        if (sesiNow.isEmpty) return false;
+        final items = (m['items'] as List?) ?? const [];
+        final hasNow = items.any((e) =>
+            (e is Map) &&
+            ((e['sesi'] ?? '').toString().toLowerCase() ==
+                sesiNow.toLowerCase()));
+        return !hasNow;
+      },
+      orElse: () => false,
+    );
     final refreshCounter = ref.watch(bookingRefreshCounterProvider);
     final futureMyBookings = ref.watch(_myBookingsProvider(refreshCounter));
 
     return AppScaffold(
-      title: 'Home',
+      title: 'Beranda',
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _IdentityHeader(name: name, nis: nis, kelasLabel: kelasLabel),
-          const SizedBox(height: 16),
-          // 1) Mood shortcut first (if not yet filled for current session)
-          moodToday.when(
-            data: (m) => _QuickMoodShortcut.fromTodayMap(m, onSaved: () {
-              ref.invalidate(_moodTodayProvider);
-              ref.invalidate(recentMoodProvider);
-            }),
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-          ),
           const SizedBox(height: 12),
-          // 2) Daily reflection/friend reminder above the big menu (swap order)
+          if (showMoodShortcut)
+            moodToday.when(
+              data: (m) => _QuickMoodShortcut.fromTodayMap(m, onSaved: () {
+                ref.invalidate(_moodTodayProvider);
+                ref.invalidate(recentMoodProvider);
+              }),
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+          if (showMoodShortcut) const SizedBox(height: 12),
           todayRefleksiStatus.when(
             data: (m) {
               final hasSelf = m['has_self_today'] == true;
               final hasFriend = (m['has_friend_report_today'] == true) ||
                   (m['has_friend_today'] == true);
-              if (!hasSelf) return const _SelfRefleksiReminder();
-              if (hasSelf && !hasFriend) return const _FriendReportReminder();
+              final whiteVariant = !showMoodShortcut;
+              if (!hasSelf) return _HeroPromoCard(whiteVariant: whiteVariant);
+              if (hasSelf && !hasFriend) {
+                return _FriendReportHeroCard(whiteVariant: whiteVariant);
+              }
               return const SizedBox.shrink();
             },
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
           ),
-          const SizedBox(height: 16),
-          // 3) Big menu grid after reminders (swapped)
+          const SizedBox(height: 12),
           _BigMenuGrid(
             onRefleksiDiri: () async {
               final res = await context.push('/refleksi');
@@ -255,25 +316,12 @@ class HomePage extends ConsumerWidget {
                 if (items.isEmpty) {
                   return const Text('Belum ada riwayat mood.');
                 }
-                const emojis = [
-                  '😓',
-                  '😭',
-                  '😔',
-                  '😟',
-                  '😐',
-                  '😴',
-                  '😊',
-                  '😎',
-                  '😍',
-                  '🤩'
-                ];
                 return Column(
                   children: items.map((m) {
                     final tgl =
                         _fmtTanggal(context, (m['tanggal'] ?? '').toString());
                     final sesi = (m['sesi'] ?? '').toString().toUpperCase();
                     final s = int.tryParse((m['skor'] ?? '').toString()) ?? 0;
-                    final emoji = (s >= 1 && s <= 10) ? emojis[s - 1] : '•';
                     final adaLampiran = (m['gambar'] != null &&
                         (m['gambar'] as String).isNotEmpty);
 
@@ -281,8 +329,11 @@ class HomePage extends ConsumerWidget {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Card(
                         child: ListTile(
-                          leading:
-                              Text(emoji, style: const TextStyle(fontSize: 24)),
+                          leading: Icon(
+                            _moodIconForScore(s, filled: true),
+                            color: _moodColorForScore(s),
+                            size: 24,
+                          ),
                           title: Text(tgl),
                           subtitle: Text('Sesi $sesi'),
                           trailing:
@@ -319,99 +370,110 @@ class _IdentityHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final tt = theme.textTheme;
-    return Card(
-      elevation: 6,
-      shadowColor: cs.primary.withOpacity(0.4),
-      clipBehavior: Clip.antiAlias,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
-        decoration: BoxDecoration(
-          color: cs.primary, // solid navy
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.primary,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(42),
+          bottomRight: Radius.circular(42),
         ),
-        child: Stack(
-          children: [
-            // subtle decorative soft pink circles
-            Positioned(
-              right: -20,
-              top: -10,
-              child: Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: cs.secondary.withOpacity(0.20),
-                  shape: BoxShape.circle,
-                ),
+        boxShadow: [
+          BoxShadow(
+              color: cs.primary.withOpacity(0.30),
+              blurRadius: 24,
+              offset: const Offset(0, 10)),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 34),
+      child: Stack(
+        children: [
+          // subtle decorative soft pink circles
+          Positioned(
+            right: -20,
+            top: -10,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: cs.secondary.withOpacity(0.20),
+                shape: BoxShape.circle,
               ),
             ),
-            Positioned(
-              right: 30,
-              bottom: -15,
-              child: Container(
-                width: 70,
-                height: 70,
-                decoration: BoxDecoration(
-                  color: cs.secondary.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
+          ),
+          Positioned(
+            right: 30,
+            bottom: -15,
+            child: Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                color: cs.secondary.withOpacity(0.12),
+                shape: BoxShape.circle,
               ),
             ),
-            Row(
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: cs.secondary,
-                    shape: BoxShape.circle,
-                    boxShadow: const [
-                      BoxShadow(
-                          color: Color(0x33000000),
-                          offset: Offset(0, 4),
-                          blurRadius: 10)
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      name.isNotEmpty
-                          ? name.characters.first.toUpperCase()
-                          : '?',
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hai 👋',
                       style: TextStyle(
-                        color: cs.primary,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 26,
+                        fontFamily: 'Lora',
+                        fontWeight: FontWeight.w600,
+                        color: cs.secondary,
+                        fontSize: 22,
+                        letterSpacing: 0.2,
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 18),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Halo! 👋',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: cs.secondary,
-                              fontSize: 14)),
-                      Text(name,
-                          style: tt.headlineSmall?.copyWith(
-                            color: cs.secondary,
-                          )),
-                      const SizedBox(height: 8),
-                      Wrap(spacing: 8, runSpacing: -8, children: [
+                    Text(
+                      name,
+                      style: tt.headlineSmall?.copyWith(
+                        fontFamily: 'Lora',
+                        color: cs.secondary,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 14,
+                      runSpacing: -8,
+                      children: [
                         _IdentityChip(label: 'NIS: $nis'),
                         _IdentityChip(label: kelasLabel),
-                      ]),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      cs.secondary.withOpacity(0.35),
+                      cs.secondary.withOpacity(0.15),
                     ],
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: cs.secondary.withOpacity(0.30),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Text('🧑‍🎓',
-                    style: TextStyle(fontSize: 44, color: cs.secondary)),
-              ],
-            ),
-          ],
-        ),
+                child: Icon(Icons.school_rounded, size: 30, color: cs.primary),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -457,38 +519,38 @@ class _BigMenuGrid extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return GridView.count(
       crossAxisCount: 2,
-      childAspectRatio: 1.2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
+      childAspectRatio: 1.35,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       children: [
-        _BigTile(
-          label: 'Refleksi Harian',
-          emoji: '✍️',
-          bg: cs.secondary,
-          fg: Colors.black,
+        _SmallTile(
+          label: 'Refleksi',
+          icon: Icons.edit_note_rounded,
+          fg: cs.primary,
+          accent: cs.secondary,
           onTap: onRefleksiDiri,
         ),
-        _BigTile(
-          label: 'Refleksi Teman',
-          emoji: '👥',
-          bg: cs.primary,
-          fg: Colors.white,
+        _SmallTile(
+          label: 'Cerita Teman',
+          icon: Icons.group_rounded,
+          fg: cs.primary,
+          accent: cs.primary,
           onTap: onRefleksiTeman,
         ),
-        _BigTile(
-          label: 'Booking Konseling',
-          emoji: '📅',
-          bg: cs.primary,
-          fg: Colors.white,
+        _SmallTile(
+          label: 'Konseling',
+          icon: Icons.event_available_rounded,
+          fg: cs.primary,
+          accent: cs.primary,
           onTap: onBooking,
         ),
-        _BigTile(
-          label: 'Riwayat Input',
-          emoji: '🕒',
-          bg: cs.secondary,
-          fg: Colors.black,
+        _SmallTile(
+          label: 'Riwayat',
+          icon: Icons.history_rounded,
+          fg: cs.primary,
+          accent: cs.secondary,
           onTap: onHistory,
         ),
       ],
@@ -496,35 +558,34 @@ class _BigMenuGrid extends StatelessWidget {
   }
 }
 
-class _BigTile extends StatefulWidget {
-  const _BigTile({
+class _SmallTile extends StatefulWidget {
+  _SmallTile({
     required this.label,
-    required this.emoji,
-    required this.bg,
+    required this.icon,
     required this.fg,
+    required this.accent,
     required this.onTap,
   });
   final String label;
-  final String emoji;
-  final Color bg;
+  final IconData icon;
   final Color fg;
+  final Color accent;
   final VoidCallback onTap;
 
   @override
-  State<_BigTile> createState() => _BigTileState();
+  State<_SmallTile> createState() => _SmallTileState();
 }
 
-class _BigTileState extends State<_BigTile>
+class _SmallTileState extends State<_SmallTile>
     with SingleTickerProviderStateMixin {
   double _scale = 1.0;
 
-  void _press(bool down) {
-    setState(() => _scale = down ? 0.98 : 1.0);
-  }
+  void _press(bool down) => setState(() => _scale = down ? 0.98 : 1.0);
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final cardBg = Theme.of(context).cardColor;
     return GestureDetector(
       onTapDown: (_) => _press(true),
       onTapCancel: () => _press(false),
@@ -536,245 +597,272 @@ class _BigTileState extends State<_BigTile>
         scale: _scale,
         child: Container(
           decoration: BoxDecoration(
-            color: widget.bg,
-            borderRadius: BorderRadius.circular(24),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                cardBg,
+                Color.alphaBlend(widget.accent.withOpacity(0.04), cardBg),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                  color: cs.primary.withOpacity(0.18),
-                  offset: const Offset(0, 6),
-                  blurRadius: 14,
-                  spreadRadius: 1),
+                color: cs.primary.withOpacity(0.08),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
             ],
+            border: Border.all(color: cs.primary.withOpacity(0.06)),
           ),
-          child: Stack(
-            children: [
-              // decorative soft pink/navy glows
-              Positioned(
-                right: -10,
-                top: -10,
-                child: Container(
-                  width: 80,
-                  height: 80,
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
-                      color: widget.fg.withOpacity(0.08),
-                      shape: BoxShape.circle),
-                ),
-              ),
-              Positioned(
-                left: -16,
-                bottom: -16,
-                child: Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                      color: widget.fg.withOpacity(0.06),
-                      shape: BoxShape.circle),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(widget.emoji, style: const TextStyle(fontSize: 40)),
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.label,
-                      style: TextStyle(
-                        color: widget.fg,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.3,
+                    borderRadius: BorderRadius.circular(14),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        widget.accent.withOpacity(0.35),
+                        widget.accent.withOpacity(0.15),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.accent.withOpacity(0.25),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
                       ),
-                      maxLines: 2,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SelfRefleksiReminder extends ConsumerStatefulWidget {
-  const _SelfRefleksiReminder();
-
-  @override
-  ConsumerState<_SelfRefleksiReminder> createState() =>
-      _SelfRefleksiReminderState();
-}
-
-class _SelfRefleksiReminderState extends ConsumerState<_SelfRefleksiReminder>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1200),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.6),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Yuk isi refleksi hari ini ✍️',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Ambil 1-2 menit buat cerita singkat. Kamu hebat sudah sampai sini 💙',
-                    style: TextStyle(color: theme.hintColor),
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      elevation: 4,
-                      shadowColor: theme.colorScheme.primary.withOpacity(0.5),
-                      backgroundColor: theme.colorScheme.primary,
-                      foregroundColor: theme.colorScheme.secondary,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 14),
-                      textStyle: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 14),
-                    ),
-                    onPressed: () async {
-                      final res = await GoRouter.of(context).push('/refleksi');
-                      if (context.mounted && res == true) {
-                        ref.invalidate(recentRefleksiProvider);
-                        ref.invalidate(_refleksiTodayStatusProvider);
-                      }
-                    },
-                    icon: const Icon(Icons.edit),
-                    label: const Text('Tulis Refleksi Harian'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            ScaleTransition(
-              scale: Tween<double>(begin: 0.92, end: 1.08).animate(
-                  CurvedAnimation(parent: _c, curve: Curves.easeInOut)),
-              child: const Text('📝', style: TextStyle(fontSize: 42)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FriendReportReminder extends ConsumerStatefulWidget {
-  const _FriendReportReminder();
-
-  @override
-  ConsumerState<_FriendReportReminder> createState() =>
-      _FriendReportReminderState();
-}
-
-class _FriendReportReminderState extends ConsumerState<_FriendReportReminder>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1200),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.6),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Mau cerita tentang keadaan temanmu nggak? 👥',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Laporkan jika ada teman yang membutuhkan bantuan 💙',
-                    style: TextStyle(color: theme.hintColor),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    children: const [
-                      Chip(
-                          label: Text('Belum ada laporan teman hari ini'),
-                          visualDensity: VisualDensity.compact),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      elevation: 4,
-                      shadowColor: theme.colorScheme.primary.withOpacity(0.5),
-                      backgroundColor: theme.colorScheme.primary,
-                      foregroundColor: theme.colorScheme.secondary,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 14),
-                      textStyle: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 14),
-                    ),
-                    onPressed: () async {
-                      final res = await GoRouter.of(context)
-                          .push('/refleksi?jenis=laporan');
-                      if (context.mounted && res == true) {
-                        ref.invalidate(recentRefleksiProvider);
-                        ref.invalidate(_refleksiTodayStatusProvider);
-                      }
-                    },
-                    icon: const Icon(Icons.group),
-                    label: const Text('Laporkan Kondisi Teman'),
+                  child: Icon(widget.icon, color: widget.fg, size: 28),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  widget.label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: widget.fg,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    letterSpacing: 0.2,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            ScaleTransition(
-              scale: Tween<double>(begin: 0.92, end: 1.08).animate(
-                  CurvedAnimation(parent: _c, curve: Curves.easeInOut)),
-              child: const Text('🤝', style: TextStyle(fontSize: 42)),
-            ),
-          ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _HeroPromoCard extends ConsumerWidget {
+  const _HeroPromoCard({this.whiteVariant = false});
+  final bool whiteVariant;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final gradient = whiteVariant
+        ? LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white,
+              Color.alphaBlend(cs.secondary.withOpacity(0.08), Colors.white),
+            ],
+          )
+        : LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              cs.primary.withOpacity(0.95),
+              Color.alphaBlend(cs.secondary.withOpacity(0.35), cs.primary),
+            ],
+          );
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: gradient,
+        boxShadow: [
+          BoxShadow(
+            color: cs.primary.withOpacity(whiteVariant ? 0.12 : 0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Yuk refleksi hari ini!',
+                  style: TextStyle(
+                    color: whiteVariant ? cs.primary : cs.secondary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Catat perasaanmu sebentar aja. Bantu kamu lebih kenal dirimu sendiri 💙',
+                  style: TextStyle(
+                    color: whiteVariant
+                        ? cs.primary.withOpacity(0.75)
+                        : cs.secondary.withOpacity(0.85),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: whiteVariant ? cs.primary : Colors.white,
+                    foregroundColor: whiteVariant ? cs.secondary : cs.primary,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: () async {
+                    final res = await GoRouter.of(context).push('/refleksi');
+                    if (context.mounted && res == true) {
+                      ref.invalidate(recentRefleksiProvider);
+                      ref.invalidate(_refleksiTodayStatusProvider);
+                    }
+                  },
+                  child: const Text('Mulai'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            width: 86,
+            height: 86,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: whiteVariant
+                  ? cs.primary.withOpacity(0.08)
+                  : cs.secondary.withOpacity(0.25),
+            ),
+            child: Icon(Icons.auto_awesome_rounded,
+                color: whiteVariant ? cs.primary : cs.secondary, size: 42),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FriendReportHeroCard extends ConsumerWidget {
+  const _FriendReportHeroCard({this.whiteVariant = false});
+  final bool whiteVariant;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final gradient = whiteVariant
+        ? LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white,
+              Color.alphaBlend(cs.secondary.withOpacity(0.08), Colors.white),
+            ],
+          )
+        : LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              cs.primary.withOpacity(0.95),
+              Color.alphaBlend(cs.secondary.withOpacity(0.35), cs.primary),
+            ],
+          );
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: gradient,
+        boxShadow: [
+          BoxShadow(
+            color: cs.primary.withOpacity(whiteVariant ? 0.12 : 0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Apakah kamu ingin menceritakan kondisi temanmu hari ini?',
+                  style: TextStyle(
+                    color: whiteVariant ? cs.primary : cs.secondary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Jika ada teman yang perlu dukungan, kamu bisa berbagi cerita dengan aman di sini 💙',
+                  style: TextStyle(
+                    color: whiteVariant
+                        ? cs.primary.withOpacity(0.75)
+                        : cs.secondary.withOpacity(0.85),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: whiteVariant ? cs.primary : Colors.white,
+                    foregroundColor: whiteVariant ? cs.secondary : cs.primary,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: () async {
+                    final res = await GoRouter.of(context)
+                        .push('/refleksi?jenis=laporan');
+                    if (context.mounted && res == true) {
+                      ref.invalidate(recentRefleksiProvider);
+                      ref.invalidate(_refleksiTodayStatusProvider);
+                    }
+                  },
+                  child: const Text('Cerita tentang Teman'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            width: 86,
+            height: 86,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: whiteVariant
+                  ? cs.primary.withOpacity(0.08)
+                  : cs.secondary.withOpacity(0.25),
+            ),
+            child: Icon(Icons.group_rounded,
+                color: whiteVariant ? cs.primary : cs.secondary, size: 42),
+          ),
+        ],
       ),
     );
   }
@@ -825,14 +913,34 @@ class _HiddenState extends ConsumerState<_QuickMoodShortcut> {
 
 class _QuickMoodShortcutState extends ConsumerState<_QuickMoodShortcut> {
   bool _saving = false;
-  // Left → right should go from lowest to highest score
-  static const _mainQuick = [
-    {'label': 'Awful', 'emoji': '😓', 'score': 1},
-    {'label': 'Bad', 'emoji': '😔', 'score': 3},
-    {'label': 'Meh', 'emoji': '😐', 'score': 5},
-    {'label': 'Good', 'emoji': '😊', 'score': 7},
-    {'label': 'Rad', 'emoji': '🤩', 'score': 10},
-  ];
+  int? _selectedScore;
+
+  String _labelForScore(int s) {
+    switch (s) {
+      case 1:
+        return 'sangat buruk';
+      case 2:
+        return 'buruk';
+      case 3:
+        return 'kurang baik';
+      case 4:
+        return 'agak kurang';
+      case 5:
+        return 'biasa aja';
+      case 6:
+        return 'lumayan';
+      case 7:
+        return 'baik';
+      case 8:
+        return 'sangat baik';
+      case 9:
+        return 'bagus banget';
+      case 10:
+        return 'mantap';
+      default:
+        return '$s';
+    }
+  }
 
   Future<void> _save(int score) async {
     if (_saving) return;
@@ -859,51 +967,177 @@ class _QuickMoodShortcutState extends ConsumerState<_QuickMoodShortcut> {
     }
   }
 
+  void _selectAndSave(int score) {
+    if (_saving) return;
+    setState(() => _selectedScore = score);
+    _save(score);
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Build greeting with first name (kata pertama)
+    final me = ref.watch(authControllerProvider).me ?? {};
+    final fullName = (me['name'] ?? '').toString().trim();
+    final firstName =
+        fullName.isEmpty ? '' : fullName.split(RegExp(r'\s+')).first;
+    final prompt =
+        'Bagaimana perasaanmu saat ini${firstName.isNotEmpty ? ' $firstName' : ''}?';
+
     final cs = Theme.of(context).colorScheme;
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            Color.alphaBlend(cs.secondary.withOpacity(0.08), Colors.white),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: cs.primary.withOpacity(0.12),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+        border: Border.all(color: cs.primary.withOpacity(0.06)),
+      ),
+      constraints: const BoxConstraints(minHeight: 150),
       clipBehavior: Clip.antiAlias,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Bagaimana perasaanmu sesi ini?',
-              style: const TextStyle(fontWeight: FontWeight.w800),
+              prompt,
+              style: TextStyle(
+                color: cs.primary,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+              ),
             ),
             const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: _mainQuick.map((m) {
-                final score = m['score'] as int;
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        backgroundColor: cs.secondary,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      onPressed: _saving ? null : () => _save(score),
-                      child: Text(m['emoji'] as String,
-                          style: const TextStyle(fontSize: 20)),
-                    ),
-                  ),
-                );
-              }).toList(),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 5,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 0.9,
+              children: [1, 3, 5, 8, 10]
+                  .map((score) => _MoodQuickTileWrapper(score: score))
+                  .toList(),
             ),
             if (_saving) ...[
               const SizedBox(height: 8),
               const LinearProgressIndicator(minHeight: 2),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// (Old _MoodOptionButton removed)
+
+// Quick mood tile with label, matching Mood page style
+class _MoodQuickTileWrapper extends ConsumerWidget {
+  const _MoodQuickTileWrapper({required this.score});
+  final int score;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Access parent state to manage selection and save
+    final state = context.findAncestorStateOfType<_QuickMoodShortcutState>();
+    final selected = state?._selectedScore == score;
+    final color = _moodColorForScore(score);
+    return _MoodQuickTile(
+      score: score,
+      color: color,
+      icon: _moodIconForScore(score, filled: false),
+      label: state?._labelForScore(score) ?? '$score',
+      selected: selected == true,
+      onTap: (state == null)
+          ? null
+          : () {
+              if (state._saving) return;
+              state._selectAndSave(score);
+            },
+    );
+  }
+}
+
+class _MoodQuickTile extends StatelessWidget {
+  const _MoodQuickTile({
+    required this.score,
+    required this.color,
+    required this.icon,
+    required this.label,
+    required this.selected,
+    this.onTap,
+  });
+  final int score;
+  final Color color;
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = selected ? color : color.withOpacity(0.25);
+    const dur = Duration(milliseconds: 220);
+    return AnimatedScale(
+      duration: dur,
+      curve: Curves.easeOut,
+      scale: selected ? 1.05 : 1.0,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: dur,
+          curve: Curves.easeInOut,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderColor, width: selected ? 2.0 : 1.2),
+            color: Colors.white,
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: color.withOpacity(0.55),
+                      blurRadius: 18,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: color.withOpacity(0.0),
+                      blurRadius: 0,
+                      spreadRadius: 0,
+                    ),
+                  ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 28),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

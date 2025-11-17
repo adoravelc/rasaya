@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_rasaya/auth/auth_controller.dart';
+import 'package:intl/intl.dart';
 import '../widgets/app_scaffold.dart';
 
 class HistoryPage extends ConsumerStatefulWidget {
@@ -163,14 +164,27 @@ class _RefleksiTabState extends ConsumerState<_RefleksiTab> {
     _load();
   }
 
-  String _fmtTanggal(String? iso) {
-    if (iso == null) return '-';
+  String _fmtTanggal(String? raw) {
+    if (raw == null || raw.isEmpty) return '-';
     try {
-      final d = DateTime.parse(iso);
-      final l = MaterialLocalizations.of(context);
-      return l.formatFullDate(d);
+      if (raw.contains('T')) {
+        final dt = DateTime.parse(raw);
+        final dtWita = dt.isUtc ? dt.toUtc().add(const Duration(hours: 8)) : dt;
+        final d = DateTime(dtWita.year, dtWita.month, dtWita.day);
+        return DateFormat('EEEE, d MMMM y', 'id_ID').format(d);
+      }
+      final p = raw.split('-');
+      if (p.length == 3) {
+        final y = int.parse(p[0]);
+        final m = int.parse(p[1]);
+        final day = int.parse(p[2]);
+        final dt = DateTime(y, m, day);
+        return DateFormat('EEEE, d MMMM y', 'id_ID').format(dt);
+      }
+      final dt = DateTime.parse(raw);
+      return DateFormat('EEEE, d MMMM y', 'id_ID').format(dt);
     } catch (_) {
-      return iso;
+      return raw;
     }
   }
 
@@ -328,18 +342,21 @@ class _MoodTabState extends ConsumerState<_MoodTab> {
   final List<Map<String, dynamic>> _items = [];
   final Set<dynamic> _expanded = {};
 
-  static const _emojis = [
-    '😞',
-    '😟',
-    '🙁',
-    '😕',
-    '😐',
-    '🙂',
-    '😊',
-    '😃',
-    '😄',
-    '🤩'
-  ];
+  Color _moodColorForScore(int s) {
+    final t = ((s.clamp(1, 10) - 1) / 9.0);
+    final hue = 120.0 * t; // 0=red -> 120=green
+    final hsv = HSVColor.fromAHSV(1, hue, 0.85, 0.95);
+    return hsv.toColor();
+  }
+
+  IconData _moodIconForScore(int s) {
+    final b = s.clamp(1, 10);
+    if (b <= 2) return Icons.sentiment_very_dissatisfied;
+    if (b <= 4) return Icons.sentiment_dissatisfied;
+    if (b <= 6) return Icons.sentiment_neutral;
+    if (b <= 8) return Icons.sentiment_satisfied;
+    return Icons.sentiment_very_satisfied;
+  }
 
   Future<void> _load({bool refresh = false}) async {
     if (refresh) {
@@ -374,9 +391,18 @@ class _MoodTabState extends ConsumerState<_MoodTab> {
   String _fmtTanggal(String? iso) {
     if (iso == null) return '-';
     try {
-      final d = DateTime.parse(iso);
-      final l = MaterialLocalizations.of(context);
-      return l.formatFullDate(d);
+      final datePart = iso.split('T').first;
+      final p = datePart.split('-');
+      DateTime d;
+      if (p.length == 3) {
+        final y = int.parse(p[0]);
+        final m = int.parse(p[1]);
+        final day = int.parse(p[2]);
+        d = DateTime(y, m, day);
+      } else {
+        d = DateTime.parse(iso);
+      }
+      return DateFormat('EEEE, d MMMM y', 'id_ID').format(d);
     } catch (_) {
       return iso;
     }
@@ -424,7 +450,8 @@ class _MoodTabState extends ConsumerState<_MoodTab> {
           final tgl = _fmtTanggal((m['tanggal'] ?? '').toString());
           final sesi = (m['sesi'] ?? '').toString().toUpperCase();
           final s = int.tryParse((m['skor'] ?? '').toString()) ?? 0;
-          final emoji = (s >= 1 && s <= 10) ? _emojis[s - 1] : '•';
+          final icon = _moodIconForScore(s);
+          final color = _moodColorForScore(s);
           final gambarPath = _extractImagePath(m);
           final adaLampiran = gambarPath != null;
           final catatan = (m['catatan'] ?? '').toString();
@@ -447,7 +474,7 @@ class _MoodTabState extends ConsumerState<_MoodTab> {
                   children: [
                     Row(
                       children: [
-                        Text(emoji, style: const TextStyle(fontSize: 24)),
+                        Icon(icon, color: color, size: 26),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(

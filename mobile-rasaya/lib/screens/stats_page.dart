@@ -5,6 +5,37 @@ import '../widgets/app_scaffold.dart';
 import '../auth/auth_controller.dart';
 import 'package:intl/intl.dart';
 
+// Mood helpers (same mapping as Home/Mood pages)
+Color _moodColorForScore(int s, {double opacity = 1}) {
+  final t = ((s.clamp(1, 10) - 1) / 9.0);
+  final hue = 120.0 * t; // 0=red -> 120=green
+  final hsv = HSVColor.fromAHSV(1, hue, 0.85, 0.95);
+  return hsv.toColor().withOpacity(opacity);
+}
+
+IconData _moodIconForScore(int s, {bool filled = false}) {
+  final b = s.clamp(1, 10);
+  if (b <= 2) {
+    return filled
+        ? Icons.sentiment_very_dissatisfied
+        : Icons.sentiment_very_dissatisfied_outlined;
+  } else if (b <= 4) {
+    return filled
+        ? Icons.sentiment_dissatisfied
+        : Icons.sentiment_dissatisfied_outlined;
+  } else if (b <= 6) {
+    return filled ? Icons.sentiment_neutral : Icons.sentiment_neutral_outlined;
+  } else if (b <= 8) {
+    return filled
+        ? Icons.sentiment_satisfied
+        : Icons.sentiment_satisfied_outlined;
+  } else {
+    return filled
+        ? Icons.sentiment_very_satisfied
+        : Icons.sentiment_very_satisfied_outlined;
+  }
+}
+
 class StatsPage extends ConsumerStatefulWidget {
   const StatsPage({super.key});
   @override
@@ -13,11 +44,15 @@ class StatsPage extends ConsumerStatefulWidget {
 
 class _StatsPageState extends ConsumerState<StatsPage> {
   String _period = 'mingguan';
+  // Selected month for 'bulanan' view (first day of month)
+  DateTime _selectedMonth =
+      DateTime(DateTime.now().year, DateTime.now().month, 1);
 
   @override
   Widget build(BuildContext context) {
     final query = _buildQueryFor(_period);
     final async = ref.watch(_moodStatsProvider(query));
+    final cs = Theme.of(context).colorScheme;
 
     return AppScaffold(
       title: 'Statistik Emosi',
@@ -37,13 +72,61 @@ class _StatsPageState extends ConsumerState<StatsPage> {
                 selected: _period == 'bulanan',
                 onSelected: (_) => setState(() => _period = 'bulanan'),
               ),
-              ChoiceChip(
-                label: const Text('Tahunan'),
-                selected: _period == 'tahunan',
-                onSelected: (_) => setState(() => _period = 'tahunan'),
-              ),
             ],
           ),
+          if (_period == 'bulanan') ...[
+            const SizedBox(height: 12),
+            // Month selector styled similar to Home cards
+            Builder(builder: (context) {
+              final cs = Theme.of(context).colorScheme;
+              final now = DateTime.now();
+              final months = List.generate(
+                  12, (i) => DateTime(now.year, now.month - i, 1));
+              return Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white,
+                      Color.alphaBlend(
+                          cs.secondary.withOpacity(0.06), Colors.white),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: cs.primary.withOpacity(0.10),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                  border: Border.all(color: cs.primary.withOpacity(0.06)),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<DateTime>(
+                    value: _selectedMonth,
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    items: [
+                      for (final m in months)
+                        DropdownMenuItem<DateTime>(
+                          value: m,
+                          child: Text(DateFormat('MMMM y', 'id_ID').format(m)),
+                        )
+                    ],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() {
+                        _selectedMonth = DateTime(v.year, v.month, 1);
+                      });
+                    },
+                  ),
+                ),
+              );
+            }),
+          ],
           const SizedBox(height: 16),
           async.when(
             loading: () => const Card(
@@ -63,7 +146,27 @@ class _StatsPageState extends ConsumerState<StatsPage> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Card(
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white,
+                          Color.alphaBlend(
+                              cs.secondary.withOpacity(0.08), Colors.white),
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: cs.primary.withOpacity(0.12),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                      border: Border.all(color: cs.primary.withOpacity(0.06)),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(12.0),
                       child: SizedBox(
@@ -82,8 +185,16 @@ class _StatsPageState extends ConsumerState<StatsPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Top Emoji Paling Sering',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  Center(
+                    child: Text(
+                      'Top Emoji Paling Sering',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                        color: cs.primary,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   _TopEmojis(freq: data.freq),
                 ],
@@ -98,25 +209,22 @@ class _StatsPageState extends ConsumerState<StatsPage> {
   _StatsQuery _buildQueryFor(String period) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    if (period == 'tahunan') {
-      final start = DateTime(today.year, today.month - 11, 1);
-      return _StatsQuery(
-          from: start, to: today, granularity: _Granularity.monthly);
-    }
     if (period == 'bulanan') {
-      final start = today.subtract(const Duration(days: 29));
-      final from = DateTime(start.year, start.month, start.day);
+      final first = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+      final last = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
       return _StatsQuery(
-          from: from, to: today, granularity: _Granularity.daily);
+          from: first, to: last, granularity: _Granularity.daily);
     }
-    // default: mingguan
-    final start = today.subtract(const Duration(days: 6));
-    final from = DateTime(start.year, start.month, start.day);
-    return _StatsQuery(from: from, to: today, granularity: _Granularity.daily);
+    // default: mingguan (Senin -> Minggu)
+    final monday = today.subtract(Duration(days: today.weekday - 1));
+    final sunday = monday.add(const Duration(days: 6));
+    final from = DateTime(monday.year, monday.month, monday.day);
+    final to = DateTime(sunday.year, sunday.month, sunday.day);
+    return _StatsQuery(from: from, to: to, granularity: _Granularity.daily);
   }
 }
 
-enum _Granularity { daily, monthly }
+enum _Granularity { daily }
 
 class _StatsQuery {
   final DateTime from;
@@ -186,19 +294,26 @@ final _moodStatsProvider =
   if (q.granularity == _Granularity.daily) {
     // map yyyy-MM-dd -> [scores]
     final byDay = <String, List<int>>{};
+    DateTime _normalize(String raw) {
+      if (raw.contains('T')) {
+        final dt = DateTime.parse(raw);
+        final dtWita = dt.isUtc ? dt.toUtc().add(const Duration(hours: 8)) : dt;
+        return DateTime(dtWita.year, dtWita.month, dtWita.day);
+      }
+      final p = raw.split('-');
+      if (p.length == 3) {
+        return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
+      }
+      return DateTime.parse(raw);
+    }
+
     for (final raw in list) {
       final m = raw.cast<String, dynamic>();
       final tglRaw = (m['tanggal'] ?? '').toString();
       final s = int.tryParse((m['skor'] ?? '').toString());
       if (tglRaw.isEmpty || s == null) continue;
-      String dayKey;
-      try {
-        // Normalize to WITA (UTC+8) then use date part
-        final dt = DateTime.parse(tglRaw).toUtc().add(const Duration(hours: 8));
-        dayKey = DateFormat('yyyy-MM-dd').format(dt);
-      } catch (_) {
-        dayKey = tglRaw.length >= 10 ? tglRaw.substring(0, 10) : tglRaw;
-      }
+      final dt = _normalize(tglRaw);
+      final dayKey = DateFormat('yyyy-MM-dd').format(dt);
       (byDay[dayKey] ??= []).add(s);
     }
     // labels: from..to each day
@@ -211,12 +326,11 @@ final _moodStatsProvider =
           .add(Duration(days: i));
       final key = DateFormat('yyyy-MM-dd').format(d);
       final scores = byDay[key];
-      // Weekly: show weekday names; Monthly: show day/month
-      if (days <= 7) {
-        labels.add(DateFormat('EEE', 'id_ID').format(d));
-      } else {
-        labels.add(DateFormat('d/M').format(d));
-      }
+      // Label style: if the window is >= 28 days (monthly), show 'd/M', else weekday name
+      final isMonthlyWindow = days >= 28;
+      labels.add(isMonthlyWindow
+          ? DateFormat('d/M').format(d)
+          : DateFormat('EEE', 'id_ID').format(d));
       if (scores != null && scores.isNotEmpty) {
         final avg = scores.reduce((a, b) => a + b) / scores.length;
         points.add(_StatsPoint(i, avg.toDouble()));
@@ -224,46 +338,9 @@ final _moodStatsProvider =
     }
     return _MoodStatsData(
         points: points, count: totalCount, xLabels: labels, freq: freq);
-  } else {
-    // monthly: map yyyy-MM -> [scores]
-    final byMonth = <String, List<int>>{};
-    for (final raw in list) {
-      final m = raw.cast<String, dynamic>();
-      final tglRaw = (m['tanggal'] ?? '').toString();
-      final s = int.tryParse((m['skor'] ?? '').toString());
-      if (tglRaw.isEmpty || s == null) continue;
-      String key;
-      try {
-        final dt = DateTime.parse(tglRaw).toUtc().add(const Duration(hours: 8));
-        key = DateFormat('yyyy-MM').format(dt);
-      } catch (_) {
-        key = tglRaw.length >= 7
-            ? tglRaw.substring(0, 7)
-            : tglRaw; // yyyy-MM fallback
-      }
-      (byMonth[key] ??= []).add(s);
-    }
-    final labels = <String>[];
-    final points = <_StatsPoint>[];
-    final totalCount = list.length;
-    // last 12 months starting from from (already set to 11 months ago)
-    int idx = 0;
-    DateTime cur = DateTime(q.from.year, q.from.month, 1);
-    while (!cur.isAfter(q.to)) {
-      final key = DateFormat('yyyy-MM').format(cur);
-      final scores = byMonth[key];
-      // Yearly: show month only
-      labels.add(DateFormat('MMM', 'id_ID').format(cur));
-      if (scores != null && scores.isNotEmpty) {
-        final avg = scores.reduce((a, b) => a + b) / scores.length;
-        points.add(_StatsPoint(idx, avg.toDouble()));
-      }
-      cur = DateTime(cur.year, cur.month + 1, 1);
-      idx++;
-    }
-    return _MoodStatsData(
-        points: points, count: totalCount, xLabels: labels, freq: freq);
   }
+  // Fallback (should not be reached since only 'daily' is used)
+  return const _MoodStatsData(points: [], count: 0, xLabels: [], freq: {});
 });
 
 class _MoodLineChart extends StatelessWidget {
@@ -446,19 +523,6 @@ class _TopEmojis extends StatelessWidget {
   const _TopEmojis({required this.freq});
   final Map<int, int> freq;
 
-  static const _emojis = [
-    '😞',
-    '😟',
-    '🙁',
-    '😕',
-    '😐',
-    '🙂',
-    '😊',
-    '😃',
-    '😄',
-    '🤩'
-  ];
-
   @override
   Widget build(BuildContext context) {
     if (freq.isEmpty) {
@@ -472,18 +536,58 @@ class _TopEmojis extends StatelessWidget {
     final entries = freq.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final top = entries.take(5).toList();
-    return Card(
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            Color.alphaBlend(cs.secondary.withOpacity(0.08), Colors.white),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: cs.primary.withOpacity(0.12),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+        border: Border.all(color: cs.primary.withOpacity(0.06)),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Wrap(
-          spacing: 8,
-          runSpacing: -6,
+          spacing: 10,
+          runSpacing: 10,
           children: top.map((e) {
-            final idx = e.key.clamp(1, 10) - 1;
-            final emoji = _emojis[idx];
-            return Chip(
-              label: Text('$emoji  ×${e.value}'),
-              visualDensity: VisualDensity.compact,
+            final score = e.key.clamp(1, 10);
+            final color = _moodColorForScore(score);
+            final icon = _moodIconForScore(score, filled: true);
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: const [
+                  BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 8,
+                      offset: Offset(0, 4)),
+                ],
+                border: Border.all(color: Colors.black12, width: 0.5),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: color, size: 28),
+                  const SizedBox(width: 6),
+                  Text('×${e.value}',
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                ],
+              ),
             );
           }).toList(),
         ),

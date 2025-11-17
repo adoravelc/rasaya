@@ -155,86 +155,124 @@ class _RasayaBottomNav extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     const labels = ['Home', 'Stats', 'Input', 'Booking', 'Profil'];
-    final alignX = [-0.8, -0.4, 0.0, 0.4, 0.8][selectedIndex.clamp(0, 4)];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.primary,
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x22000000), blurRadius: 12, offset: Offset(0, -4)),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 74,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Water drop indicator (simple white drop icon)
-              Positioned.fill(
-                top: -16,
-                child: AnimatedAlign(
-                  alignment: Alignment(alignX, -1.0),
-                  duration: const Duration(milliseconds: 260),
-                  curve: Curves.easeInOut,
-                  child: const Icon(Icons.water_drop,
-                      color: Colors.white, size: 28),
-                ),
-              ),
-              Align(
-                alignment: Alignment.center,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: Row(
-                    children: List.generate(5, (i) {
-                      final active = i == selectedIndex;
-                      final icon = [
-                        Icons.home,
-                        Icons.insights,
-                        Icons.menu_book_rounded,
-                        Icons.event_available,
-                        Icons.person,
-                      ][i];
-                      return Expanded(
-                        child: InkWell(
-                          onTap: () => onTap(i),
-                          borderRadius: BorderRadius.circular(16),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(icon,
-                                    color: active
-                                        ? cs.secondary
-                                        : cs.secondary.withOpacity(0.6)),
-                                const SizedBox(height: 4),
-                                Text(labels[i],
-                                    style:
-                                        theme.textTheme.labelMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: active
-                                          ? cs.secondary
-                                          : cs.secondary.withOpacity(0.6),
-                                    )),
-                              ],
-                            ),
+    return SafeArea(
+      top: false,
+      child: SizedBox(
+        height: 86,
+        child: Align(
+          alignment: Alignment.center,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: LayoutBuilder(builder: (context, cons) {
+                final w = cons.maxWidth;
+                const count = 5;
+                final itemW = w / count;
+                final pillW = (itemW * 0.78).clamp(84.0, 120.0);
+                const pillH = 36.0;
+                final left =
+                    selectedIndex.clamp(0, 4) * itemW + (itemW - pillW) / 2;
+                final bar = Container(
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: cs.primary,
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: const [
+                      BoxShadow(
+                          color: Color(0x22000000),
+                          blurRadius: 12,
+                          offset: Offset(0, -2)),
+                    ],
+                  ),
+                );
+                final icons = Row(
+                  children: List.generate(count, (i) {
+                    final active = i == selectedIndex;
+                    final icon = [
+                      Icons.home,
+                      Icons.insights,
+                      Icons.menu_book_rounded,
+                      Icons.event_available,
+                      Icons.person,
+                    ][i];
+                    return Expanded(
+                      child: InkWell(
+                        onTap: () => onTap(i),
+                        borderRadius: BorderRadius.circular(16),
+                        child: SizedBox(
+                          height: 64,
+                          child: Center(
+                            child: active
+                                ? const SizedBox
+                                    .shrink() // icon rendered inside the pill
+                                : Icon(icon,
+                                    color: cs.secondary.withOpacity(0.6)),
                           ),
                         ),
-                      );
-                    }),
+                      ),
+                    );
+                  }),
+                );
+
+                final pill = AnimatedPositioned(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeInOut,
+                  top: 14,
+                  left: left,
+                  width: pillW,
+                  height: pillH,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: const [
+                        BoxShadow(
+                            color: Color(0x33000000),
+                            blurRadius: 10,
+                            offset: Offset(0, 6)),
+                      ],
+                    ),
+                    child: Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            [
+                              Icons.home,
+                              Icons.insights,
+                              Icons.menu_book_rounded,
+                              Icons.event_available,
+                              Icons.person,
+                            ][selectedIndex],
+                            size: 18,
+                            color: cs.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            labels[selectedIndex],
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: cs.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ],
+                );
+
+                return Stack(children: [bar, icons, pill]);
+              }),
+            ),
           ),
         ),
       ),
     );
   }
 }
+
+// Removed old concave-notch painter in favor of pill-style indicator
 
 class _InputQuickMenu extends StatelessWidget {
   const _InputQuickMenu({required this.onRefleksi, required this.onMood});
