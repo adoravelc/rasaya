@@ -187,7 +187,12 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
             : 'Refleksi berhasil terkirim.';
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(msg)));
-        context.pop(true);
+        final router = GoRouter.of(context);
+        if (router.canPop()) {
+          context.pop(true);
+        } else {
+          router.go('/');
+        }
       } else {
         showDialog(
           context: context,

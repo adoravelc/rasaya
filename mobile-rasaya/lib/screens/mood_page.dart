@@ -179,7 +179,13 @@ class _MoodPageState extends ConsumerState<MoodPage>
 
     if (res.ok) {
       if (!mounted) return;
-      context.pop(true); // kembali ke Home dan trigger invalidate
+      final router = GoRouter.of(context);
+      if (router.canPop()) {
+        context.pop(true); // kembali dan trigger invalidate di Home
+      } else {
+        router.go(
+            '/'); // fallback kalau tidak ada route untuk di-pop (web, direct route)
+      }
     } else {
       showDialog(
         context: context,
