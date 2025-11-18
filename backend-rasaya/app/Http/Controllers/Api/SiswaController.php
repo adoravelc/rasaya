@@ -16,7 +16,7 @@ class SiswaController extends Controller
      */
     public function index()
     {
-        return Siswa::with('user:id,name,email,identifier')->paginate(20);
+        return Siswa::with('user:id,name,email,identifier,jenis_kelamin')->paginate(20);
     }
 
     // app/Http/Controllers/Api/SiswaController.php
@@ -91,6 +91,7 @@ class SiswaController extends Controller
             'email' => 'required|email|unique:users,email',
             'identifier' => 'required|unique:users,identifier',
             'password' => 'required|min:6',
+            'jenis_kelamin' => 'required|in:L,P',
         ]);
         $u = User::create([
             'name' => $data['name'],
@@ -99,6 +100,7 @@ class SiswaController extends Controller
             'role' => 'siswa',
             'password' => Hash::make($data['password']),
             'email_verified_at' => now(),
+            'jenis_kelamin' => $data['jenis_kelamin'] ?? null,
         ]);
         $s = Siswa::create(['user_id' => $u->id]);
         return response()->json($s->load('user'), 201);
@@ -111,7 +113,12 @@ class SiswaController extends Controller
 
     public function update(Request $r, Siswa $siswa)
     {
-        $data = $r->validate(['name' => 'sometimes', 'email' => 'sometimes|email', 'password' => 'nullable|min:6']);
+        $data = $r->validate([
+            'name' => 'sometimes',
+            'email' => 'sometimes|email|unique:users,email,' . $siswa->user_id,
+            'password' => 'nullable|min:6',
+            'jenis_kelamin' => 'sometimes|in:L,P',
+        ]);
         $u = $siswa->user;
         if (isset($data['name']))
             $u->name = $data['name'];
@@ -119,6 +126,8 @@ class SiswaController extends Controller
             $u->email = $data['email'];
         if (!empty($data['password']))
             $u->password = Hash::make($data['password']);
+        if (isset($data['jenis_kelamin']))
+            $u->jenis_kelamin = $data['jenis_kelamin'];
         $u->save();
         return $siswa->load('user');
     }

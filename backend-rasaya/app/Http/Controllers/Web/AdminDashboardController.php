@@ -84,13 +84,22 @@ class AdminDashboardController extends Controller
             ->limit(10)
             ->get();
         
+        // Pending password reset requests (last 7 days)
+        $resetRequests = User::whereNotNull('reset_requested_at')
+            ->where('reset_requested_at', '>=', now()->subDays(7))
+            ->whereNull('deleted_at')
+            ->orderByDesc('reset_requested_at')
+            ->limit(25)
+            ->get();
+
         return view('roles.admin.dashboard.index', compact(
             'stats', 
             'dailyTrend', 
             'moodDistribution', 
             'recentAnalyses', 
             'activeBookings',
-            'activeTa'
+            'activeTa',
+            'resetRequests'
         ));
     }
     

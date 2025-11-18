@@ -154,6 +154,39 @@
         });
     </script>
     <script>
+        // Defensive modal toggler to avoid data-api errors when target is missing
+        // or when Bootstrap is loaded in module mode. Intercepts click and shows modal safely.
+        document.addEventListener('click', function(e){
+            const trigger = e.target.closest('[data-bs-toggle="modal"]');
+            if (!trigger) return;
+            const sel = trigger.getAttribute('data-bs-target') || trigger.getAttribute('data-target');
+            if (!sel) return;
+            const target = document.querySelector(sel);
+            if (!target) {
+                // Prevent Bootstrap data-api from throwing on undefined target
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                console.warn('Modal target not found:', sel);
+                return;
+            }
+            // Use programmatic API to open, bypassing data-api
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            try {
+                // Remember last trigger so listeners can use it when relatedTarget is missing
+                window.rasayaLastModalTrigger = trigger;
+                const Modal = window.bootstrap && window.bootstrap.Modal;
+                if (Modal && typeof Modal.getOrCreateInstance === 'function') {
+                    Modal.getOrCreateInstance(target).show();
+                } else if (Modal) {
+                    new Modal(target).show();
+                }
+            } catch (err) {
+                console.error('Failed to open modal:', err);
+            }
+        }, true);
+    </script>
+    <script>
         function fmtWita(d){
             return d.toLocaleString('id-ID', { timeZone:'Asia/Makassar', weekday:'long', year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit', hour12:false}).replace(',', '');
         }

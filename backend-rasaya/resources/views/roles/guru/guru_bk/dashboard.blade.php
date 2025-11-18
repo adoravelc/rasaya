@@ -14,7 +14,14 @@
                     </div>
                 </div>
 
-                <div class="row g-3">
+                                @if(!auth()->user()->password_changed_at && auth()->user()->initial_password)
+                                    <div class="alert alert-warning d-flex align-items-center gap-2" role="alert">
+                                        <span class="fw-semibold">Segera ubah password anda.</span>
+                                        <span class="small">Gunakan token awal sebagai Password lama pada form ubah password.</span>
+                                        <a href="{{ route('guru.profile.index', ['pwd' => 1]) }}" class="btn btn-sm btn-outline-dark ms-auto">Ubah Sekarang</a>
+                                    </div>
+                                @endif
+                                <div class="row g-3">
                     <div class="col-12">
                         <div class="card shadow-sm h-100">
                             <div class="card-body">

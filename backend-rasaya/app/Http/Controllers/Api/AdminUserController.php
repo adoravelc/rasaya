@@ -35,6 +35,7 @@ class AdminUserController extends Controller
             'email'      => ['nullable','email','max:150','unique:users,email'],
             'password'   => ['required','string','min:6'],
             'jenis'      => ['nullable', Rule::in(['bk','wali_kelas'])], // hanya untuk guru
+            'jenis_kelamin' => ['required', Rule::in(['L','P'])],
         ]);
 
         // Aturan tambahan: jika role=guru maka jenis wajib
@@ -50,6 +51,7 @@ class AdminUserController extends Controller
                 'identifier' => $data['identifier'],
                 'role'       => $data['role'],
                 'name'       => $data['name'],
+                'jenis_kelamin' => $data['jenis_kelamin'] ?? null,
                 'email'      => $data['email'] ?? null,
                 'password'   => Hash::make($data['password']),
             ]);

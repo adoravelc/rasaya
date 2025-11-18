@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../auth/auth_controller.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -146,7 +147,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   const Text('Ingat saya'),
                                 ]),
                                 TextButton(
-                                  onPressed: null, // will be implemented later
+                                  onPressed: () =>
+                                      context.push('/forgot-password'),
                                   child: const Text('Lupa kata sandi?'),
                                 ),
                               ],

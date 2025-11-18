@@ -10,6 +10,7 @@ use App\Models\TahunAjaran;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Crypt;
 
 class AdminSiswaController extends Controller
 {
@@ -46,12 +47,15 @@ class AdminSiswaController extends Controller
     public function store(StoreSiswaRequest $request)
     {
         $data = $request->validated();
+        $plain = str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
         $user = User::create([
             'identifier' => $data['identifier'],
             'role' => 'siswa',
             'name' => $data['name'],
             'email' => $data['email'],
-            'password' => Hash::make($data['password'] ?? 'password123'),
+            'password' => Hash::make($plain),
+            'initial_password' => Crypt::encryptString($plain),
+            'jenis_kelamin' => $data['jenis_kelamin'],
         ]);
         Siswa::create(['user_id' => $user->id]);
         return redirect()->route('admin.siswa.index')->with('success', 'Siswa berhasil ditambahkan.');
@@ -66,6 +70,11 @@ class AdminSiswaController extends Controller
         $user->email = $data['email'];
         if (!empty($data['password'])) {
             $user->password = Hash::make($data['password']);
+            $user->password_changed_at = now();
+            $user->initial_password = null;
+        }
+        if (array_key_exists('jenis_kelamin', $data)) {
+            $user->jenis_kelamin = $data['jenis_kelamin'];
         }
         $user->save();
         return redirect()->route('admin.siswa.index')->with('success', 'Siswa berhasil diperbarui.');
@@ -77,5 +86,31 @@ class AdminSiswaController extends Controller
         $user->delete();
         if ($user->siswa) $user->siswa->delete();
         return redirect()->route('admin.siswa.index')->with('success', 'Siswa diarsipkan.');
+    }
+
+    public function trashed()
+    {
+        $siswas = Siswa::onlyTrashed()->with(['user' => function($q){ $q->withTrashed(); }])->paginate(15);
+        return view('roles.admin.siswa.trashed', compact('siswas'));
+    }
+
+    public function restore($userId)
+    {
+        $user = User::withTrashed()->where('id', $userId)->where('role', 'siswa')->firstOrFail();
+        $user->restore();
+        if ($user->siswa()->withTrashed()->exists()) {
+            $user->siswa()->withTrashed()->first()->restore();
+        }
+        return redirect()->route('admin.siswa.trashed')->with('success', 'Siswa dipulihkan.');
+    }
+
+    public function forceDelete($userId)
+    {
+        $user = User::withTrashed()->where('id', $userId)->where('role', 'siswa')->firstOrFail();
+        if ($user->siswa()->withTrashed()->exists()) {
+            $user->siswa()->withTrashed()->first()->forceDelete();
+        }
+        $user->forceDelete();
+        return redirect()->route('admin.siswa.trashed')->with('success', 'Siswa dihapus permanen.');
     }
 }

@@ -34,6 +34,15 @@
                     </a>
                     
                     <div class="text-uppercase text-muted fw-semibold small mb-1 mt-3">Manajemen Data</div>
+                    <a class="nav-link {{ $is('admin.users.index') }}" href="{{ route('admin.users.index') }}">
+                        <i class="bi bi-people-fill"></i> Manajemen User
+                    </a>
+                    <a class="nav-link {{ $is('admin.guru.index') }}" href="{{ route('admin.guru.index') }}">
+                        <i class="bi bi-person-badge"></i> Manajemen Guru
+                    </a>
+                    <a class="nav-link {{ $is('admin.siswa.index') }}" href="{{ route('admin.siswa.index') }}">
+                        <i class="bi bi-people"></i> Manajemen Siswa
+                    </a>
                     <a class="nav-link {{ $is('admin.kelas.index') }}" href="{{ route('admin.kelas.index') }}">
                         <i class="bi bi-door-closed"></i> Manajemen Kelas
                     </a>
@@ -42,12 +51,6 @@
                     </a>
                     <a class="nav-link {{ $is('admin.rekomendasi.index') }}" href="{{ route('admin.rekomendasi.index') }}">
                         <i class="bi bi-list-check"></i> Manajemen Rekomendasi
-                    </a>
-                    <a class="nav-link {{ $is('admin.guru.index') }}" href="{{ route('admin.guru.index') }}">
-                        <i class="bi bi-person-badge"></i> Manajemen Guru
-                    </a>
-                    <a class="nav-link {{ $is('admin.siswa.index') }}" href="{{ route('admin.siswa.index') }}">
-                        <i class="bi bi-people"></i> Manajemen Siswa
                     </a>
                     
                 </nav>
@@ -75,6 +78,11 @@
                             href="{{ route('guru.guru_bk.slots.view') }}">Slot Konseling (BK)</a>
                     @endif
                     <a class="nav-link disabled">Laporan Siswa (segera)</a>
+
+                    <div class="text-uppercase text-muted fw-semibold small mb-1 mt-3">Akun</div>
+                    <a class="nav-link {{ $is('guru.profile.*') }}" href="{{ route('guru.profile.index') }}">
+                        <i class="bi bi-person-circle"></i> Profil Saya
+                    </a>
                 </nav>
             @break
 

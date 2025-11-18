@@ -6,6 +6,7 @@
 <div class="d-flex align-items-center gap-2">
     <h1 class="h4 m-0">👨‍🎓 Manajemen Siswa</h1>
     <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAddSiswa">Tambah Siswa</button>
+    <a class="btn btn-sm btn-outline-secondary" href="{{ route('admin.siswa.trashed') }}">Data Terhapus</a>
     <form class="ms-auto d-flex gap-2" method="get">
         <input type="text" name="q" class="form-control form-control-sm" placeholder="Cari nama/identifier/email" value="{{ $q }}">
         <button class="btn btn-sm btn-outline-secondary" type="submit">Cari</button>
@@ -24,6 +25,7 @@
                 <th>Identifier</th>
                 <th>Nama</th>
                 <th>Email</th>
+            <th>Jenis Kelamin</th>
                 <th>Kelas</th>
                 <th class="text-end">Aksi</th>
             </tr>
@@ -35,6 +37,16 @@
                 <td>{{ $s->user->identifier }}</td>
                 <td>{{ $s->user->name }}</td>
                 <td>{{ $s->user->email }}</td>
+            <td>
+              @php $jk = $s->user->jenis_kelamin; @endphp
+              @if($jk === 'L')
+                <span class="badge bg-primary">Laki-laki</span>
+              @elseif($jk === 'P')
+                <span class="badge bg-secondary">Perempuan</span>
+              @else
+                <span class="text-muted small">-</span>
+              @endif
+            </td>
                 <td>
                     @if($s->kelass->isNotEmpty())
                         @php
@@ -48,15 +60,20 @@
                     @endif
                 </td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditSiswa" data-user="{{ json_encode(['id'=>$s->user->id,'identifier'=>$s->user->identifier,'name'=>$s->user->name,'email'=>$s->user->email]) }}">Edit</button>
-                    <form action="{{ route('admin.siswa.destroy', $s->user->id) }}" method="post" class="d-inline" onsubmit="return confirm('Arsipkan siswa ini?')">
+              @php($canReset = (bool)($s->user->reset_requested_at ?? null))
+              <form action="{{ route('admin.users.reset-password', $s->user->id) }}" method="post" class="d-inline" onsubmit="return confirm('Reset password untuk user ini? Password baru akan digenerate otomatis.')">
+                @csrf
+                <button class="btn btn-sm btn-warning me-1" {{ $canReset ? '' : 'disabled' }}>Reset Password</button>
+              </form>
+              <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditSiswa" data-user="{{ json_encode(['id'=>$s->user->id,'identifier'=>$s->user->identifier,'name'=>$s->user->name,'email'=>$s->user->email,'jenis_kelamin'=>$s->user->jenis_kelamin,'reset_requested_at'=>$s->user->reset_requested_at], JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_HEX_AMP) }}">Edit</button>
+                    <form action="{{ route('admin.siswa.destroy', $s->user->id) }}" method="post" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus user ini?')">
                         @csrf @method('DELETE')
-                        <button class="btn btn-sm btn-outline-danger">Arsipkan</button>
+                      <button class="btn btn-sm btn-outline-danger">Hapus</button>
                     </form>
                 </td>
             </tr>
             @empty
-            <tr><td colspan="6" class="text-center text-muted py-5">Belum ada data siswa.</td></tr>
+          <tr><td colspan="7" class="text-center text-muted py-5">Belum ada data siswa.</td></tr>
             @endforelse
         </tbody>
     </table>
@@ -72,8 +89,14 @@
       <div class="modal-body">
         <div class="mb-2"><label class="form-label">Identifier (NISN)</label><input name="identifier" class="form-control" required></div>
         <div class="mb-2"><label class="form-label">Nama</label><input name="name" class="form-control" required></div>
-        <div class="mb-2"><label class="form-label">Email</label><input name="email" type="email" class="form-control" required></div>
-        <div class="mb-2"><label class="form-label">Password (opsional)</label><input name="password" type="password" class="form-control" placeholder="default: password123"></div>
+        <div class="mb-2"><label class="form-label">Email</label><input name="email" type="email" class="form-control" required autocomplete="off"></div>
+        <div class="mb-2"><label class="form-label">Password</label><input name="password" type="password" class="form-control" autocomplete="new-password"><div class="form-text">Berikan password ini kepada user yang meminta reset.</div></div>
+        <div class="mb-2"><label class="form-label">Jenis Kelamin</label>
+            <select name="jenis_kelamin" class="form-select" required>
+                <option value="L">Laki-laki</option>
+                <option value="P">Perempuan</option>
+            </select>
+        </div>
       </div>
       <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Batal</button><button class="btn btn-primary" type="submit">Simpan</button></div>
     </form>
@@ -89,8 +112,18 @@
       <div class="modal-body">
         <div class="mb-2"><label class="form-label">Identifier</label><input name="identifier" class="form-control" required></div>
         <div class="mb-2"><label class="form-label">Nama</label><input name="name" class="form-control" required></div>
-        <div class="mb-2"><label class="form-label">Email</label><input name="email" type="email" class="form-control" required></div>
-        <div class="mb-2"><label class="form-label">Password (isi jika ganti)</label><input name="password" type="password" class="form-control"></div>
+        <div class="mb-2"><label class="form-label">Email</label><input name="email" type="email" class="form-control" required autocomplete="off"></div>
+        <div id="groupPassword" class="mb-2 d-none">
+          <label class="form-label">Password</label>
+          <input name="password" type="password" class="form-control" autocomplete="new-password">
+          <div class="form-text">Berikan password ini kepada user yang meminta reset.</div>
+        </div>
+        <div class="mb-2"><label class="form-label">Jenis Kelamin</label>
+            <select name="jenis_kelamin" class="form-select">
+                <option value="L">Laki-laki</option>
+                <option value="P">Perempuan</option>
+            </select>
+        </div>
       </div>
       <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Batal</button><button class="btn btn-primary" type="submit">Update</button></div>
     </form>
@@ -100,15 +133,30 @@
 @push('scripts')
 <script>
 document.getElementById('modalEditSiswa')?.addEventListener('show.bs.modal', (ev)=>{
-  const btn = ev.relatedTarget;
+  const btn = ev.relatedTarget || window.rasayaLastModalTrigger;
+  if (!btn) return;
   const data = JSON.parse(btn.getAttribute('data-user'));
   const form = document.getElementById('formEditSiswa');
   form.action = `{{ url('/admin/siswa') }}/${data.id}`;
   form.querySelector('[name=identifier]').value = data.identifier;
   form.querySelector('[name=name]').value = data.name;
   form.querySelector('[name=email]').value = data.email;
-  // Clear password field when opening modal
-  form.querySelector('[name=password]').value = '';
+  if (data.jenis_kelamin) {
+    form.querySelector('[name=jenis_kelamin]').value = data.jenis_kelamin;
+  }
+  // Clear password field & toggle by reset request
+  const pwdInput = form.querySelector('[name=password]');
+  if (pwdInput) pwdInput.value = '';
+  const pwdGroup = form.querySelector('#groupPassword');
+  if (pwdGroup && pwdInput) {
+    if (data.reset_requested_at) {
+      pwdGroup.classList.remove('d-none');
+      pwdInput.setAttribute('name','password');
+    } else {
+      pwdGroup.classList.add('d-none');
+      pwdInput.removeAttribute('name');
+    }
+  }
 });
 
 // Remove empty password field before submit

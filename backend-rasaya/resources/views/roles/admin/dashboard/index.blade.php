@@ -17,6 +17,29 @@
 @endsection
 
 @section('content')
+@if(isset($resetRequests) && $resetRequests->count())
+<div class="alert alert-warning d-flex align-items-start justify-content-between" role="alert">
+    <div>
+        <div class="fw-semibold mb-1">Ada {{ $resetRequests->count() }} permohonan reset password</div>
+        <ul class="mb-0 small">
+            @foreach($resetRequests as $r)
+                <li>
+                    <span class="badge bg-dark text-uppercase">{{ $r->role }}</span>
+                    <strong>{{ $r->name }}</strong> ({{ $r->identifier }})
+                    — diminta {{ optional($r->reset_requested_at)->diffForHumans() }}
+                    <form action="{{ route('admin.users.reset-password', $r->id) }}" method="post" class="d-inline ms-2" onsubmit="return confirm('Reset password untuk {{ $r->name }}?')">
+                        @csrf
+                        <button class="btn btn-sm btn-outline-dark">Reset sekarang</button>
+                    </form>
+                    <a class="btn btn-sm btn-outline-secondary ms-1" href="{{ route('admin.users.index', ['q' => $r->identifier]) }}">Lihat di Manajemen User</a>
+                </li>
+            @endforeach
+        </ul>
+    </div>
+    <a class="btn btn-sm btn-outline-secondary" href="{{ route('admin.users.index', ['role' => 'guru']) }}">Kelola</a>
+    </div>
+@endif
+
 {{-- Quick Stats Cards --}}
 <div class="row g-3 mb-4">
     <div class="col-md-3">

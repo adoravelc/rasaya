@@ -9,6 +9,7 @@ use App\Models\Guru;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Crypt;
 
 class AdminGuruController extends Controller
 {
@@ -38,13 +39,16 @@ class AdminGuruController extends Controller
     {
         $data = $request->validated();
 
-        // Create user role=guru
+        // Create user role=guru (with default numeric password)
+        $plain = str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
         $user = User::create([
             'identifier' => $data['identifier'],
             'role' => 'guru',
             'name' => $data['name'],
             'email' => $data['email'],
-            'password' => Hash::make($data['password'] ?? 'password123'),
+            'password' => Hash::make($plain),
+            'initial_password' => Crypt::encryptString($plain),
+            'jenis_kelamin' => $data['jenis_kelamin'],
         ]);
 
         Guru::create([
@@ -64,6 +68,11 @@ class AdminGuruController extends Controller
         $user->email = $data['email'];
         if (!empty($data['password'])) {
             $user->password = Hash::make($data['password']);
+            $user->password_changed_at = now();
+            $user->initial_password = null;
+        }
+        if (array_key_exists('jenis_kelamin', $data)) {
+            $user->jenis_kelamin = $data['jenis_kelamin'];
         }
         $user->save();
 
@@ -85,5 +94,31 @@ class AdminGuruController extends Controller
         }
 
         return redirect()->route('admin.guru.index')->with('success', 'Guru diarsipkan.');
+    }
+
+    public function trashed()
+    {
+        $gurus = Guru::onlyTrashed()->with(['user' => function($q){ $q->withTrashed(); }])->paginate(15);
+        return view('roles.admin.guru.trashed', compact('gurus'));
+    }
+
+    public function restore($userId)
+    {
+        $user = User::withTrashed()->where('id', $userId)->where('role', 'guru')->firstOrFail();
+        $user->restore();
+        if ($user->guru()->withTrashed()->exists()) {
+            $user->guru()->withTrashed()->first()->restore();
+        }
+        return redirect()->route('admin.guru.trashed')->with('success', 'Guru dipulihkan.');
+    }
+
+    public function forceDelete($userId)
+    {
+        $user = User::withTrashed()->where('id', $userId)->where('role', 'guru')->firstOrFail();
+        if ($user->guru()->withTrashed()->exists()) {
+            $user->guru()->withTrashed()->first()->forceDelete();
+        }
+        $user->forceDelete();
+        return redirect()->route('admin.guru.trashed')->with('success', 'Guru dihapus permanen.');
     }
 }

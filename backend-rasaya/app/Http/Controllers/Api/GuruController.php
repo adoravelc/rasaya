@@ -16,7 +16,7 @@ class GuruController extends Controller
      */
     public function index()
     {
-        return Guru::with('user:id,name,email,identifier')->paginate(20);
+        return Guru::with('user:id,name,email,identifier,jenis_kelamin')->paginate(20);
     }
 
     public function store(Request $r)
@@ -27,6 +27,7 @@ class GuruController extends Controller
             'identifier' => 'required|unique:users,identifier',
             'password' => 'required|min:6',
             'jenis' => 'required|in:bk,wali_kelas',
+            'jenis_kelamin' => 'required|in:L,P',
         ]);
         $u = User::create([
             'name' => $data['name'],
@@ -35,6 +36,7 @@ class GuruController extends Controller
             'role' => 'guru',
             'password' => Hash::make($data['password']),
             'email_verified_at' => now(),
+            'jenis_kelamin' => $data['jenis_kelamin'] ?? null,
         ]);
         $g = Guru::create(['user_id' => $u->id, 'jenis' => $data['jenis']]);
         return response()->json($g->load('user'), 201);
@@ -47,8 +49,21 @@ class GuruController extends Controller
 
     public function update(Request $r, Guru $guru)
     {
-        $data = $r->validate(['jenis' => 'required|in:bk,wali_kelas']);
+        $data = $r->validate([
+            'jenis' => 'required|in:bk,wali_kelas',
+            'name' => 'sometimes|string',
+            'email' => 'sometimes|email|unique:users,email,' . $guru->user_id,
+            'password' => 'nullable|min:6',
+            'jenis_kelamin' => 'sometimes|in:L,P',
+        ]);
         $guru->update($data);
+        // update user fields if provided
+        $u = $guru->user;
+        if (isset($data['name'])) $u->name = $data['name'];
+        if (isset($data['email'])) $u->email = $data['email'];
+        if (!empty($data['password'])) $u->password = Hash::make($data['password']);
+        if (isset($data['jenis_kelamin'])) $u->jenis_kelamin = $data['jenis_kelamin'];
+        $u->save();
         return $guru->load('user');
     }
 

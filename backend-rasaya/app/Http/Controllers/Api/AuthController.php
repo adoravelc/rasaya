@@ -43,7 +43,8 @@ class AuthController extends Controller
                 'identifier' => $user->identifier,
                 'role' => $user->role,
                 'name' => $user->name,
-                'email' => $user->email
+                'email' => $user->email,
+                'jenis_kelamin' => $user->jenis_kelamin,
             ]
         ]);
     }
@@ -52,6 +53,7 @@ class AuthController extends Controller
     {
         $user = $request->user();
         $data = $user->toArray();
+        $data['jenis_kelamin'] = $user->jenis_kelamin;
         
         // Jika role siswa, tambahkan info NIS dan kelas aktif
         if ($user->role === 'siswa' && $user->siswa) {
@@ -70,6 +72,15 @@ class AuthController extends Controller
                 $data['kelas_label'] = $kelas->label . ' — ' . ($tahunAjaran->nama ?? '');
             }
         }
+        // Tambahkan token password (dekripsi) hanya jika user belum pernah mengganti password
+        if (!$user->password_changed_at && $user->initial_password) {
+            try {
+                $data['initial_password_token'] = \Illuminate\Support\Facades\Crypt::decryptString($user->initial_password);
+            } catch (\Throwable $e) {
+                // ignore dekripsi gagal
+            }
+        }
+        $data['needs_password_update'] = (!$user->password_changed_at && $user->initial_password) ? true : false;
         
         return response()->json($data);
     }
@@ -99,13 +110,30 @@ class AuthController extends Controller
             'new_password' => ['required','string','min:6'],
         ]);
 
-        if (!Hash::check($data['current_password'], $user->password)) {
+        // Jika masih fase token awal (belum password_changed_at) dan initial_password ada,
+        // izinkan penggunaan token awal sebagai current_password tanpa hash check lama.
+        $usingInitial = false;
+        if (!$user->password_changed_at && $user->initial_password) {
+            try {
+                $token = \Illuminate\Support\Facades\Crypt::decryptString($user->initial_password);
+                if (hash_equals($token, $data['current_password'])) {
+                    $usingInitial = true;
+                }
+            } catch (\Throwable $e) {}
+        }
+
+        if (!$usingInitial && !Hash::check($data['current_password'], $user->password)) {
             throw ValidationException::withMessages([
-                'current_password' => ['Password saat ini tidak sesuai.'],
+                'current_password' => ['Password saat ini / token tidak sesuai.'],
             ]);
         }
 
         $user->password = Hash::make($data['new_password']);
+        if (!$user->password_changed_at) {
+            $user->password_changed_at = now();
+            // hapus initial_password agar tidak bisa diambil lagi
+            $user->initial_password = null;
+        }
         $user->save();
 
         return response()->json(['message' => 'Password berhasil diubah']);

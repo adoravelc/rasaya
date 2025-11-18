@@ -16,6 +16,7 @@ use App\Http\Controllers\Web\SiswaDashboardController;
 use App\Http\Controllers\Web\AdminJurusanController;
 use App\Http\Controllers\Web\TahunAjaranWebController;
 use App\Http\Controllers\Web\RekomendasiWebController;
+use App\Http\Controllers\Web\AdminUserManagementController;
 use App\Http\Controllers\Api\SlotKonselingController as SlotApi;
 use App\Http\Controllers\Web\MlBridgeController;
 use App\Http\Controllers\Web\AnalisisEntryController;
@@ -27,6 +28,15 @@ Route::redirect('/', '/login');
 Route::get('/login', [AuthWebController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthWebController::class, 'doLogin']);
 Route::post('/logout', [AuthWebController::class, 'logout'])->name('logout');
+
+// Forgot password (request flow)
+Route::get('/forgot-password', [\App\Http\Controllers\Web\ForgotPasswordController::class, 'showForm'])->name('password.forgot');
+Route::post('/forgot-password', [\App\Http\Controllers\Web\ForgotPasswordController::class, 'requestReset'])->name('password.forgot.request');
+Route::get('/forgot-password/done', [\App\Http\Controllers\Web\ForgotPasswordController::class, 'done'])->name('password.forgot.done');
+
+// Email reset link flow (public)
+Route::get('/reset-password/{token}', [\App\Http\Controllers\Web\PasswordResetController::class, 'show'])->name('password.reset.show');
+Route::post('/reset-password', [\App\Http\Controllers\Web\PasswordResetController::class, 'submit'])->name('password.reset.submit');
 
 Route::get('/dashboard', function (Request $request) {
     $user = $request->user(); // ✅ clean
@@ -73,12 +83,18 @@ Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
     Route::post('/guru', [AdminGuruController::class, 'store'])->name('admin.guru.store');
     Route::put('/guru/{userId}', [AdminGuruController::class, 'update'])->name('admin.guru.update');
     Route::delete('/guru/{userId}', [AdminGuruController::class, 'destroy'])->name('admin.guru.destroy');
+    Route::get('/guru/trashed', [AdminGuruController::class, 'trashed'])->name('admin.guru.trashed');
+    Route::post('/guru/{userId}/restore', [AdminGuruController::class, 'restore'])->name('admin.guru.restore');
+    Route::delete('/guru/{userId}/force', [AdminGuruController::class, 'forceDelete'])->name('admin.guru.force');
 
     // Siswa
     Route::get('/siswa', [AdminSiswaController::class, 'index'])->name('admin.siswa.index');
     Route::post('/siswa', [AdminSiswaController::class, 'store'])->name('admin.siswa.store');
     Route::put('/siswa/{userId}', [AdminSiswaController::class, 'update'])->name('admin.siswa.update');
     Route::delete('/siswa/{userId}', [AdminSiswaController::class, 'destroy'])->name('admin.siswa.destroy');
+    Route::get('/siswa/trashed', [AdminSiswaController::class, 'trashed'])->name('admin.siswa.trashed');
+    Route::post('/siswa/{userId}/restore', [AdminSiswaController::class, 'restore'])->name('admin.siswa.restore');
+    Route::delete('/siswa/{userId}/force', [AdminSiswaController::class, 'forceDelete'])->name('admin.siswa.force');
 
     // Siswa-Kelas
     Route::get('/siswa-kelas', [AdminSiswaKelasController::class, 'index'])->name('admin.siswa_kelas.index');
@@ -108,6 +124,13 @@ Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
     Route::delete('/rekomendasi/{rekomendasi}', [RekomendasiWebController::class, 'destroy'])->name('admin.rekomendasi.destroy');
     Route::patch('/rekomendasi/{rekomendasi}/active', [RekomendasiWebController::class, 'toggleActive'])->name('admin.rekomendasi.toggle');
     Route::get('/rekomendasi/suggest-kode', [RekomendasiWebController::class, 'suggestKode'])->name('admin.rekomendasi.suggest_kode');
+
+    // Manajemen User (gabungan Guru & Siswa)
+    Route::get('/users', [AdminUserManagementController::class, 'index'])->name('admin.users.index');
+    Route::get('/users/trashed', [AdminUserManagementController::class, 'trashed'])->name('admin.users.trashed');
+    Route::post('/users/{userId}/restore', [AdminUserManagementController::class, 'restore'])->name('admin.users.restore');
+    Route::delete('/users/{userId}/force', [AdminUserManagementController::class, 'forceDelete'])->name('admin.users.force');
+    Route::post('/users/{userId}/reset-password', [AdminUserManagementController::class, 'resetPassword'])->name('admin.users.reset-password');
 });
 
 /** ===================== GURU (BK & WALI KELAS) ===================== */
@@ -160,6 +183,11 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
     Route::prefix('wk')->middleware('gurujenis:wali_kelas')->group(function () {
         Route::get('/', [GuruWkDashboardController::class, 'index'])->name('guru.wk.dashboard');
     });
+
+    // Profile (for both BK & Wali Kelas)
+    Route::get('/profile', [\App\Http\Controllers\Web\GuruProfileController::class, 'index'])->name('guru.profile.index');
+    Route::post('/profile/password', [\App\Http\Controllers\Web\GuruProfileController::class, 'updatePassword'])->name('guru.profile.password');
+    Route::post('/profile', [\App\Http\Controllers\Web\GuruProfileController::class, 'updateProfile'])->name('guru.profile.update');
 
     // Umum: Analisis (tersedia untuk semua Guru, BK & Wali Kelas)
     Route::prefix('analisis')->group(function () {

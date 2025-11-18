@@ -140,6 +140,7 @@ class HomePage extends ConsumerWidget {
     final name = (me['name'] ?? '-').toString();
     final nis = (me['nis'] ?? me['identifier'] ?? '-').toString();
     final kelasLabel = (me['kelas_label'] ?? me['role'] ?? '-').toString();
+    final needsPwdUpdate = me['needs_password_update'] == true;
 
     final refleksiAsync = ref.watch(recentRefleksiProvider);
     final moodAsync = ref.watch(recentMoodProvider);
@@ -178,6 +179,37 @@ class HomePage extends ConsumerWidget {
               error: (_, __) => const SizedBox.shrink(),
             ),
           if (showMoodShortcut) const SizedBox(height: 12),
+          if (needsPwdUpdate) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Card(
+                color: Colors.amber.shade100,
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.warning_rounded, color: Colors.black87),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Segera ubah password anda',
+                                style: TextStyle(fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            const Text(
+                                'Gunakan Token password sebagai Password saat ini lalu tetapkan password baru yang mudah diingat.',
+                                style: TextStyle(fontSize: 13)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
           todayRefleksiStatus.when(
             data: (m) {
               final hasSelf = m['has_self_today'] == true;

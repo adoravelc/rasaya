@@ -26,6 +26,7 @@ class StoreGuruRequest extends FormRequest
             ],
             'password' => ['nullable', 'string', 'min:6'],
             'jenis' => ['required', Rule::in(['bk', 'wali_kelas'])],
+            'jenis_kelamin' => ['required', Rule::in(['L', 'P'])],
         ];
     }
 }

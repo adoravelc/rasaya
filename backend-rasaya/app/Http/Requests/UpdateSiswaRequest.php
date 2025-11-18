@@ -33,6 +33,7 @@ class UpdateSiswaRequest extends FormRequest
                 Rule::unique('users', 'email')->ignore($userId, 'id')->whereNull('deleted_at')
             ],
             'password' => ['nullable', 'min:6'],
+            'jenis_kelamin' => ['sometimes', Rule::in(['L', 'P'])],
         ];
     }
 }

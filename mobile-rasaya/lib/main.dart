@@ -16,6 +16,7 @@ import 'screens/my_schedule_page.dart';
 import 'screens/profile_page.dart';
 import 'screens/change_password_page.dart';
 import 'screens/stats_page.dart';
+import 'screens/forgot_password_page.dart';
 
 class RefleksiHistoryPage extends StatelessWidget {
   const RefleksiHistoryPage({super.key});
@@ -53,6 +54,9 @@ class _AppState extends ConsumerState<App> {
     _router = GoRouter(
       routes: [
         GoRoute(path: '/', builder: (_, __) => const LoginPage()),
+        GoRoute(
+            path: '/forgot-password',
+            builder: (_, __) => const ForgotPasswordPage()),
         GoRoute(path: '/home', builder: (_, __) => const HomePage()),
         GoRoute(path: '/stats', builder: (_, __) => const StatsPage()),
         GoRoute(

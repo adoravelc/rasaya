@@ -69,6 +69,13 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final me = ref.watch(authControllerProvider).me ?? {};
+    final needsUpdate = (me['needs_password_update'] == true);
+    final initialToken = (me['initial_password_token'] ?? '') as String;
+    // Prefill token if still in initial state
+    if (needsUpdate && initialToken.isNotEmpty && _currentCtrl.text.isEmpty) {
+      _currentCtrl.text = initialToken;
+    }
     return AppScaffold(
       title: 'Ubah Password',
       body: ListView(
@@ -88,9 +95,12 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _currentCtrl,
-                      obscureText: _ob1,
+                      readOnly: needsUpdate,
+                      obscureText: needsUpdate ? !_ob1 : _ob1,
                       decoration: InputDecoration(
-                        labelText: 'Password saat ini',
+                        labelText: needsUpdate
+                            ? 'Token password'
+                            : 'Password saat ini',
                         suffixIcon: IconButton(
                           icon: Icon(
                               _ob1 ? Icons.visibility : Icons.visibility_off),

@@ -20,6 +20,8 @@ use App\Http\Controllers\Api\BookingKonselingController;
 */
 Route::get('/health', fn() => response()->json(['ok' => true, 'ts' => now()]));
 Route::post('/login', [AuthController::class, 'login']);
+// Forgot password request (public)
+Route::post('/forgot-password', [\App\Http\Controllers\Api\ForgotPasswordController::class, 'requestReset']);
 
 /*
 |--------------------------------------------------------------------------

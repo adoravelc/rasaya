@@ -64,7 +64,7 @@
                                     <input class="form-check-input" type="checkbox" value="1" id="remember" name="remember" {{ old('remember') ? 'checked' : '' }}>
                                     <label class="form-check-label" for="remember">Ingat saya</label>
                                 </div>
-                                <a class="small text-muted disabled" aria-disabled="true" href="#">Lupa kata sandi?</a>
+                                <a class="small" href="{{ route('password.forgot') }}">Lupa kata sandi?</a>
                             </div>
 
                             <div class="d-grid gap-2">

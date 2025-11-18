@@ -49,4 +49,21 @@ class AuthRepository {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_kTokenKey);
   }
+
+  Future<void> requestForgotPassword({
+    required String identifier,
+    String? email,
+    String method = 'admin',
+  }) async {
+    final body = <String, dynamic>{
+      if (identifier.isNotEmpty) 'identifier': identifier,
+      if (email != null && email.isNotEmpty) 'email': email,
+      'method': method,
+    };
+    try {
+      await _client.dio.post('/forgot-password', data: body);
+    } catch (_) {
+      // Intentionally ignore details; API always returns ok to avoid enumeration
+    }
+  }
 }

@@ -24,8 +24,12 @@ class User extends Authenticatable
         'identifier',
         'role',
         'name',
+        'jenis_kelamin',
         'email',
         'password',
+        'initial_password',
+        'password_changed_at',
+        'reset_requested_at',
         'email_verified_at',
     ];
 
@@ -64,6 +68,8 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'password_changed_at' => 'datetime',
+            'reset_requested_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

@@ -37,6 +37,7 @@ class UpdateGuruRequest extends FormRequest
             ],
             'password' => ['nullable', 'min:6'],
             'jenis' => ['required', Rule::in(['bk', 'wali_kelas'])],
+            'jenis_kelamin' => ['sometimes', Rule::in(['L', 'P'])],
         ];
     }
 }

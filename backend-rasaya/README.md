@@ -59,3 +59,38 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## Mail (Gmail SMTP) Setup (RASAYA)
+
+Use a dedicated Gmail account (e.g. `adminrasaya@gmail.com`) with 2-Step Verification enabled and an App Password.
+
+### Steps
+1. Create / login to `adminrasaya@gmail.com`.
+2. Enable 2-Step Verification: https://myaccount.google.com/security.
+3. Generate an App Password: Security > App Passwords > Select App: Other (Laravel) > Generate.
+4. Copy the 16‑character password (no spaces) into `.env`:
+	```env
+	MAIL_MAILER=smtp
+	MAIL_HOST=smtp.gmail.com
+	MAIL_PORT=587
+	MAIL_USERNAME=adminrasaya@gmail.com
+	MAIL_PASSWORD=your_app_password_here
+	MAIL_ENCRYPTION=tls
+	MAIL_FROM_ADDRESS=adminrasaya@gmail.com
+	MAIL_FROM_NAME="RASAYA"
+	```
+5. Clear config cache:
+	```bash
+	php artisan config:clear
+	php artisan cache:clear
+	```
+6. Test in Tinker:
+	```bash
+	php artisan tinker
+	>>> Mail::raw('Test RASAYA Mail', fn($m) => $m->to('your@recipient.com')->subject('Mail OK'));
+	```
+
+### Notes
+- For development without sending: set `MAIL_MAILER=log`.
+- Avoid using your personal Gmail; a fresh dedicated account reduces spam/lock risk.
+- At scale switch to a transactional service (Brevo, SES) for better deliverability.
