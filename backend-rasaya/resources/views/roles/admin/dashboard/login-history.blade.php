@@ -111,7 +111,14 @@
                                 @if($history->user->role === 'admin')
                                     <span class="badge bg-danger">Admin</span>
                                 @elseif($history->user->role === 'guru')
-                                    <span class="badge bg-primary">Guru</span>
+                                    @php($jenis = optional($history->user->guru)->jenis)
+                                    @if($jenis === 'bk')
+                                        <span class="badge bg-primary">Guru BK</span>
+                                    @elseif($jenis === 'wali_kelas')
+                                        <span class="badge bg-info text-dark">Wali Kelas</span>
+                                    @else
+                                        <span class="badge bg-primary">Guru</span>
+                                    @endif
                                 @else
                                     <span class="badge bg-success">Siswa</span>
                                 @endif

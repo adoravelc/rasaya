@@ -136,16 +136,16 @@
                         <hr>
                         <div class="row g-3">
                             <div class="col-md-4">
-                                <label class="form-label">Score Sentimen Minimal</label>
-                                <input type="number" step="0.01" id="m-min_neg_score" class="form-control" placeholder="-0.05">
+                                <label class="form-label">Tingkat Keparahan</label>
+                                <input type="range" min="-1.00" max="0.00" step="0.01" id="m-min_score" class="form-range" oninput="updateMinScoreLabel()">
+                                <div class="d-flex justify-content-between small text-muted">
+                                    <span>-1.00 (berat)</span>
+                                    <span>-0.50</span>
+                                    <span>0.00 (ringan)</span>
+                                </div>
                                 <div class="form-text" id="min-score-help">
-                                    Saran awal: <strong>-0.05 (Ringan)</strong>
-                                    <ul class="mb-1 mt-1">
-                                        <li>Ringan = -0.05 hingga -0.14</li>
-                                        <li>Sedang = -0.15 hingga -0.29</li>
-                                        <li>Berat = ≤ -0.30</li>
-                                    </ul>
-                                    Rekomendasi akan muncul jika kondisi siswa sama atau lebih berat dari nilai ini. Semakin mendekati -1.00, kondisinya makin berat.
+                                    Nilai minimal sentimen: <strong id="m-min_value">-0.05</strong>
+                                    <div class="mt-1">Semakin mendekati -1.00, kondisinya makin berat.</div>
                                 </div>
                             </div>
                             <div class="col-md-8">
@@ -203,7 +203,9 @@
             document.getElementById('m-deskripsi').value = '';
             document.getElementById('m-severity').value = 'low';
             document.getElementById('m-active').checked = true;
-            document.getElementById('m-min_neg_score').value = '';
+            // default suggestion from severity
+            document.getElementById('m-min_score').value = sevToScore(document.getElementById('m-severity').value);
+            updateMinScoreLabel();
             document.getElementById('m-any_keywords').value = '';
             document.getElementById('m-error').innerText = '';
             // Preselect kategori by filter if available
@@ -227,7 +229,9 @@
             document.getElementById('m-severity').value = tr.querySelector('.td-severity').innerText.trim().toLowerCase();
             document.getElementById('m-active').checked = tr.querySelector('.toggle-active').checked;
             const rules = JSON.parse(tr.dataset.rules || '{}');
-            document.getElementById('m-min_neg_score').value = rules.min_neg_score ?? '';
+            const current = (typeof rules.min_neg_score === 'number') ? rules.min_neg_score : null;
+            document.getElementById('m-min_score').value = (current !== null ? current : sevToScore(document.getElementById('m-severity').value));
+            updateMinScoreLabel();
             document.getElementById('m-any_keywords').value = Array.isArray(rules.any_keywords) ? rules.any_keywords.join(', ') : '';
             document.getElementById('m-error').innerText = '';
             bsModal.show();
@@ -254,7 +258,7 @@
                 deskripsi: document.getElementById('m-deskripsi').value.trim() || null,
                 severity: document.getElementById('m-severity').value,
                 is_active: document.getElementById('m-active').checked ? 1 : 0,
-                min_neg_score: document.getElementById('m-min_neg_score').value || null,
+                min_neg_score: parseFloat(document.getElementById('m-min_score').value),
                 any_keywords: document.getElementById('m-any_keywords').value.trim(),
             };
             const url = id ? `${base}/${id}?kategori_id=${kid}` : `${base}?kategori_id=${kid}`;
@@ -285,19 +289,18 @@
 
         // Guidance text made simple and line-by-line for non-technical admins
         document.getElementById('m-severity').addEventListener('change', () => {
-            const sev = document.getElementById('m-severity').value;
-            const help = document.getElementById('min-score-help');
-            let saran = '';
-            if (sev === 'low') saran = '-0.05 (Ringan)';
-            if (sev === 'medium') saran = '-0.15 (Sedang)';
-            if (sev === 'high') saran = '-0.30 (Berat)';
-            help.innerHTML = `Saran untuk pilihan ini: <strong>${saran}</strong>
-                <ul class="mb-1 mt-1">
-                    <li>Ringan = -0.05 hingga -0.14</li>
-                    <li>Sedang = -0.15 hingga -0.29</li>
-                    <li>Berat = ≤ -0.30</li>
-                </ul>
-                Rekomendasi akan muncul jika kondisi siswa sama atau lebih berat dari nilai ini. Semakin mendekati -1.00, kondisinya makin berat.`;
+            // Suggest a recommended minimum based on severity but allow free adjustment
+            document.getElementById('m-min_score').value = sevToScore(document.getElementById('m-severity').value);
+            updateMinScoreLabel();
         });
+        function sevToScore(sev){
+            if (sev === 'high') return -0.30;
+            if (sev === 'medium') return -0.15;
+            return -0.05;
+        }
+        function updateMinScoreLabel(){
+            const val = parseFloat(document.getElementById('m-min_score').value);
+            document.getElementById('m-min_value').textContent = isNaN(val) ? '-' : val.toFixed(2);
+        }
     </script>
 @endpush

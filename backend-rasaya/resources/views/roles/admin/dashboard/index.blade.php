@@ -43,7 +43,8 @@
 {{-- Quick Stats Cards --}}
 <div class="row g-3 mb-4">
     <div class="col-md-3">
-        <div class="card border-primary">
+        <a href="{{ route('admin.users.index') }}" class="text-decoration-none text-reset">
+        <div class="card border-primary h-100">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
@@ -59,10 +60,12 @@
                 </div>
             </div>
         </div>
+        </a>
     </div>
 
     <div class="col-md-3">
-        <div class="card border-success">
+        <a href="{{ route('admin.dashboard.login-history', ['date_from' => now()->format('Y-m-d'), 'date_to' => now()->format('Y-m-d')]) }}" class="text-decoration-none text-reset">
+        <div class="card border-success h-100">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
@@ -76,10 +79,12 @@
                 </div>
             </div>
         </div>
+        </a>
     </div>
 
     <div class="col-md-3">
-        <div class="card border-warning">
+        <a href="{{ route('admin.dashboard.refleksi-history', ['date_from' => now()->format('Y-m-d'), 'date_to' => now()->format('Y-m-d')]) }}" class="text-decoration-none text-reset">
+        <div class="card border-warning h-100">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
@@ -95,10 +100,12 @@
                 </div>
             </div>
         </div>
+        </a>
     </div>
 
     <div class="col-md-3">
-        <div class="card border-info">
+        <a href="{{ route('admin.dashboard.mood-history', ['date_from' => now()->format('Y-m-d'), 'date_to' => now()->format('Y-m-d')]) }}" class="text-decoration-none text-reset">
+        <div class="card border-info h-100">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
@@ -112,13 +119,14 @@
                 </div>
             </div>
         </div>
+        </a>
     </div>
 </div>
 
 {{-- Summary Stats --}}
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-4 align-items-stretch">
     <div class="col-md-8">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-header">
                 <h5 class="mb-0">📈 Trend Input Refleksi (7 Hari Terakhir)</h5>
             </div>
@@ -153,7 +161,7 @@
     </div>
 
     <div class="col-md-4">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-header">
                 <h5 class="mb-0">😊 Distribusi Mood (30 Hari)</h5>
             </div>

@@ -21,6 +21,10 @@ use App\Http\Controllers\Api\SlotKonselingController as SlotApi;
 use App\Http\Controllers\Web\MlBridgeController;
 use App\Http\Controllers\Web\AnalisisEntryController;
 use App\Http\Controllers\Web\EmosiTrenController;
+use App\Http\Controllers\Web\GuruRefleksiHistoryController;
+use App\Http\Controllers\Web\AdminBackupController;
+use App\Http\Controllers\Web\YearRolloverController;
+use App\Http\Controllers\Web\RosterImportController;
 
 // Redirect landing page straight to login for a focused UX
 Route::redirect('/', '/login');
@@ -57,8 +61,27 @@ Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard.index');
     Route::get('/dashboard/login-history', [AdminDashboardController::class, 'loginHistory'])->name('admin.dashboard.login-history');
+    Route::get('/dashboard/refleksi-history', [AdminDashboardController::class, 'refleksiHistory'])->name('admin.dashboard.refleksi-history');
+    Route::get('/dashboard/mood-history', [AdminDashboardController::class, 'moodHistory'])->name('admin.dashboard.mood-history');
     Route::get('/dashboard/user-activity/{userId}', [AdminDashboardController::class, 'userActivity'])->name('admin.dashboard.user-activity');
     Route::get('/dashboard/audit-logs', [AdminDashboardController::class, 'auditLogs'])->name('admin.dashboard.audit-logs');
+
+    // Backup & Recovery
+    Route::get('/backup', [AdminBackupController::class, 'index'])->name('admin.backup.index');
+    Route::get('/backup/export/{dataset}.{format}', [AdminBackupController::class, 'export'])->name('admin.backup.export');
+
+    // Rollover Tahun Ajaran
+    Route::get('/rollover', [YearRolloverController::class, 'create'])->name('admin.rollover.create');
+    Route::post('/rollover/dry-run', [YearRolloverController::class, 'dryRun'])->name('admin.rollover.dryrun');
+    Route::post('/rollover/run', [YearRolloverController::class, 'run'])->name('admin.rollover.run');
+    Route::get('/rollover/{run}', [YearRolloverController::class, 'show'])->name('admin.rollover.show');
+    Route::get('/rollover/{run}/json', [YearRolloverController::class, 'json'])->name('admin.rollover.json');
+
+    // Roster Import (Admin)
+    Route::get('/roster-import', [RosterImportController::class, 'index'])->name('admin.roster.index');
+    Route::get('/roster-import/template', [RosterImportController::class, 'template'])->name('admin.roster.template');
+    Route::post('/roster-import/preview', [RosterImportController::class, 'preview'])->name('admin.roster.preview');
+    Route::post('/roster-import/commit', [RosterImportController::class, 'commit'])->name('admin.roster.commit');
 
     // Kelas
     Route::get('/kelas', [KelasWebController::class, 'index'])->name('admin.kelas.index');
@@ -70,6 +93,8 @@ Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
 
     // Kategori
     Route::get('/kategori', [KategoriWebController::class, 'index'])->name('admin.kategori.index');
+    Route::post('/kategori/master', [KategoriWebController::class, 'storeMaster'])->name('admin.kategori.master.store');
+    Route::get('/kategori/{kategori}/detail', [KategoriWebController::class, 'detail'])->name('admin.kategori.detail');
     Route::post('/kategori', [KategoriWebController::class, 'store'])->name('admin.kategori.store');
     Route::put('/kategori/{kategori}', [KategoriWebController::class, 'update'])->name('admin.kategori.update');
     Route::delete('/kategori/{kategori}', [KategoriWebController::class, 'destroy'])->name('admin.kategori.destroy');
@@ -183,6 +208,9 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
     Route::prefix('wk')->middleware('gurujenis:wali_kelas')->group(function () {
         Route::get('/', [GuruWkDashboardController::class, 'index'])->name('guru.wk.dashboard');
     });
+
+    // Guru BK: Refleksi history lintas tahun
+    Route::get('/bk/refleksi-history', [GuruRefleksiHistoryController::class, 'index'])->name('guru.bk.refleksi-history');
 
     // Profile (for both BK & Wali Kelas)
     Route::get('/profile', [\App\Http\Controllers\Web\GuruProfileController::class, 'index'])->name('guru.profile.index');

@@ -5,23 +5,68 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\KategoriMasalah;
+use App\Models\MasterKategoriMasalah;
 use Illuminate\Validation\Rule;
 
 class KategoriWebController extends Controller
 {
     public function index(Request $r)
     {
-        $q = KategoriMasalah::orderBy('nama');
+        $q = KategoriMasalah::with('topikBesars')->orderBy('nama');
 
         // filter ?aktif=1 / ?aktif=0 / (kosong = semua)
         if ($r->filled('aktif')) {
             $q->where('is_active', (int) $r->input('aktif') === 1);
         }
 
+        // filter topik besar (master) => tampilkan hanya small topics yang terhubung ke master terpilih
+        $masterId = $r->input('master_id');
+        if ($masterId) {
+            $q->whereHas('topikBesars', function($qq) use ($masterId) {
+                $qq->where('master_kategori_masalah_id', $masterId);
+            });
+        }
+
+        // search by kode/nama
+        if ($r->filled('q')) {
+            $term = trim($r->input('q'));
+            $q->where(function($qq) use ($term){
+                $qq->where('nama','like',"%{$term}%")
+                   ->orWhere('kode','like',"%{$term}%");
+            });
+        }
+
         $rows = $q->paginate(15)->withQueryString();
         $trashed = KategoriMasalah::onlyTrashed()->orderBy('nama')->get();
+        $masters = MasterKategoriMasalah::orderBy('nama')->get(['id','nama','kode']);
 
-        return view('roles.admin.kategori.index', compact('rows', 'trashed'));
+        $qTerm = $r->input('q');
+        return view('roles.admin.kategori.index', compact('rows', 'trashed', 'masters', 'masterId', 'qTerm'));
+    }
+
+    public function detail(KategoriMasalah $kategori)
+    {
+        $kategori->load(['topikBesars']);
+        $rekoms = \App\Models\MasterRekomendasi::whereHas('kategoris', function($q) use ($kategori){
+            $q->where('kategori_masalah_id', $kategori->id);
+        })->orderBy('kode')->get(['id','kode','judul','severity','is_active','rules']);
+
+        return [
+            'ok' => true,
+            'kategori' => [
+                'id' => $kategori->id,
+                'kode' => $kategori->kode,
+                'nama' => $kategori->nama,
+                'deskripsi' => $kategori->deskripsi,
+                'topik_besar' => $kategori->topikBesars->map(fn($m)=>[
+                    'id'=>$m->id,
+                    'kode'=>$m->kode,
+                    'nama'=>$m->nama,
+                    'deskripsi'=>$m->deskripsi,
+                ])->values(),
+            ],
+            'rekomendasis' => $rekoms,
+        ];
     }
 
     public function toggleActive(Request $r, KategoriMasalah $kategori)
@@ -40,6 +85,7 @@ class KategoriWebController extends Controller
             'nama' => ['required', 'max:100'],
             'deskripsi' => ['nullable', 'max:255'],
             'is_active' => ['boolean'],
+            'master_id' => ['nullable','integer'],
         ]);
 
         // === Generate kode otomatis ===
@@ -71,7 +117,13 @@ class KategoriWebController extends Controller
 
         // Simpan data
         $row = KategoriMasalah::create($data);
-        return response()->json(['ok' => true, 'data' => $row], 201);
+        // Attach to selected big category if provided
+        if (!empty($data['master_id'])) {
+            try {
+                $row->topikBesars()->syncWithoutDetaching([$data['master_id']]);
+            } catch (\Throwable $e) {}
+        }
+        return response()->json(['ok' => true, 'data' => $row->load('topikBesars')], 201);
     }
 
 
@@ -91,6 +143,43 @@ class KategoriWebController extends Controller
 
         $kategori->update($data);
         return ['ok' => true, 'data' => $kategori->fresh()];
+    }
+
+    // Create Master (Kategori Besar)
+    public function storeMaster(Request $r)
+    {
+        $data = $r->validate([
+            'nama' => ['required','max:100'],
+            'deskripsi' => ['nullable','max:255'],
+            'is_active' => ['boolean'],
+        ]);
+
+        // Generate kode otomatis berdasar nama (mirip small)
+        $nama = strtoupper($data['nama']);
+        $words = preg_split('/\s+/', $nama);
+        $kode = '';
+        foreach ($words as $w) {
+            $kode .= substr($w, 0, 1);
+            if (strlen($kode) >= 4) break;
+        }
+        if (strlen($kode) < 4) {
+            $kode .= substr(preg_replace('/\s+/', '', $nama), 0, 4 - strlen($kode));
+        }
+        $originalKode = $kode;
+        $i = 2;
+        while (\App\Models\MasterKategoriMasalah::withTrashed()->where('kode', $kode)->exists()) {
+            $kode = $originalKode . $i;
+            $i++;
+        }
+
+        $row = new \App\Models\MasterKategoriMasalah();
+        $row->kode = $kode;
+        $row->nama = $data['nama'];
+        $row->deskripsi = $data['deskripsi'] ?? null;
+        $row->is_active = (bool) ($data['is_active'] ?? true);
+        $row->save();
+
+        return response()->json(['ok' => true, 'data' => $row], 201);
     }
 
     // SOFT DELETE

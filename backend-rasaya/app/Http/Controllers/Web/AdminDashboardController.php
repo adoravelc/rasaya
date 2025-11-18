@@ -113,7 +113,7 @@ class AdminDashboardController extends Controller
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
         
-        $histories = UserLoginHistory::with('user')
+        $histories = UserLoginHistory::with(['user.guru'])
             ->when($role, function($q) use ($role) {
                 $q->whereHas('user', fn($u) => $u->where('role', $role));
             })
@@ -139,6 +139,94 @@ class AdminDashboardController extends Controller
         ];
         
         return view('roles.admin.dashboard.login-history', compact('histories', 'summary', 'role', 'search', 'dateFrom', 'dateTo'));
+    }
+
+    /**
+     * Refleksi history - all student reflections (personal + friend reports)
+     */
+    public function refleksiHistory(Request $request)
+    {
+        $search = trim((string) $request->input('search'));
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+        $kelasId = $request->input('kelas_id');
+        $jenis = $request->input('jenis'); // all | pribadi | teman
+        $friendOnly = $request->boolean('friend_only', false); // backward compat
+
+        $refleksis = InputSiswa::with(['siswaKelas.siswa.user', 'siswaKelas.kelas', 'siswaDilaporKelas.siswa.user'])
+            ->when($dateFrom, fn($q) => $q->whereDate('tanggal', '>=', $dateFrom))
+            ->when($dateTo, fn($q) => $q->whereDate('tanggal', '<=', $dateTo))
+            ->when($kelasId, function($q) use ($kelasId) {
+                $q->whereHas('siswaKelas', fn($sk) => $sk->where('kelas_id', $kelasId));
+            })
+            ->when($jenis === 'pribadi', fn($q) => $q->where('is_friend', false))
+            ->when($jenis === 'teman' || $friendOnly, fn($q) => $q->where('is_friend', true))
+            ->when($search, function($q) use ($search) {
+                $q->whereHas('siswaKelas.siswa.user', function($uq) use ($search) {
+                    $like = "%{$search}%";
+                    $uq->where('name', 'like', $like)
+                       ->orWhere('identifier', 'like', $like);
+                });
+            })
+            ->orderByDesc('tanggal')
+            ->orderByDesc('created_at')
+            ->paginate(50)
+            ->withQueryString();
+
+        $summary = [
+            'total' => InputSiswa::count(),
+            'today' => InputSiswa::whereDate('tanggal', today())->count(),
+            'friend_reports' => InputSiswa::where('is_friend', true)->count(),
+        ];
+
+        // For kelas filter dropdown
+        $kelasList = DB::table('kelass')->whereNull('deleted_at')->orderBy('tingkat')->orderBy('rombel')->get();
+
+        return view('roles.admin.dashboard.refleksi-history', compact('refleksis', 'summary', 'search', 'dateFrom', 'dateTo', 'kelasId', 'kelasList', 'jenis'));
+    }
+
+    /**
+     * Mood history - all mood tracking entries
+     */
+    public function moodHistory(Request $request)
+    {
+        $search = trim((string) $request->input('search'));
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+        $kelasId = $request->input('kelas_id');
+        $minSkor = $request->input('min_skor');
+        $maxSkor = $request->input('max_skor');
+
+        $moods = PemantauanEmosiSiswa::with(['siswaKelas.siswa.user', 'siswaKelas.kelas'])
+            ->when($dateFrom, fn($q) => $q->whereDate('tanggal', '>=', $dateFrom))
+            ->when($dateTo, fn($q) => $q->whereDate('tanggal', '<=', $dateTo))
+            ->when($kelasId, function($q) use ($kelasId) {
+                $q->whereHas('siswaKelas', fn($sk) => $sk->where('kelas_id', $kelasId));
+            })
+            ->when(strlen((string)$minSkor) > 0, fn($q) => $q->where('skor', '>=', (int) $minSkor))
+            ->when(strlen((string)$maxSkor) > 0, fn($q) => $q->where('skor', '<=', (int) $maxSkor))
+            ->when($search, function($q) use ($search) {
+                $q->whereHas('siswaKelas.siswa.user', function($uq) use ($search) {
+                    $like = "%{$search}%";
+                    $uq->where('name', 'like', $like)
+                       ->orWhere('identifier', 'like', $like);
+                });
+            })
+            ->orderByDesc('tanggal')
+            ->orderByDesc('created_at')
+            ->paginate(50)
+            ->withQueryString();
+
+        $summary = [
+            'total' => PemantauanEmosiSiswa::count(),
+            'today' => PemantauanEmosiSiswa::whereDate('tanggal', today())->count(),
+            'avg30' => round((float) PemantauanEmosiSiswa::where('tanggal', '>=', now()->subDays(30))->avg('skor'), 2),
+        ];
+
+        // For kelas filter dropdown
+        $kelasList = DB::table('kelass')->whereNull('deleted_at')->orderBy('tingkat')->orderBy('rombel')->get();
+
+        return view('roles.admin.dashboard.mood-history', compact('moods', 'summary', 'search', 'dateFrom', 'dateTo', 'kelasId', 'minSkor', 'maxSkor', 'kelasList'));
     }
     
     /**

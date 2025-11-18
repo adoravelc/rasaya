@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Models\UserLoginHistory;
 
 class AuthWebController extends Controller
 {
@@ -54,6 +55,8 @@ class AuthWebController extends Controller
 
     public function logout(Request $request)
     {
+        // Logout event listener will handle history update
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

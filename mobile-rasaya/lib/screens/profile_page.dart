@@ -11,6 +11,69 @@ class ProfilePage extends ConsumerStatefulWidget {
 }
 
 class _ProfilePageState extends ConsumerState<ProfilePage> {
+  Future<void> _showChangeEmailDialog(BuildContext context) async {
+    final me = ref.read(authControllerProvider).me ?? {};
+    final currentEmail = (me['email'] ?? '').toString();
+    final controller = TextEditingController(text: currentEmail);
+    final formKey = GlobalKey<FormState>();
+    final emailRegex = RegExp(r'^\S+@\S+\.[\w\-]{2,}$');
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ubah Email'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            decoration: const InputDecoration(labelText: 'Email'),
+            keyboardType: TextInputType.emailAddress,
+            validator: (v) {
+              final val = (v ?? '').trim();
+              if (val.isEmpty) return 'Email wajib diisi';
+              if (!emailRegex.hasMatch(val)) return 'Format email tidak valid';
+              return null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (formKey.currentState?.validate() != true) return;
+              Navigator.pop(ctx, true);
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    final newEmail = controller.text.trim();
+    final api = ref.read(apiClientProvider);
+    final res = await api.changeEmail(newEmail);
+    if (!mounted) return;
+    if (res.ok) {
+      // refresh profile
+      await ref.read(authControllerProvider.notifier).bootstrap();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email berhasil diperbarui')),
+      );
+      setState(() {});
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(res.errorMessage.isNotEmpty
+                ? res.errorMessage
+                : 'Gagal memperbarui email')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(authControllerProvider).me ?? {};
@@ -41,6 +104,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           SliverToBoxAdapter(
             child: _ActionGrid(
               onChangePassword: () => context.push('/profile/change-password'),
+              onChangeEmail: () => _showChangeEmailDialog(context),
               onHistory: () => context.push('/history'),
               onSchedule: () => context.push('/my-schedule'),
               onLogout: () async {
@@ -229,11 +293,13 @@ class _InfoTile extends StatelessWidget {
 class _ActionGrid extends StatelessWidget {
   const _ActionGrid({
     required this.onChangePassword,
+    required this.onChangeEmail,
     required this.onHistory,
     required this.onSchedule,
     required this.onLogout,
   });
   final VoidCallback onChangePassword;
+  final VoidCallback onChangeEmail;
   final VoidCallback onHistory;
   final VoidCallback onSchedule;
   final VoidCallback onLogout;
@@ -256,6 +322,12 @@ class _ActionGrid extends StatelessWidget {
             icon: Icons.lock_reset,
             fg: cs.primary,
             onTap: onChangePassword,
+          ),
+          _SmallActionButton(
+            label: 'Ubah Email',
+            icon: Icons.alternate_email,
+            fg: cs.primary,
+            onTap: onChangeEmail,
           ),
           _SmallActionButton(
             label: 'Riwayat Input',

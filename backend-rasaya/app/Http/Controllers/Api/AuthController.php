@@ -138,4 +138,15 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Password berhasil diubah']);
     }
+
+    public function changeEmail(Request $request)
+    {
+        $user = $request->user();
+        $data = $request->validate([
+            'email' => ['required','email','max:191','unique:users,email,' . $user->id],
+        ]);
+        $user->email = $data['email'];
+        $user->save();
+        return response()->json(['message' => 'Email berhasil diperbarui', 'email' => $user->email]);
+    }
 }

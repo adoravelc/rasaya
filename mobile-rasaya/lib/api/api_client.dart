@@ -312,4 +312,9 @@ class ApiClient {
 
   Dio get dio => _dio;
   ApiClient withToken(String token) => ApiClient(token: token);
+
+  // ======= Account =======
+  Future<ApiResponse> changeEmail(String email) async {
+    return post('/me/email', {'email': email});
+  }
 }

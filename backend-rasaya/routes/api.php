@@ -34,6 +34,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     // ubah password sendiri
     Route::post('/me/password', [AuthController::class, 'changePassword']);
+    // ubah email sendiri
+    Route::post('/me/email', [AuthController::class, 'changeEmail']);
 
     // === endpoint untuk Flutter pilih teman (boleh siswa) ===
     Route::get('/siswa-list', [SiswaController::class, 'listSimple']);

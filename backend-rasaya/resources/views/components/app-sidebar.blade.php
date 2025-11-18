@@ -29,8 +29,20 @@
                     <a class="nav-link {{ $is('admin.dashboard.login-history') }}" href="{{ route('admin.dashboard.login-history') }}">
                         <i class="bi bi-clock-history"></i> Login History
                     </a>
+                    <a class="nav-link {{ $is('admin.dashboard.refleksi-history') }}" href="{{ route('admin.dashboard.refleksi-history') }}">
+                        <i class="bi bi-journal-check"></i> History Refleksi
+                    </a>
+                    <a class="nav-link {{ $is('admin.dashboard.mood-history') }}" href="{{ route('admin.dashboard.mood-history') }}">
+                        <i class="bi bi-emoji-smile"></i> History Mood
+                    </a>
                     <a class="nav-link {{ $is('admin.dashboard.audit-logs') }}" href="{{ route('admin.dashboard.audit-logs') }}">
                         <i class="bi bi-journal-text"></i> Audit Logs
+                    </a>
+                    <a class="nav-link {{ $is('admin.backup.index') }}" href="{{ route('admin.backup.index') }}">
+                        <i class="bi bi-cloud-download"></i> Backup & Recovery
+                    </a>
+                    <a class="nav-link {{ $is('admin.rollover.*') }}" href="{{ route('admin.rollover.create') }}">
+                        <i class="bi bi-arrow-repeat"></i> Rollover Tahun Ajaran
                     </a>
                     
                     <div class="text-uppercase text-muted fw-semibold small mb-1 mt-3">Manajemen Data</div>
@@ -51,6 +63,9 @@
                     </a>
                     <a class="nav-link {{ $is('admin.rekomendasi.index') }}" href="{{ route('admin.rekomendasi.index') }}">
                         <i class="bi bi-list-check"></i> Manajemen Rekomendasi
+                    </a>
+                    <a class="nav-link {{ $is('admin.roster.*') }}" href="{{ route('admin.roster.index') }}">
+                        <i class="bi bi-upload"></i> Import Roster
                     </a>
                     
                 </nav>
@@ -76,6 +91,7 @@
                     @if ($guruJenis === 'bk')
                         <a class="nav-link {{ $is('guru.bk.slots.view') }} {{ $is('guru.guru_bk.slots.*') }}"
                             href="{{ route('guru.guru_bk.slots.view') }}">Slot Konseling (BK)</a>
+                        <a class="nav-link {{ $is('guru.bk.refleksi-history') }}" href="{{ route('guru.bk.refleksi-history') }}">History Refleksi</a>
                     @endif
                     <a class="nav-link disabled">Laporan Siswa (segera)</a>
 
