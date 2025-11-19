@@ -15,7 +15,6 @@ class InputSiswa extends Model
         'is_friend',
         'tanggal',
         'teks',
-        'avg_emosi',
         'gambar',
         'status_upload',
         'meta',
@@ -23,7 +22,6 @@ class InputSiswa extends Model
 
     protected $casts = [
         'tanggal' => 'date',
-        'avg_emosi' => 'float',
         'status_upload' => 'integer',
         'is_friend' => 'boolean',
         'meta' => 'array',
@@ -41,13 +39,5 @@ class InputSiswa extends Model
         return $this->belongsTo(SiswaKelas::class, 'siswa_dilapor_kelas_id');
     }
 
-    public function kategoris()
-    {
-        return $this->belongsToMany(
-            KategoriMasalah::class,
-            'kategori_input_siswas',
-            'input_id',
-            'kategori_id'
-        )->withTimestamps();
-    }
+    // relasi kategori telah dihapus (pivot kategori_input_siswas di-drop)
 }

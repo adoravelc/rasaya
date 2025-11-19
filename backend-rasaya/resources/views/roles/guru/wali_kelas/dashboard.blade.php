@@ -50,13 +50,13 @@
 							</div>
 							<div class="d-flex align-items-center gap-2 mt-3">
 								<select id="wk-period" class="form-select form-select-sm" style="max-width:180px;">
-									<option value="daily">Harian</option>
+									<option value="daily" selected>Harian</option>
 									<option value="weekly">Mingguan</option>
 									<option value="monthly">Bulanan</option>
 								</select>
 								<small id="wk-meta" class="text-muted"></small>
 							</div>
-							<canvas id="wk-emosi-chart" height="100" class="mt-3"></canvas>
+							<canvas id="wk-emosi-chart" height="140" class="mt-3"></canvas>
 						</div>
 					</div>
 				</div>
@@ -178,17 +178,19 @@
 	};
 	const todayLocal = ()=>{ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
 	async function load(){
-		const params = new URLSearchParams({ period: sel.value || 'daily', from: todayLocal(), to: todayLocal() });
+		// Default WK dashboard: bar per siswa (hari ini)
+		const params = new URLSearchParams({ period: sel.value || 'daily', from: todayLocal(), to: todayLocal(), group: 'siswa' });
 		const res = await fetch(`{{ route('guru.tren_emosi.data') }}?${params.toString()}`, { headers:{ 'Accept':'application/json' } });
 		const data = await res.json();
 		const ys = data.datasets?.[0]?.data || [];
 		const labels = data.labels || [];
+		const colors = data.colors || ys.map(scoreToColor);
 		const ctx = document.getElementById('wk-emosi-chart').getContext('2d');
 		if (chart) chart.destroy();
 		chart = new Chart(ctx, {
-			type:'line',
-			data:{ labels, datasets:[{ label:'Rata-rata Emosi', data:ys, pointBackgroundColor:ys.map(scoreToColor), pointBorderColor:ys.map(scoreToColor), borderColor: ys.length? scoreToColor(ys.reduce((a,b)=>a+b,0)/ys.length) : '#94a3b8', backgroundColor:'rgba(148,163,184,.15)', tension:.25, fill:true }] },
-			options:{ scales:{ y:{ suggestedMin:1, suggestedMax:10, ticks:{ stepSize:1, callback:(v)=>scoreEmoji(v) } } }, plugins:{ tooltip:{ callbacks:{ label:(ctx)=>` ${scoreEmoji(ctx.parsed.y)}  avg ${ctx.parsed.y}` } } }, segment:{ borderColor: ctx => scoreToColor(ctx.p1.parsed.y) } }
+			type:'bar',
+			data:{ labels, datasets:[{ label:'Rata-rata Emosi', data:ys, backgroundColor: colors, borderWidth:0, borderRadius:6 }] },
+			options:{ indexAxis:'y', scales:{ x:{ suggestedMin:1, suggestedMax:10, ticks:{ stepSize:1, callback:(v)=>scoreEmoji(v) } }, y:{ ticks:{ autoSkip:false } } }, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:(ctx)=>` ${scoreEmoji(ctx.parsed.x)}  avg ${ctx.parsed.x}` } } } }
 		});
 		meta.textContent = `Periode: ${data.period} — ${data.from} s/d ${data.to}`;
 	}

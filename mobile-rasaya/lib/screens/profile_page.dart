@@ -309,45 +309,54 @@ class _ActionGrid extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: GridView.count(
-        crossAxisCount: 2,
-        childAspectRatio: 2.8,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _SmallActionButton(
-            label: 'Ubah Password',
-            icon: Icons.lock_reset,
-            fg: cs.primary,
-            onTap: onChangePassword,
+          GridView.count(
+            crossAxisCount: 2,
+            childAspectRatio: 2.8,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _SmallActionButton(
+                label: 'Ubah Password',
+                icon: Icons.lock_reset,
+                fg: cs.primary,
+                onTap: onChangePassword,
+              ),
+              _SmallActionButton(
+                label: 'Ubah Email',
+                icon: Icons.alternate_email,
+                fg: cs.primary,
+                onTap: onChangeEmail,
+              ),
+              _SmallActionButton(
+                label: 'Riwayat Input',
+                icon: Icons.history,
+                fg: cs.primary,
+                onTap: onHistory,
+              ),
+              _SmallActionButton(
+                label: 'Jadwal Saya',
+                icon: Icons.event_available,
+                fg: cs.primary,
+                onTap: onSchedule,
+              ),
+            ],
           ),
-          _SmallActionButton(
-            label: 'Ubah Email',
-            icon: Icons.alternate_email,
-            fg: cs.primary,
-            onTap: onChangeEmail,
-          ),
-          _SmallActionButton(
-            label: 'Riwayat Input',
-            icon: Icons.history,
-            fg: cs.primary,
-            onTap: onHistory,
-          ),
-          _SmallActionButton(
-            label: 'Jadwal Saya',
-            icon: Icons.event_available,
-            fg: cs.primary,
-            onTap: onSchedule,
-          ),
-          _SmallActionButton(
-            label: 'Logout',
-            icon: Icons.logout,
-            fg: Colors.red,
-            bg: Colors.white,
-            border: Border.all(color: Colors.red.shade300),
-            onTap: onLogout,
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: _SmallActionButton(
+              label: 'Logout',
+              icon: Icons.logout,
+              fg: Colors.red,
+              bg: Colors.white,
+              border: Border.all(color: Colors.red.shade300),
+              onTap: onLogout,
+            ),
           ),
         ],
       ),

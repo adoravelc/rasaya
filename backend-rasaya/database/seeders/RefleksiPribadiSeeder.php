@@ -71,7 +71,6 @@ class RefleksiPribadiSeeder extends Seeder
                     'is_friend'               => false,
                     'tanggal'                 => $tgl,
                     'teks'                    => Arr::random($this->templates[$mood]),
-                    'avg_emosi'               => null,
                     'gambar'                  => null,
                     'status_upload'           => 1,
                     'meta'                    => json_encode(['mood' => $mood]),

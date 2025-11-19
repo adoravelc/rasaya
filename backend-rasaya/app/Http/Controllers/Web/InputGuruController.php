@@ -149,13 +149,13 @@ class InputGuruController extends Controller
 
         // sub-kategori tidak lagi dipilih manual; akan diisi otomatis via analisis di langkah terpisah
 
-        return response()->json($row->load('siswaKelas.siswa', 'siswaKelas.kelas', 'kategoris'), 201);
+        return response()->json($row->load('siswaKelas.siswa', 'siswaKelas.kelas', 'masterKategori'), 201);
     }
 
 
     public function show(InputGuru $observasi): JsonResponse
     {
-    return response()->json($observasi->load('siswaKelas.siswa.user', 'siswaKelas.kelas.jurusan', 'kategoris'));
+    return response()->json($observasi->load('siswaKelas.siswa.user', 'siswaKelas.kelas.jurusan', 'masterKategori'));
     }
 
     public function update(Request $r, InputGuru $observasi): JsonResponse

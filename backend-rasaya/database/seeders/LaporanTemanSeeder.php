@@ -35,7 +35,7 @@ class LaporanTemanSeeder extends Seeder
                         'is_friend'=>true,
                         'tanggal'=>$this->rdate()->toDateString(),
                         'teks'=>Arr::random($template),
-                        'avg_emosi'=>null,'gambar'=>null,'status_upload'=>1,'meta'=>null,
+                        'gambar'=>null,'status_upload'=>1,'meta'=>null,
                         'created_at'=>$this->now(),'updated_at'=>$this->now(),
                     ];
                 }

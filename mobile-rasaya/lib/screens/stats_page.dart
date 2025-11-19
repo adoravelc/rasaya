@@ -268,8 +268,12 @@ class _StatsPoint {
   const _StatsPoint(this.xIndex, this.y);
 }
 
-final _moodStatsProvider =
-    FutureProvider.family<_MoodStatsData, _StatsQuery>((ref, q) async {
+final _moodStatsProvider = FutureProvider.autoDispose
+    .family<_MoodStatsData, _StatsQuery>((ref, q) async {
+  // Depend on current user to avoid cross-account cache leaks
+  final auth = ref.watch(authControllerProvider);
+  final _userCacheKey =
+      auth.me?['id'] ?? auth.token; // unused: just for dependency
   final api = ref.read(apiClientProvider);
   String fromStr = DateFormat('yyyy-MM-dd').format(q.from);
   String toStr = DateFormat('yyyy-MM-dd').format(q.to);

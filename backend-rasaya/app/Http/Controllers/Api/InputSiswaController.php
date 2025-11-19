@@ -37,7 +37,7 @@ class InputSiswaController extends Controller
         if ($user->role === 'siswa') {
             $rosterId = $this->getActiveRosterId($r);
 
-            $rows = InputSiswa::with(['kategoris', 'siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user'])
+            $rows = InputSiswa::with(['siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user'])
                 ->where('siswa_kelas_id', $rosterId)
                 ->orderByDesc('tanggal')
                 ->paginate($r->integer('per_page', 10));
@@ -52,7 +52,7 @@ class InputSiswaController extends Controller
         }
 
         // admin/guru
-        $q = InputSiswa::with(['kategoris', 'siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user']);
+        $q = InputSiswa::with(['siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user']);
         if ($r->filled('siswa_kelas_id')) {
             $q->where('siswa_kelas_id', (int) $r->input('siswa_kelas_id'));
         }
@@ -111,17 +111,13 @@ class InputSiswaController extends Controller
             'is_friend' => $isFriend,
             'tanggal' => $tanggal,
             'teks' => $data['teks'],
-            'avg_emosi' => $data['avg_emosi'] ?? null,
             'gambar' => $path,
             'status_upload' => (int) ($data['status_upload'] ?? 1),
             'meta' => $data['meta'] ?? null,
         ]);
 
-        if (!empty($data['kategori_ids'])) {
-            $row->kategoris()->sync($data['kategori_ids']);
-        }
 
-        $row->load(['kategoris', 'siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user']);
+        $row->load(['siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user']);
         $payload = $row->toArray();
         $payload['gambar_url'] = $this->publicFileUrl($r, $row->gambar);
         return response()->json($payload, 201);
@@ -129,7 +125,7 @@ class InputSiswaController extends Controller
 
     public function show(Request $r, InputSiswa $inputSiswa)
     {
-        $inputSiswa->load(['kategoris', 'siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user']);
+        $inputSiswa->load(['siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user']);
         $arr = $inputSiswa->toArray();
         $arr['gambar_url'] = $this->publicFileUrl($r, $inputSiswa->gambar);
         return $arr;
@@ -154,7 +150,6 @@ class InputSiswaController extends Controller
         $inputSiswa->update([
             'tanggal' => $data['tanggal'] ?? $inputSiswa->tanggal,
             'teks' => $data['teks'] ?? $inputSiswa->teks,
-            'avg_emosi' => $data['avg_emosi'] ?? $inputSiswa->avg_emosi,
             'status_upload' => $data['status_upload'] ?? $inputSiswa->status_upload,
             'meta' => $data['meta'] ?? $inputSiswa->meta,
             'siswa_dilapor_kelas_id' => array_key_exists('siswa_dilapor_kelas_id', $data)
@@ -175,10 +170,9 @@ class InputSiswaController extends Controller
             $inputSiswa->save();
         }
 
-        if (isset($data['kategori_ids']))
-            $inputSiswa->kategoris()->sync($data['kategori_ids']);
+        // kategori_ids diabaikan: tabel pivot sudah dihapus
 
-        $inputSiswa->load(['kategoris', 'siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user']);
+        $inputSiswa->load(['siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user']);
         $arr = $inputSiswa->toArray();
         $arr['gambar_url'] = $this->publicFileUrl($r, $inputSiswa->gambar);
         return $arr;

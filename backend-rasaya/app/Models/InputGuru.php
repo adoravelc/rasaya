@@ -32,9 +32,9 @@ class InputGuru extends Model
 
     public function kategoris()
     {
-        // pivot: kategori_input_gurus (input_guru_id, kategori_id)
+        // relasi sub-kategori dihapus: pivot kategori_input_gurus telah di-drop
         return $this->belongsToMany(KategoriMasalah::class, 'kategori_input_gurus', 'input_guru_id', 'kategori_id')
-            ->withTimestamps();
+            ->whereRaw('1=0'); // legacy no-op to avoid runtime errors if accidentally called
     }
 
     public function masterKategori()
