@@ -188,29 +188,12 @@
             if (data.jenis_kelamin) {
                 form.querySelector('[name=jenis_kelamin]').value = data.jenis_kelamin;
             }
-            // Clear password when opening & toggle visibility by reset request
-            const pwdInput = form.querySelector('[name=password]');
-            if (pwdInput) pwdInput.value = '';
-            const pwdGroup = form.querySelector('#groupPassword');
-            if (pwdGroup && pwdInput) {
-                if (data.reset_requested_at) {
-                    pwdGroup.classList.remove('d-none');
-                    pwdInput.setAttribute('name', 'password');
-                } else {
-                    pwdGroup.classList.add('d-none');
-                    pwdInput.removeAttribute('name');
-                }
-            }
         });
 
-        // Remove empty password field before submit; ensure jenis only sent for guru
+        // Ensure jenis only sent for guru
         document.getElementById('formEditUser')?.addEventListener('submit', (e) => {
             const form = e.target;
             const role = form.querySelector('[name=_role]').value;
-            const pwd = form.querySelector('[name=password]');
-            if (pwd && pwd.value.trim() === '') {
-                pwd.removeAttribute('name');
-            }
             const jenisSelect = form.querySelector('#groupJenisGuru select');
             if (role !== 'guru' && jenisSelect) {
                 jenisSelect.removeAttribute('name');
@@ -281,11 +264,6 @@
                         required></div>
                 <div class="mb-2"><label class="form-label">Email</label><input name="email" type="email"
                         class="form-control" required autocomplete="off"></div>
-                <div id="groupPassword" class="mb-2 d-none">
-                    <label class="form-label">Password</label>
-                    <input name="password" type="password" class="form-control" autocomplete="new-password">
-                    <div class="form-text">Berikan password ini kepada user yang meminta reset.</div>
-                </div>
                 <div class="mb-2"><label class="form-label">Jenis Kelamin</label>
                     <select name="jenis_kelamin" class="form-select">
                         <option value="L">Laki-laki</option>

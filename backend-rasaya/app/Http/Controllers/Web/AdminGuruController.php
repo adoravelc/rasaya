@@ -46,7 +46,7 @@ class AdminGuruController extends Controller
             'role' => 'guru',
             'name' => $data['name'],
             'email' => $data['email'],
-            'password' => Hash::make($plain),
+            'password' => $plain,
             'initial_password' => Crypt::encryptString($plain),
             'jenis_kelamin' => $data['jenis_kelamin'],
         ]);
@@ -67,7 +67,7 @@ class AdminGuruController extends Controller
         $user->name = $data['name'];
         $user->email = $data['email'];
         if (!empty($data['password'])) {
-            $user->password = Hash::make($data['password']);
+            $user->password = $data['password'];
             $user->password_changed_at = now();
             $user->initial_password = null;
         }

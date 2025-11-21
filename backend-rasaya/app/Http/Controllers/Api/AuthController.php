@@ -128,7 +128,7 @@ class AuthController extends Controller
             ]);
         }
 
-        $user->password = Hash::make($data['new_password']);
+        $user->password = $data['new_password'];
         if (!$user->password_changed_at) {
             $user->password_changed_at = now();
             // hapus initial_password agar tidak bisa diambil lagi
@@ -148,5 +148,21 @@ class AuthController extends Controller
         $user->email = $data['email'];
         $user->save();
         return response()->json(['message' => 'Email berhasil diperbarui', 'email' => $user->email]);
+    }
+
+    public function saveFcmToken(Request $request)
+    {
+        $data = $request->validate([
+            'fcm_token' => ['required', 'string'],
+        ]);
+
+        $user = $request->user();
+        $user->fcm_token = $data['fcm_token'];
+        $user->save();
+
+        return response()->json([
+            'message' => 'FCM token berhasil disimpan',
+            'token' => $user->fcm_token
+        ]);
     }
 }

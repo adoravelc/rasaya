@@ -31,7 +31,7 @@ class SiswaXiiIps2Seeder extends Seeder
             $users[] = [
                 'identifier'=>(string)rand(100000,999999),
                 'role'=>'siswa','name'=>$nm,'email'=>$email,
-                'password'=>Hash::make('1'),'email_verified_at'=>$this->now(),
+                'password'=>'1','email_verified_at'=>$this->now(), // Auto-hashed by User model
                 'created_at'=>$this->now(),'updated_at'=>$this->now(),
             ];
         }

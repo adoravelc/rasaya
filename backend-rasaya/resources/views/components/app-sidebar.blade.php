@@ -5,23 +5,29 @@
 @endphp
 
 <aside class="col-12 col-md-3 col-lg-2 p-0 sidebar">
-    {{-- Mobile header (only visible on small screens) --}}
-    <div class="d-md-none p-3 border-bottom bg-white">
-        <div class="small text-muted now-wita"></div>
-        <div class="mt-2">Halo, <strong>{{ auth()->user()->name }}</strong></div>
-        <form class="mt-2" method="POST" action="{{ route('logout') }}" onsubmit="return confirm('Yakin ingin logout?')">
-            @csrf
-            <button class="btn btn-outline-danger btn-sm" type="submit">Logout</button>
-        </form>
-    </div>
-    <div class="p-3">
-        <div class="text-uppercase text-muted fw-semibold small mb-2">Menu</div>
+    <div class="p-4">
+        {{-- Logo RASAYA - Centered and Large --}}
+        <div class="text-center mb-4 pb-4 border-bottom" style="border-color: rgba(148, 163, 184, 0.2) !important;">
+            @if($role === 'admin')
+                <div class="display-6 fw-bold mb-2" style="color: #1e3a8a; letter-spacing: 2px;">
+                    RASAYA
+                </div>
+                <small class="d-block" style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Admin Portal</small>
+            @else
+                <div class="display-6 fw-bold mb-2" style="color: #ec4899; letter-spacing: 2px;">
+                    RASAYA
+                </div>
+                <small class="d-block" style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Guru Portal</small>
+            @endif
+        </div>
+
+        <div class="text-uppercase fw-semibold small mb-2" style="opacity: 0.7;">Menu</div>
 
         @switch($role)
             {{-- ================= ADMIN ================= --}}
             @case('admin')
                 <nav class="nav nav-pills flex-column gap-1">
-                    <a class="nav-link {{ $is('admin.dashboard*') }}" href="{{ route('admin.dashboard') }}">
+                    <a class="nav-link {{ request()->routeIs('admin.dashboard') && !request()->routeIs('admin.dashboard.*') ? 'active' : '' }}" href="{{ route('admin.dashboard') }}">
                         <i class="bi bi-speedometer2"></i> Dashboard
                     </a>
                     
@@ -95,7 +101,6 @@
                             href="{{ route('guru.guru_bk.slots.view') }}">Slot Konseling (BK)</a>
                         <a class="nav-link {{ $is('guru.bk.refleksi-history') }}" href="{{ route('guru.bk.refleksi-history') }}">History Refleksi</a>
                     @endif
-                    <a class="nav-link disabled">Laporan Siswa (segera)</a>
 
                     <div class="text-uppercase text-muted fw-semibold small mb-1 mt-3">Akun</div>
                     <a class="nav-link {{ $is('guru.profile.*') }}" href="{{ route('guru.profile.index') }}">

@@ -60,7 +60,7 @@ trait ConciseSeederHelpers
             'role' => 'guru',
             'name' => $name,
             'email' => Str::slug($name,'.').rand(100,999).'@rasaya.id',
-            'password' => Hash::make('1'),
+            'password' => '1', // Auto-hashed by User model
             'email_verified_at' => $this->now(),
             'created_at' => $this->now(),
             'updated_at' => $this->now(),

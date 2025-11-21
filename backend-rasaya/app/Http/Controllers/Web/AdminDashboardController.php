@@ -75,13 +75,14 @@ class AdminDashboardController extends Controller
             ->get();
         
         // Active konseling bookings
-        $activeBookings = SlotBooking::with(['slot.guru', 'siswaKelas.siswa.user'])
-            ->where('status', 'confirmed')
+        $activeBookings = SlotBooking::with(['slot.guru.user', 'siswaKelas.siswa.user', 'siswaKelas.kelas'])
+            ->whereIn('status', ['booked', 'held'])
             ->whereHas('slot', function($q) {
-                $q->where('tanggal', '>=', today());
+                $q->where('status', 'published')
+                  ->where('start_at', '>=', now());
             })
             ->orderBy('created_at', 'desc')
-            ->limit(10)
+            ->limit(15)
             ->get();
         
         // Pending password reset requests (last 7 days)

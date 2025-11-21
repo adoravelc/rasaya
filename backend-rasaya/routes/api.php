@@ -36,6 +36,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/me/password', [AuthController::class, 'changePassword']);
     // ubah email sendiri
     Route::post('/me/email', [AuthController::class, 'changeEmail']);
+    // save FCM token for push notifications
+    Route::post('/user/fcm-token', [AuthController::class, 'saveFcmToken']);
 
     // === endpoint untuk Flutter pilih teman (boleh siswa) ===
     Route::get('/siswa-list', [SiswaController::class, 'listSimple']);

@@ -31,6 +31,7 @@ class User extends Authenticatable
         'password_changed_at',
         'reset_requested_at',
         'email_verified_at',
+        'fcm_token',
     ];
 
     /**
@@ -57,6 +58,16 @@ class User extends Authenticatable
     public function siswa()
     {
         return $this->hasOne(Siswa::class);
+    }
+
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    public function unreadNotifications()
+    {
+        return $this->hasMany(Notification::class)->where('is_read', false);
     }
 
     /**

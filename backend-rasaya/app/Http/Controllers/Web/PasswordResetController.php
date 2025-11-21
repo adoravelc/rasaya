@@ -42,8 +42,8 @@ class PasswordResetController extends Controller
             return back()->withErrors(['token' => 'Token tidak valid atau sudah kedaluwarsa.']);
         }
 
-        // Update password
-        $user->password = Hash::make($request->input('password'));
+        // Update password (Laravel akan auto-hash karena 'password' => 'hashed' di User model)
+        $user->password = $request->input('password');
         $user->password_changed_at = now();
         $user->initial_password = null;
         $user->reset_requested_at = null;

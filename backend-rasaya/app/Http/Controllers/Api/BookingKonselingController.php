@@ -139,7 +139,19 @@ class BookingKonselingController extends Controller
             ]);
 
             // Update counter
-            $slot->increment('booked_count');
+            $slot->booked_count = $slot->booked_count + 1;
+            $slot->save();
+
+            // Send notification to Guru BK
+            $siswaName = $booking->siswaKelas->siswa->user->name ?? 'Siswa';
+            $slotTime = $slot->start_at->format('d M Y H:i');
+            
+            \App\Helpers\NotificationHelper::notifyGuruBkKonselingRequest(
+                $slot->guru_id,
+                $booking->id,
+                $siswaName,
+                $slotTime
+            );
 
             return $booking->load(['slot.guru', 'siswaKelas.siswa']);
         });

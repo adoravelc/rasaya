@@ -38,9 +38,36 @@ class GuruWkDashboardController extends Controller
             ->take(20)
             ->values();
 
+        // Jadwal konseling siswa di kelas wali (read-only untuk reminder)
+        $kelasId = \App\Models\Kelas::where('wali_guru_id', $userId)
+            ->latest('tahun_ajaran_id')
+            ->value('id');
+        
+        $konselingSchedules = collect();
+        if ($kelasId) {
+            $konselingSchedules = \App\Models\SlotBooking::with([
+                'slot.guru.user',
+                'siswaKelas.siswa.user',
+                'siswaKelas.kelas'
+            ])
+            ->whereHas('siswaKelas', function($q) use ($kelasId) {
+                $q->where('kelas_id', $kelasId);
+            })
+            ->whereHas('slot', function($q) {
+                $q->where('status', 'published')
+                  ->where('start_at', '>=', now())
+                  ->where('start_at', '<=', now()->addDays(7));
+            })
+            ->whereIn('status', ['booked', 'held'])
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+        }
+
         return view('roles.guru.wali_kelas.dashboard', [
             'attentionList' => $attentionList,
             'handledList' => $handledList,
+            'konselingSchedules' => $konselingSchedules,
         ]);
     }
 }

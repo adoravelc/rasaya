@@ -30,12 +30,12 @@ class GuruProfileController extends Controller
             return back()->with('error', 'Password saat ini salah.');
         }
 
-        $user->password = Hash::make($data['password']);
+        $user->password = $data['password'];
         $user->password_changed_at = now();
         $user->initial_password = null;
         $user->save();
 
-        return back()->with('success', 'Password berhasil diubah.');
+        return redirect()->route('guru.profile.index')->with('success', 'Password berhasil diubah.');
     }
 
     public function updateProfile(Request $request)

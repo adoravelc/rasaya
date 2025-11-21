@@ -56,6 +56,12 @@ Route::get('/dashboard', function (Request $request) {
     return redirect('/');
 })->name('dashboard')->middleware('auth');
 
+/** ===================== NOTIFICATIONS ===================== */
+Route::middleware('auth')->group(function () {
+    Route::post('/notifications/{id}/read', [\App\Http\Controllers\Web\NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/mark-all-read', [\App\Http\Controllers\Web\NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
+});
+
 /** ===================== ADMIN ===================== */
 Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
     // Dashboard & Analytics

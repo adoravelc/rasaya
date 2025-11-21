@@ -37,16 +37,18 @@
 				<a href="{{ route('guru.profile.index', ['pwd' => 1]) }}" class="btn btn-sm btn-outline-dark ms-auto">Ubah Sekarang</a>
 			</div>
 			@endif
-			<div class="row g-3">
+
+			{{-- Chart Section --}}
+			<div class="row g-3 mb-4">
 				<div class="col-12">
-					<div class="card shadow-sm h-100">
+					<div class="card shadow-sm card-guru-accent">
 						<div class="card-body">
 							<div class="d-flex align-items-center justify-content-between">
 								<div>
-									<div class="text-muted small mb-1">Statistik</div>
+									<div class="text-muted small mb-1">📈 Statistik</div>
 									<div class="fs-5 fw-semibold">Tren Emosi Siswa (Kelas Anda)</div>
 								</div>
-								<a href="{{ route('guru.tren_emosi.index') }}" class="btn btn-outline-primary btn-sm">Lihat semua</a>
+								<a href="{{ route('guru.tren_emosi.index') }}" class="btn btn-sm" style="background: var(--guru-navy); color: white;">Lihat Semua</a>
 							</div>
 							<div class="d-flex align-items-center gap-2 mt-3">
 								<select id="wk-period" class="form-select form-select-sm" style="max-width:180px;">
@@ -60,32 +62,62 @@
 						</div>
 					</div>
 				</div>
+			</div>
+
+			{{-- Menu Cards Grid --}}
+			<div class="row g-3">
 				<div class="col-12 col-md-6 col-xl-4">
-					<div class="card shadow-sm h-100">
+					<div class="card shadow-sm h-100 card-guru-pink">
 						<div class="card-body">
-							<div class="d-flex align-items-center justify-content-between">
-								<div>
-									<div class="text-muted small mb-1">Observasi</div>
-									<div class="fs-5 fw-semibold">Input Guru</div>
-								</div>
-								<span class="display-6">📝</span>
+							<div class="d-flex align-items-center justify-content-between mb-2">
+								<span class="fs-2">📝</span>
+								<span class="badge rounded-pill" style="background: var(--guru-pink-dark);">Data Input</span>
 							</div>
-							<a href="{{ route('guru.observasi.index') }}" class="btn btn-primary btn-sm mt-3 stretched-link">Buka</a>
+							<div class="text-muted small mb-1">Observasi Kelas</div>
+							<div class="fs-6 fw-semibold mb-3">Input Guru</div>
+							<a href="{{ route('guru.observasi.index') }}" class="btn btn-sm w-100 stretched-link" style="background: var(--guru-navy); color: white;">Buka</a>
 						</div>
 					</div>
 				</div>
 
 				<div class="col-12 col-md-6 col-xl-4">
-					<div class="card shadow-sm h-100">
+					<div class="card shadow-sm h-100 card-guru-pink">
 						<div class="card-body">
-							<div class="d-flex align-items-center justify-content-between">
-								<div>
-									<div class="text-muted small mb-1">Kelas</div>
-									<div class="fs-5 fw-semibold">Rekap Siswa</div>
-								</div>
-								<span class="display-6">📋</span>
+							<div class="d-flex align-items-center justify-content-between mb-2">
+								<span class="fs-2">🔍</span>
+								<span class="badge rounded-pill" style="background: var(--guru-navy);">Review</span>
 							</div>
-							<a href="#" class="btn btn-outline-secondary btn-sm mt-3 disabled" aria-disabled="true">Segera</a>
+							<div class="text-muted small mb-1">Hasil Analisis</div>
+							<div class="fs-6 fw-semibold mb-3">Analisis Input</div>
+							<a href="{{ route('guru.analisis.index') }}" class="btn btn-sm w-100 stretched-link" style="background: var(--guru-pink-dark); color: white;">Lihat</a>
+						</div>
+					</div>
+				</div>
+
+				<div class="col-12 col-md-6 col-xl-4">
+					<div class="card shadow-sm h-100 card-guru-pink">
+						<div class="card-body">
+							<div class="d-flex align-items-center justify-content-between mb-2">
+								<span class="fs-2">📊</span>
+								<span class="badge rounded-pill" style="background: var(--guru-pink-dark);">Monitoring</span>
+							</div>
+							<div class="text-muted small mb-1">Mood Tracker</div>
+							<div class="fs-6 fw-semibold mb-3">Tren Emosi</div>
+							<a href="{{ route('guru.tren_emosi.index') }}" class="btn btn-sm w-100 stretched-link" style="background: var(--guru-navy); color: white;">Lihat Data</a>
+						</div>
+					</div>
+				</div>
+
+				<div class="col-12 col-md-6 col-xl-4">
+					<div class="card shadow-sm h-100 card-guru-pink">
+						<div class="card-body">
+							<div class="d-flex align-items-center justify-content-between mb-2">
+								<span class="fs-2">💭</span>
+								<span class="badge rounded-pill" style="background: var(--guru-navy);">Jurnal</span>
+							</div>
+							<div class="text-muted small mb-1">Self-Report Siswa</div>
+							<div class="fs-6 fw-semibold mb-3">Refleksi Siswa</div>
+							<a href="{{ route('guru.refleksi.index') }}" class="btn btn-sm w-100 stretched-link" style="background: var(--guru-pink-dark); color: white;">Baca</a>
 						</div>
 					</div>
 				</div>
@@ -147,6 +179,72 @@
 							</div>
 						</a>
 					@endforeach
+				</div>
+			</div>
+			@endif
+
+			{{-- Jadwal Konseling Siswa di Kelas (Read-only untuk reminder) --}}
+			@if(isset($konselingSchedules) && $konselingSchedules->count() > 0)
+			<div class="card shadow-sm mt-4" style="border-left: 4px solid var(--guru-pink); background: rgba(236, 72, 153, 0.03);">
+				<div class="card-body">
+					<div class="d-flex align-items-center justify-content-between mb-3">
+						<div>
+							<h5 class="mb-0" style="color: var(--guru-pink-dark);">
+								<i class="bi bi-calendar-check me-2"></i>Jadwal Konseling Siswa
+							</h5>
+							<small class="text-muted">Siswa di kelas Anda yang akan konseling (7 hari ke depan)</small>
+						</div>
+					</div>
+					<div class="alert alert-info alert-dismissible fade show mb-3" role="alert">
+						<i class="bi bi-info-circle me-2"></i>
+						<strong>Info:</strong> Ini adalah jadwal konseling siswa di kelas Anda dengan Guru BK. Anda dapat mengingatkan siswa untuk datang tepat waktu.
+						<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+					</div>
+					<div class="table-responsive">
+						<table class="table table-sm table-hover mb-0">
+							<thead>
+								<tr style="background: rgba(236, 72, 153, 0.08);">
+									<th style="color: var(--guru-navy);">Waktu</th>
+									<th style="color: var(--guru-navy);">Siswa</th>
+									<th style="color: var(--guru-navy);">Konselor</th>
+									<th style="color: var(--guru-navy);">Status</th>
+								</tr>
+							</thead>
+							<tbody>
+								@foreach($konselingSchedules as $booking)
+								<tr>
+									<td>
+										<div class="fw-semibold" style="color: var(--guru-navy);">
+											{{ $booking->slot->start_at->format('d M Y') }}
+										</div>
+										<small class="text-muted">
+											{{ $booking->slot->start_at->format('H:i') }} - {{ $booking->slot->end_at->format('H:i') }}
+										</small>
+									</td>
+									<td>
+										<div class="fw-medium">{{ $booking->siswaKelas->siswa->user->name }}</div>
+										<small class="text-muted">{{ $booking->siswaKelas->siswa->user->identifier }}</small>
+									</td>
+									<td>
+										@if($booking->slot && $booking->slot->guru && $booking->slot->guru->user)
+											<div class="fw-medium">{{ $booking->slot->guru->user->name }}</div>
+											<small class="text-muted">Guru BK</small>
+										@else
+											<span class="text-muted">-</span>
+										@endif
+									</td>
+									<td>
+										@if($booking->status === 'booked')
+											<span class="badge bg-success">Booked</span>
+										@elseif($booking->status === 'held')
+											<span class="badge bg-warning">On Hold</span>
+										@endif
+									</td>
+								</tr>
+								@endforeach
+							</tbody>
+						</table>
+					</div>
 				</div>
 			</div>
 			@endif

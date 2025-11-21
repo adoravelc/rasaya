@@ -88,35 +88,36 @@
                     </thead>
                     <tbody id="rows">
                         @forelse($rows as $i => $r)
-                            @php($k = strtolower($r->kondisi_siswa))
-                            @php($rowBg = [
-                                'green'=>'#dcfce7',
-                                'yellow'=>'#fef9c3',
-                                'orange'=>'#ffedd5',
-                                'red'=>'#fee2e2',
-                                'black'=>'#1f2937',
-                                'grey'=>'#f3f4f6'
-                            ][$k] ?? 'transparent')
-                            @php($rowFg = $k==='black' ? 'color:#fff;' : '')
+                            @php
+                                $k = strtolower($r->kondisi_siswa ?? 'grey');
+                                $colorMap = [
+                                    'green'=>'#dcfce7',
+                                    'yellow'=>'#fef9c3',
+                                    'orange'=>'#ffedd5',
+                                    'red'=>'#fee2e2',
+                                    'black'=>'#1f2937',
+                                    'grey'=>'#f3f4f6'
+                                ];
+                                $rowBg = $colorMap[$k] ?? 'transparent';
+                                $rowFg = $k==='black' ? 'color:#fff;' : '';
+                                
+                                $kondisiLabels = [
+                                    'green' => 'Normal / Baik',
+                                    'yellow' => 'Perlu Dipantau',
+                                    'orange' => 'Butuh Perhatian Lebih',
+                                    'red' => 'Perlu Intervensi Segera',
+                                    'black' => 'Kritis / Darurat',
+                                    'grey' => 'Netral / Tidak Jelas'
+                                ];
+                                $kondisiText = $kondisiLabels[$k] ?? strtoupper($r->kondisi_siswa);
+                            @endphp
                             <tr data-id="{{ $r->id }}" data-tanggal="{{ optional($r->tanggal)->format('Y-m-d') }}" style="background:{{ $rowBg }};{{ $rowFg }}">
                                 <td>{{ $rows->firstItem() + $i }}</td>
                                 <td class="td-tanggal">{{ optional($r->tanggal)->locale('id')->translatedFormat('l, d F Y') }}</td>
                                 <td class="td-siswakelas" data-siswakelas="{{ $r->siswa_kelas_id }}">
                                     {{ $r->siswaKelas->label ?? '-' }}
                                 </td>
-                                    <td class="td-kondisi">
-                                    @php
-                                        $kondisiLabel = [
-                                            'green' => 'Normal / Baik',
-                                            'yellow' => 'Perlu Dipantau',
-                                            'orange' => 'Butuh Perhatian Lebih',
-                                            'red' => 'Perlu Intervensi Segera',
-                                            'black' => 'Kritis / Darurat',
-                                            'grey' => 'Netral / Tidak Jelas'
-                                        ][strtolower($r->kondisi_siswa)] ?? strtoupper($r->kondisi_siswa);
-                                    @endphp
-                                    {{ $kondisiLabel }}
-                                </td>
+                                <td class="td-kondisi">{{ $kondisiText }}</td>
                                 <td class="td-topik">
                                     @if ($r->masterKategori)
                                         <span class="badge text-bg-secondary">{{ $r->masterKategori->nama }}</span>

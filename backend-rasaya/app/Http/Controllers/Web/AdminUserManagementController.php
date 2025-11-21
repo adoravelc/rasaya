@@ -117,7 +117,7 @@ class AdminUserManagementController extends Controller
         }
 
         $plain = str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
-        $user->password = Hash::make($plain);
+        $user->password = $plain; // Auto-hashed by User model cast
         $user->initial_password = Crypt::encryptString($plain);
         $user->password_changed_at = null;
         $user->reset_requested_at = null;

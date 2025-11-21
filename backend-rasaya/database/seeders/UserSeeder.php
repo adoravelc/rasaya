@@ -21,7 +21,7 @@ class UserSeeder extends Seeder
             'identifier' => 'adminrasaya',
             'role' => 'admin',
             'name' => 'Admin RASAYA',
-            'password' => Hash::make('1'),
+            'password' => '1', // Auto-hashed by User model
             'email_verified_at' => now(),
         ]);
 
@@ -30,7 +30,7 @@ class UserSeeder extends Seeder
             'identifier' => 'bk_eva',
             'role' => 'guru',
             'name' => 'Eva Alicia',
-            'password' => Hash::make('1'),
+            'password' => '1', // Auto-hashed by User model
             'email_verified_at' => now(),
         ]);
         Guru::updateOrCreate(['user_id' => $guruUser->id], ['jenis' => 'bk']);
@@ -40,7 +40,7 @@ class UserSeeder extends Seeder
             'identifier' => 'wk',
             'role' => 'guru',
             'name' => 'Eric Chou',
-            'password' => Hash::make('1'),
+            'password' => '1', // Auto-hashed by User model
             'email_verified_at' => now(),
         ]);
         Guru::updateOrCreate(['user_id' => $guruUser->id], ['jenis' => 'wali_kelas']);

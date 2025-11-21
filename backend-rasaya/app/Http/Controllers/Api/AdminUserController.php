@@ -53,7 +53,7 @@ class AdminUserController extends Controller
                 'name'       => $data['name'],
                 'jenis_kelamin' => $data['jenis_kelamin'] ?? null,
                 'email'      => $data['email'] ?? null,
-                'password'   => Hash::make($data['password']),
+                'password'   => $data['password'],
             ]);
 
             if ($data['role'] === 'guru') {

@@ -98,7 +98,7 @@ class SiswaController extends Controller
             'email' => $data['email'],
             'identifier' => $data['identifier'],
             'role' => 'siswa',
-            'password' => Hash::make($data['password']),
+            'password' => $data['password'],
             'email_verified_at' => now(),
             'jenis_kelamin' => $data['jenis_kelamin'] ?? null,
         ]);
@@ -125,7 +125,7 @@ class SiswaController extends Controller
         if (isset($data['email']))
             $u->email = $data['email'];
         if (!empty($data['password']))
-            $u->password = Hash::make($data['password']);
+            $u->password = $data['password'];
         if (isset($data['jenis_kelamin']))
             $u->jenis_kelamin = $data['jenis_kelamin'];
         $u->save();

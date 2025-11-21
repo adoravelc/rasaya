@@ -34,7 +34,7 @@ class GuruController extends Controller
             'email' => $data['email'],
             'identifier' => $data['identifier'],
             'role' => 'guru',
-            'password' => Hash::make($data['password']),
+            'password' => $data['password'],
             'email_verified_at' => now(),
             'jenis_kelamin' => $data['jenis_kelamin'] ?? null,
         ]);
@@ -61,7 +61,7 @@ class GuruController extends Controller
         $u = $guru->user;
         if (isset($data['name'])) $u->name = $data['name'];
         if (isset($data['email'])) $u->email = $data['email'];
-        if (!empty($data['password'])) $u->password = Hash::make($data['password']);
+        if (!empty($data['password'])) $u->password = $data['password'];
         if (isset($data['jenis_kelamin'])) $u->jenis_kelamin = $data['jenis_kelamin'];
         $u->save();
         return $guru->load('user');
