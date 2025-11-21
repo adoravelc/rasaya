@@ -88,13 +88,35 @@
                     </thead>
                     <tbody id="rows">
                         @forelse($rows as $i => $r)
-                            <tr data-id="{{ $r->id }}" data-tanggal="{{ optional($r->tanggal)->format('Y-m-d') }}">
+                            @php($k = strtolower($r->kondisi_siswa))
+                            @php($rowBg = [
+                                'green'=>'#dcfce7',
+                                'yellow'=>'#fef9c3',
+                                'orange'=>'#ffedd5',
+                                'red'=>'#fee2e2',
+                                'black'=>'#1f2937',
+                                'grey'=>'#f3f4f6'
+                            ][$k] ?? 'transparent')
+                            @php($rowFg = $k==='black' ? 'color:#fff;' : '')
+                            <tr data-id="{{ $r->id }}" data-tanggal="{{ optional($r->tanggal)->format('Y-m-d') }}" style="background:{{ $rowBg }};{{ $rowFg }}">
                                 <td>{{ $rows->firstItem() + $i }}</td>
                                 <td class="td-tanggal">{{ optional($r->tanggal)->locale('id')->translatedFormat('l, d F Y') }}</td>
                                 <td class="td-siswakelas" data-siswakelas="{{ $r->siswa_kelas_id }}">
                                     {{ $r->siswaKelas->label ?? '-' }}
                                 </td>
-                                <td class="td-kondisi">{{ strtoupper($r->kondisi_siswa) }}</td>
+                                    <td class="td-kondisi">
+                                    @php
+                                        $kondisiLabel = [
+                                            'green' => 'Normal / Baik',
+                                            'yellow' => 'Perlu Dipantau',
+                                            'orange' => 'Butuh Perhatian Lebih',
+                                            'red' => 'Perlu Intervensi Segera',
+                                            'black' => 'Kritis / Darurat',
+                                            'grey' => 'Netral / Tidak Jelas'
+                                        ][strtolower($r->kondisi_siswa)] ?? strtoupper($r->kondisi_siswa);
+                                    @endphp
+                                    {{ $kondisiLabel }}
+                                </td>
                                 <td class="td-topik">
                                     @if ($r->masterKategori)
                                         <span class="badge text-bg-secondary">{{ $r->masterKategori->nama }}</span>
@@ -162,7 +184,8 @@
                                 <select id="m-siswakelas" class="form-select" required>
                                     <option value="">— Pilih —</option>
                                     @foreach ($siswaKelas as $sk)
-                                        <option value="{{ $sk['id'] }}">{{ $sk['label'] }}</option>
+                                        @php($flagged = in_array($sk['id'], ($flaggedIds ?? [])))
+                                        <option value="{{ $sk['id'] }}" @if($flagged) style="font-weight:bold;color:#dc2626;background:#fee2e2" @endif>{{ $flagged ? '⚠ ' : '' }}{{ $sk['label'] }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -178,12 +201,12 @@
                                     <div id="kondisi-dot" class="rounded-circle" style="width:18px;height:18px;border:1px solid #cbd5e1"></div>
                                 </div>
                                 <div class="form-text mt-1">
-                                    <span class="badge" style="background:#16a34a">GREEN — Aman</span>
-                                    <span class="badge" style="background:#f59e0b">YELLOW — Perlu Perhatian</span>
-                                    <span class="badge" style="background:#fb923c">ORANGE — Perlu Tindak Lanjut</span>
-                                    <span class="badge" style="background:#ef4444">RED — Urgent</span>
-                                    <span class="badge" style="background:#111827">BLACK — Krisis</span>
-                                    <span class="badge" style="background:#9ca3af">GREY — Tidak Diketahui</span>
+                                    <span class="badge" style="background:#16a34a">GREEN — Aman (stabil)</span>
+                                    <span class="badge" style="background:#f59e0b;color:#000">YELLOW — Perlu perhatian awal</span>
+                                    <span class="badge" style="background:#f97316">ORANGE — Perlu tindak lanjut segera</span>
+                                    <span class="badge" style="background:#dc2626">RED — Urgent (prioritas tinggi)</span>
+                                    <span class="badge" style="background:#111827">BLACK — Krisis (intervensi langsung)</span>
+                                    <span class="badge" style="background:#9ca3af;color:#000">GREY — Tidak diketahui</span>
                                 </div>
                             </div>
 

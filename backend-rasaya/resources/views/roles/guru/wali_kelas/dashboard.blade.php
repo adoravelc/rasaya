@@ -91,20 +91,59 @@
 				</div>
 			</div>
 
+			{{-- Siswa Butuh Perhatian (Merah) --}}
 			@if(($attentionList ?? collect())->isNotEmpty())
-			<div class="card mt-4 shadow-sm">
-				<div class="card-header bg-white fw-semibold">Siswa Perlu Perhatian (Kelas Anda)</div>
+			<div class="card mt-4 shadow-sm border-danger">
+				<div class="card-header bg-danger text-white fw-semibold">
+					<i class="bi bi-exclamation-triangle-fill me-2"></i>Siswa Butuh Perhatian (Kelas Anda)
+				</div>
 				<div class="list-group list-group-flush">
 					@foreach($attentionList as $a)
-						<a href="{{ route('guru.analisis.show', $a->id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-start">
+						@php($ageDays = optional($a->created_at)->diffInDays(now()))
+						@php($overdue = $ageDays >= 2)
+						<a href="{{ route('guru.analisis.show', $a->id) }}" class="list-group-item list-group-item-action list-group-item-danger d-flex justify-content-between align-items-start">
 							<div>
-								<div class="fw-semibold">{{ optional($a->siswaKelas->siswa->user)->name }}</div>
+								<div class="fw-semibold {{ $overdue ? 'text-danger' : '' }}">{{ optional($a->siswaKelas->siswa->user)->name }}
+									@if($overdue)
+										<span class="badge bg-danger ms-2">Reminder {{ $ageDays }} hari</span>
+									@else
+										<span class="badge bg-danger ms-2">Butuh Perhatian</span>
+									@endif
+								</div>
 								<div class="small text-muted">
 									{{ optional($a->siswaKelas->kelas)->label }} — TA {{ optional($a->siswaKelas->kelas?->tahunAjaran)->nama }}
 								</div>
 							</div>
 							<div class="text-end small text-muted">
-								<div>Analisis: {{ optional($a->created_at)->diffForHumans() }}</div>
+								<div>{{ optional($a->created_at)->diffForHumans() }}</div>
+							</div>
+						</a>
+					@endforeach
+				</div>
+			</div>
+			@endif
+
+			{{-- Siswa Sedang Ditangani (Orange) --}}
+			@if(($handledList ?? collect())->isNotEmpty())
+			<div class="card mt-4 shadow-sm border-warning">
+				<div class="card-header bg-warning text-dark fw-semibold">
+					<i class="bi bi-hourglass-split me-2"></i>Siswa Sedang Ditangani (Kelas Anda)
+				</div>
+				<div class="list-group list-group-flush">
+					@foreach($handledList as $a)
+						@php($ageDays = optional($a->created_at)->diffInDays(now()))
+						<a href="{{ route('guru.analisis.show', $a->id) }}" class="list-group-item list-group-item-action list-group-item-warning d-flex justify-content-between align-items-start">
+							<div>
+								<div class="fw-semibold">{{ optional($a->siswaKelas->siswa->user)->name }}
+									<span class="badge bg-warning text-dark ms-2">Sedang Ditangani</span>
+								</div>
+								<div class="small text-muted">
+									{{ optional($a->siswaKelas->kelas)->label }} — TA {{ optional($a->siswaKelas->kelas?->tahunAjaran)->nama }}
+								</div>
+							</div>
+							<div class="text-end small text-muted">
+								<div>{{ optional($a->created_at)->diffForHumans() }}</div>
+								<div class="small">{{ $ageDays }} hari ditangani</div>
 							</div>
 						</a>
 					@endforeach

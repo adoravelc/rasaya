@@ -36,15 +36,15 @@ download('vader_lexicon', quiet=True)
 download('stopwords', quiet=True)
 sia = SentimentIntensityAnalyzer()
 
-# Tambahkan lexicon sederhana untuk Indonesia/Kupang (bisa kamu kembangkan)
+# Lexicon sederhana untuk Indonesia/Kupang dalam range standar [-1, +1]
 ID_EXTRA = {
-    "capek": -2.0, "capai": -1.5, "pusing": -2.0, "marah": -2.4, "sedih": -2.2,
-    "senang": 2.2, "bahagia": 2.4, "semangat": 2.0, "hepi": 2.0,
-    "telat": -1.8, "bolos": -2.3, "berantem": -2.5, "ribut": -2.0, "gaduh": -1.8,
-    "PR": -0.4, "tugas": -0.3, "banyak": -0.2, "malas": -1.5, "rajin": 1.6,
+    "capek": -0.7, "capai": -0.5, "pusing": -0.7, "marah": -0.8, "sedih": -0.7,
+    "senang": 0.7, "bahagia": 0.8, "semangat": 0.7, "hepi": 0.7,
+    "telat": -0.6, "bolos": -0.8, "berantem": -0.9, "ribut": -0.7, "gaduh": -0.6,
+    "PR": -0.3, "tugas": -0.2, "banyak": -0.2, "malas": -0.5, "rajin": 0.5,
     # Kupang-style (contoh)
     "sonde": -0.3, "beta": 0.0, "ko": 0.0, "pigi": -0.1, "teda": -0.2,
-    "tara": -0.2, "kaco": -1.0, "cungkel": -1.0, "bongkar": -0.2, "kobo": -0.8
+    "tara": -0.2, "kaco": -0.5, "cungkel": -0.5, "bongkar": -0.2, "kobo": -0.4
 }
 # tambahkan ke VADER
 sia.lexicon.update({k.lower(): v for k, v in ID_EXTRA.items()})
@@ -97,29 +97,38 @@ def save_feedback_weights(weights: dict):
         pass
 
 def score_categories_for_text(txt: str, categories_map: dict, feedback: dict):
-    # Very lightweight heuristic scoring using keyword hits + feedback weights
+    """Heuristik scoring kategori:
+    - Bangun indeks keyword -> list kategori yang mengandungnya.
+    - Jika sebuah keyword muncul di teks dan dipakai beberapa kategori, bobot dibagi rata (1 / n_kategori).
+    - Terapkan feedback weight per (keyword, kategori) jika ada.
+    - Normalisasi ke proporsi total agar skor relatif antar kategori.
+    Mengembalikan (scores, reasons) dengan reasons dibatasi 5 unik per kategori.
+    """
     text_low = txt.lower()
+    # Invert index: keyword -> categories
+    inv = defaultdict(list)
+    for cat, kws in categories_map.items():
+        for kw in kws:
+            kw = (kw or '').strip()
+            if kw:
+                inv[kw.lower()].append(cat)
+
     scores = {cat: 0.0 for cat in categories_map.keys()}
     reasons = defaultdict(list)
 
-    # keyword matching
-    for cat, kws in categories_map.items():
-        for kw in kws:
-            if not kw:
-                continue
-            kw_low = kw.lower()
-            if kw_low in text_low:
-                base = 1.0
-                # apply feedback weight if exists
-                base += float(feedback.get(kw_low, {}).get(cat, 0.0))
-                scores[cat] += base
+    for kw_low, cats in inv.items():
+        if kw_low in text_low:
+            base = 1.0 / max(1, len(cats))
+            for cat in cats:
+                adj = base + float(feedback.get(kw_low, {}).get(cat, 0.0))
+                scores[cat] += adj
                 reasons[cat].append(kw_low)
 
-    # Normalize
     total = sum(scores.values())
     if total > 0:
-        for k in list(scores.keys()):
+        for k in scores.keys():
             scores[k] = round(scores[k] / total, 4)
+    # unique reasons, keep max 5
     return scores, {k: sorted(set(v))[:5] for k, v in reasons.items()}
 
 """
@@ -269,9 +278,9 @@ def build_lexicon() -> Dict[str, float]:
     else:
         bar = load_barasa_optional(LEXICON_DIR)
         lex.update(bar)
-    # Add custom Kupang/ID extra (normalize roughly to [-1,1])
+    # Add custom Kupang/ID extra (sudah dalam range [-1, +1])
     for k, v in ID_EXTRA.items():
-        lex[k.lower()] = max(-1.0, min(1.0, float(v) / 3.0))
+        lex[k.lower()] = max(-1.0, min(1.0, float(v)))
     return lex
 
 
@@ -368,6 +377,32 @@ def extract_keyphrases(texts, lang="id"):
     for score, phrase in ranked[:20]:
         out.append({"term": phrase, "weight": float(score)})
     return out
+
+def extract_core_tokens(texts):
+    """Ambil token inti dengan pembersihan:
+    - lower & clean_text
+    - buang stopwords (ID + EN) & filler umum
+    - buang token panjang < 3
+    - hitung frekuensi, ambil top 10
+    """
+    freq = Counter()
+    try:
+        sw_id = set(stopwords.words('indonesian'))
+    except Exception:
+        sw_id = set()
+    try:
+        sw_en = set(stopwords.words('english'))
+    except Exception:
+        sw_en = set()
+    filler = {
+        'dan','atau','yang','di','ke','dengan','pada','untuk','dari','lagi','sih','deh','lah','ya','kok','kan','udah','aja','pun','itu','ini','jadi','kalau','kalo','bahwa','sementara','sering','kayak','kayakny','nih','tuh','dong','de','si','mungkin','masih','bisa','harus','karena','seperti','kaya','gitu','buat'
+    }
+    for t in texts:
+        for tok in clean_text(t).split():
+            if len(tok) < 3: continue
+            if tok in sw_id or tok in sw_en or tok in filler: continue
+            freq[tok] += 1
+    return [w for w,_ in freq.most_common(10)]
 
 def _build_cluster_vectorizer():
     """Vectorizer for clustering top-terms: single-word tokens, heavy stopwords cleanup."""
@@ -576,7 +611,9 @@ def analyze():
             "cluster": cluster,
             "summary": summary,
             "key_phrases": phrases,
-            "recommendations": []  # filled later
+            "recommendations": [],  # filled later
+            "cat_scores": cat_scores,
+            "cat_reasons": reasons,
         })
 
         # legacy aggregation inputs
@@ -610,6 +647,22 @@ def analyze():
                 continue
             agg[norm] = max(float(kp.get("weight", 0.0)), agg.get(norm, 0.0))
         keyphrases = [{"term": k, "weight": v} for k, v in sorted(agg.items(), key=lambda x: x[1], reverse=True)[:30]]
+        # Inject high-frequency tokens not already present (captures 'telat' dsb)
+        freq = Counter()
+        try:
+            sw_id = set(stopwords.words('indonesian'))
+        except Exception:
+            sw_id = set()
+        for t in all_texts:
+            for tok in clean_text(t).split():
+                if len(tok) >= 4 and tok not in sw_id:
+                    freq[tok] += 1
+        top_tokens = [w for w, _ in freq.most_common(20)]
+        existing = {kp["term"] for kp in keyphrases}
+        for w in top_tokens:
+            if w not in existing:
+                keyphrases.append({"term": w, "weight": float(freq[w])})
+        keyphrases = sorted(keyphrases, key=lambda x: x["weight"], reverse=True)[:30]
 
     # clustering untuk yang negatif
     clusters = []
@@ -676,14 +729,16 @@ def analyze():
                 })
 
     # aggregate category overview (from negative entries only)
+    # Severity-weighted aggregation of ALL category scores for negative entries
     cat_counter = Counter()
-    for _id, info in per_entry_cats.items():
-        if info.get("ranked"):
-            # weight by score of top-1
-            top_cat, top_score = info["ranked"][0]
-            cat_counter[top_cat] += top_score
+    for r in results:
+        if r.get("negative_flag"):
+            sev = r.get("severity", 0.5)
+            for cat, sc in (r.get("cat_scores") or {}).items():
+                if sc > 0:
+                    cat_counter[cat] += sc * sev
     categories_overview = [
-        {"category": cat, "score": round(score, 4)} for cat, score in cat_counter.most_common()
+        {"category": cat, "score": round(val, 4)} for cat, val in cat_counter.most_common()
     ]
 
     avg = sum([x["sentiment"] for x in per_legacy]) / len(per_legacy) if per_legacy else 0.0
@@ -692,6 +747,18 @@ def analyze():
         "negative_ratio": round(sum(1 for x in per_legacy if x["label"]=="negatif")/len(per_legacy), 3) if per_legacy else 0.0,
         "notes": "Rangkuman kasar berdasar skor rata-rata & proporsi negatif."
     }
+
+    # Core tokens & auto summary (lebih fokus kata inti bersih)
+    core_tokens = extract_core_tokens(all_texts) if all_texts else []
+    top_cat_names = [c["category"].title() for c in categories_overview[:2]]
+    neg_ratio_pct = f"{summary['negative_ratio']*100:.1f}%" if per_legacy else "0%"
+    ct_display = ", ".join(core_tokens[:5]) if core_tokens else "(tidak ada kata inti mencolok)"
+    auto_summary = (
+        f"Secara umum curhatan bernada {'negatif' if avg < -0.05 else ('positif' if avg > 0.05 else 'netral')} "
+        f"(skor {summary['avg_sentiment']}). Proporsi negatif {neg_ratio_pct}. "
+        f"Topik dominan: {', '.join(top_cat_names) if top_cat_names else '-'}. "
+        f"Kata inti: {ct_display}."
+    )
 
     # Optional semi-supervised subtopic assignment via BERT centroids
     if ENABLE_BERT and results:
@@ -761,11 +828,34 @@ def analyze():
             recs.append({"tag": "RAPAT_JADWAL_TUGAS", "title": "Penataan jadwal/tugas", "priority": 3, "rationale": "Kendala akademik"})
         if bucket == "EMOSI":
             recs.append({"tag": "PSYCHOEDU_EMOSI", "title": "Psychoeducation regulasi emosi", "priority": 3, "rationale": "Keluhan emosi"})
+        if bucket == "DISIPLIN":
+            recs.append({"tag": "PEMBINAAN_DISIPLIN", "title": "Pembinaan disiplin terarah", "priority": 3, "rationale": "Pelanggaran berulang / tata tertib"})
         return recs
 
     for r in results:
         bucket = (r.get("cluster") or {}).get("bucket")
         r["recommendations"] = recommend_rules(bucket, r.get("severity") or 0.0, r.get("negative_flag") or False)
+
+    # Global recommendations berdasarkan kategori_overview teratas
+    abs_sent = abs(avg)
+    global_recommendations = []
+    for cat in categories_overview:
+        cname = cat["category"]
+        score = cat["score"]
+        meta = TOPIC_INDEX.get(cname.upper()) or {}
+        bucket = meta.get("bucket", "")
+        diff = abs(abs_sent - score)
+        recs = recommend_rules(bucket, max(0.3, abs_sent), avg < -0.05)
+        if recs:
+            global_recommendations.append({
+                "category": cname,
+                "bucket": bucket,
+                "score": score,
+                "sentiment_abs": round(abs_sent,3),
+                "diff_vs_sentiment": round(diff,3),
+                "recommendations": recs
+            })
+    global_recommendations.sort(key=lambda x: (-x["score"], x["diff_vs_sentiment"]))
 
     return jsonify({
         "version": SERVICE_VERSION,
@@ -774,10 +864,13 @@ def analyze():
         # legacy outputs for compatibility with earlier UI/bridge
         "per_entry": per_legacy,
         "summary": summary,
+        "auto_summary": auto_summary,
         "keyphrases": keyphrases,
         "clusters": clusters,
         "per_entry_categories": per_entry_cats,
         "categories_overview": categories_overview,
+        "core_tokens": core_tokens,
+        "global_recommendations": global_recommendations,
     })
 
 @app.post("/feedback")

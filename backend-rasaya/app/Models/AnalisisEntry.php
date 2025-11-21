@@ -32,6 +32,7 @@ class AnalisisEntry extends Model
         'tanggal_awal_proses',
         'tanggal_akhir_proses',
         'needs_attention',
+        'handling_status',        // null|'handled'|'resolved' - status penanganan masalah
     ];
 
     protected $casts = [

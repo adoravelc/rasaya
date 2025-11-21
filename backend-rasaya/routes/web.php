@@ -22,6 +22,7 @@ use App\Http\Controllers\Web\MlBridgeController;
 use App\Http\Controllers\Web\AnalisisEntryController;
 use App\Http\Controllers\Web\EmosiTrenController;
 use App\Http\Controllers\Web\GuruRefleksiHistoryController;
+use App\Http\Controllers\Web\GuruRefleksiController;
 use App\Http\Controllers\Web\AdminBackupController;
 use App\Http\Controllers\Web\YearRolloverController;
 use App\Http\Controllers\Web\RosterImportController;
@@ -228,6 +229,7 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
         Route::get('/{analisis}/rekomendasi/{rid}', [AnalisisEntryController::class, 'detail'])->name('guru.analisis.rekomendasi.detail');
             Route::post('/{analisis}/finalize', [AnalisisEntryController::class, 'finalize'])->name('guru.analisis.finalize');
         Route::post('/{analisis}/attention', [AnalisisEntryController::class, 'attention'])->name('guru.analisis.attention');
+        Route::post('/{analisis}/handling-status', [AnalisisEntryController::class, 'handlingStatus'])->name('guru.analisis.handling_status');
         Route::get('/{analisis}/rekomendasi/{rid}/alternatives', [AnalisisEntryController::class, 'alternatives'])->name('guru.analisis.alternatives');
     });
 
@@ -235,6 +237,9 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
     Route::get('/tren-emosi', [EmosiTrenController::class, 'index'])->name('guru.tren_emosi.index');
     Route::get('/tren-emosi/data', [EmosiTrenController::class, 'data'])->name('guru.tren_emosi.data');
     Route::get('/tren-emosi/siswa', [EmosiTrenController::class, 'siswaByKelas'])->name('guru.tren_emosi.siswa');
+
+    // Refleksi Siswa (baru) - lintas semua guru
+    Route::get('/refleksi', [GuruRefleksiController::class, 'index'])->name('guru.refleksi.index');
 });
 
 /** ===================== SISWA ===================== */

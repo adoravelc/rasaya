@@ -39,5 +39,5 @@ class InputSiswa extends Model
         return $this->belongsTo(SiswaKelas::class, 'siswa_dilapor_kelas_id');
     }
 
-    // relasi kategori telah dihapus (pivot kategori_input_siswas di-drop)
+    // Catatan: relasi kategori dihapus (pivot kategori_input_siswas di-drop); jangan eager load 'kategoris'.
 }

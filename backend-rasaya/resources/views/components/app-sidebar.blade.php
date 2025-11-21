@@ -86,6 +86,8 @@
 
                     {{-- Tren Emosi Siswa --}}
                     <a class="nav-link {{ $is('guru.tren_emosi.*') }}" href="{{ route('guru.tren_emosi.index') }}">Tren Emosi Siswa</a>
+                    {{-- Refleksi Siswa (baru) --}}
+                    <a class="nav-link {{ $is('guru.refleksi.*') }}" href="{{ route('guru.refleksi.index') }}">Refleksi Siswa</a>
 
                     {{-- === BARU: Slot Konseling (hanya untuk Guru BK) === --}}
                     @if ($guruJenis === 'bk')

@@ -65,9 +65,21 @@ class InputGuruController extends Controller
         if ($wkKelasId) {
             $siswaKelasQ->where('kelas_id', $wkKelasId);
         }
-        $siswaKelas = $siswaKelasQ
+        $siswaKelasRaw = $siswaKelasQ
             ->orderBy('kelas_id')
-            ->get()
+            ->get();
+
+        // Ambil daftar siswa_kelas yang sedang butuh perhatian dari analisis
+        $flaggedQuery = \App\Models\AnalisisEntry::where('needs_attention', true);
+        if ($wkKelasId) {
+            $flaggedQuery->whereHas('siswaKelas', fn($qq) => $qq->where('kelas_id', $wkKelasId));
+        }
+        $flaggedIds = $flaggedQuery->pluck('siswa_kelas_id')->unique()->filter()->values()->all();
+
+        // Reorder: flagged muncul dulu
+        $siswaKelas = $siswaKelasRaw
+            ->sortBy(fn($row) => in_array($row->id, $flaggedIds) ? 0 : 1)
+            ->values()
             ->map(fn($sk) => ['id' => $sk->id, 'label' => $sk->label]);
 
     $opsiKondisi = ['green', 'yellow', 'orange', 'red', 'black', 'grey'];
@@ -84,7 +96,7 @@ class InputGuruController extends Controller
             'filter_master_kategori_id' => $filterMaster,
         ];
 
-    return view('roles.guru.observasi.index', compact('rows', 'siswaKelas', 'masterKategoris', 'opsiKondisi', 'filters', 'kelasOptions', 'wkKelasId'));
+    return view('roles.guru.observasi.index', compact('rows', 'siswaKelas', 'masterKategoris', 'opsiKondisi', 'filters', 'kelasOptions', 'wkKelasId', 'flaggedIds'));
     }
 
     public function store(Request $r): JsonResponse

@@ -85,9 +85,40 @@ class AnalisisEntryController extends Controller
 
     public function show(AnalisisEntry $analisis)
     {
-        $analisis->load(['rekomendasis', 'siswaKelas.siswa.user', 'siswaKelas.kelas.jurusan', 'createdBy']);
+        $analisis->load(['rekomendasis.master.kategoris', 'siswaKelas.siswa.user', 'siswaKelas.kelas.jurusan', 'createdBy']);
 
-    $isWali = optional(Auth::user()->guru)->jenis === 'wali_kelas';
+        // Urutkan rekomendasi: kategori tertinggi dulu, lalu skor sentimen paling mendekati
+        $categoriesOverview = collect($analisis->categories_overview ?? []);
+        $avgSentimen = abs((float)($analisis->skor_sentimen ?? 0));
+        
+        $sortedRekomendasis = $analisis->rekomendasis->sortBy(function($rekom) use ($categoriesOverview, $avgSentimen) {
+            // Ambil kategori dari master rekomendasi
+            $kategoris = $rekom->master?->kategoris ?? collect();
+            
+            // Cari skor kategori tertinggi dari rekomendasi ini
+            $maxCategoryScore = 0;
+            foreach ($kategoris as $kat) {
+                $categoryInOverview = $categoriesOverview->firstWhere('category', $kat->nama);
+                if ($categoryInOverview) {
+                    $score = (float)($categoryInOverview['score'] ?? 0);
+                    if ($score > $maxCategoryScore) {
+                        $maxCategoryScore = $score;
+                    }
+                }
+            }
+            
+            // Hitung kedekatan skor sentimen minimal dengan skor sentimen analisis
+            $minNegScore = (float)($rekom->master?->rules['min_neg_score'] ?? 0);
+            $scoreDiff = abs($avgSentimen - abs($minNegScore));
+            
+            // Return tuple untuk sorting: negatif category score (desc), lalu diff (asc)
+            return [-$maxCategoryScore, $scoreDiff];
+        })->values();
+        
+        // Replace collection dengan yang sudah diurutkan
+        $analisis->setRelation('rekomendasis', $sortedRekomendasis);
+
+        $isWali = optional(Auth::user()->guru)->jenis === 'wali_kelas';
 
         // Kumpulkan semua input yang termasuk dalam rentang analisis ini
         $from = optional($analisis->tanggal_awal_proses)?->toDateString();
@@ -108,42 +139,42 @@ class AnalisisEntryController extends Controller
             $guruIds = $used->where('type', 'guru')->pluck('id')->all();
 
             if (!empty($selfIds)) {
-                $refleksisSelf = InputSiswa::with(['kategoris', 'siswaKelas.siswa.user'])
+                $refleksisSelf = InputSiswa::with(['siswaKelas.siswa.user'])
                     ->whereIn('id', $selfIds)
                     ->where('is_friend', false) // jaga-jaga: filter hanya refleksi diri
                     ->orderBy('tanggal', 'desc')
                     ->get();
             }
             if (!empty($friendIds)) {
-                $friendReports = InputSiswa::with(['kategoris', 'siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user'])
+                $friendReports = InputSiswa::with(['siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user'])
                     ->whereIn('id', $friendIds)
                     ->where('is_friend', true) // jaga-jaga: pastikan ini laporan teman
                     ->orderBy('tanggal', 'desc')
                     ->get();
             }
             if (!empty($guruIds)) {
-                $guruNotes = InputGuru::with(['kategoris', 'siswaKelas.siswa.user'])
+                $guruNotes = InputGuru::with(['siswaKelas.siswa.user'])
                     ->whereIn('id', $guruIds)
                     ->orderBy('tanggal', 'desc')
                     ->get();
             }
         } elseif ($from && $to) {
             // Fallback untuk analisis lama (sebelum ada snapshot): gunakan rentang tanggal
-            $refleksisSelf = InputSiswa::with(['kategoris', 'siswaKelas.siswa.user'])
+            $refleksisSelf = InputSiswa::with(['siswaKelas.siswa.user'])
                 ->where('siswa_kelas_id', $analisis->siswa_kelas_id)
                 ->whereBetween('tanggal', [$from, $to])
                 ->where('is_friend', false)
                 ->orderBy('tanggal', 'desc')
                 ->get();
 
-            $friendReports = InputSiswa::with(['kategoris', 'siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user'])
+            $friendReports = InputSiswa::with(['siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user'])
                 ->where('siswa_dilapor_kelas_id', $analisis->siswa_kelas_id)
                 ->whereBetween('tanggal', [$from, $to])
                 ->where('is_friend', true)
                 ->orderBy('tanggal', 'desc')
                 ->get();
 
-            $guruNotes = InputGuru::with(['kategoris', 'siswaKelas.siswa.user'])
+            $guruNotes = InputGuru::with(['siswaKelas.siswa.user'])
                 ->where('siswa_kelas_id', $analisis->siswa_kelas_id)
                 ->whereBetween('tanggal', [$from, $to])
                 ->orderBy('tanggal', 'desc')
@@ -369,12 +400,42 @@ class AnalisisEntryController extends Controller
         return back()->with('ok', 'Status perhatian diperbarui.');
     }
 
+    public function handlingStatus(Request $r, AnalisisEntry $analisis)
+    {
+        $r->validate(['handling_status' => ['required', 'in:handled,resolved']]);
+
+        // Authorization: BK can toggle for all; WK only for their class
+        $guru = optional($r->user())->guru;
+        if (!$guru) {
+            abort(403);
+        }
+        if ($guru->jenis === 'wali_kelas') {
+            $allow = optional($analisis->siswaKelas?->kelas)->wali_guru_id === $r->user()->id;
+            abort_if(!$allow, 403);
+        }
+
+        $status = $r->input('handling_status');
+        $analisis->handling_status = $status;
+        
+        // Jika status 'resolved', otomatis set needs_attention jadi false
+        if ($status === 'resolved') {
+            $analisis->needs_attention = false;
+        }
+        
+        $analisis->save();
+
+        if ($r->wantsJson()) {
+            return response()->json(['ok' => true, 'handling_status' => $analisis->handling_status]);
+        }
+        return back()->with('ok', 'Status penanganan diperbarui.');
+    }
+
     // Detail rekomendasi untuk modal (judul tampil saja di list; isi diambil via AJAX)
     public function detail(Request $r, AnalisisEntry $analisis, int $rekomId)
     {
         // Authorization: ensure rekom belongs to this analisis
         /** @var AnalisisRekomendasi $rec */
-        $rec = $analisis->rekomendasis()->with('master')->findOrFail($rekomId);
+        $rec = $analisis->rekomendasis()->with('master.kategoris')->findOrFail($rekomId);
 
         $minScore = null;
         $rules = $rec->master?->rules;
@@ -388,12 +449,18 @@ class AnalisisEntryController extends Controller
             $minScore = (float) $rules['min_neg_score'];
         }
 
+        // Ambil nama kategori dari master rekomendasi
+        $kategoris = $rec->master ? $rec->master->kategoris->pluck('nama')->toArray() : [];
+        $kategoriText = !empty($kategoris) ? implode(', ', $kategoris) : 'Umum';
+
         return response()->json([
             'id' => $rec->id,
             'judul' => $rec->judul,
             'deskripsi' => $rec->deskripsi,
             'severity' => $rec->severity,
             'min_neg_score' => $minScore,
+            'kategori' => $kategoriText,
+            'kategori_list' => $kategoris,
         ]);
     }
 }
