@@ -29,12 +29,14 @@ class InputGuru extends Model
     {
         return $this->belongsTo(SiswaKelas::class);
     }
-
-    public function kategoris()
+    /**
+     * Pivot kategori_input_gurus sudah dihapus dari desain.
+     * Blade masih mengakses $inputGuru->kategoris, jadi sediakan accessor kosong
+     * agar tidak memicu query ke tabel yang tidak ada.
+     */
+    public function getKategorisAttribute()
     {
-        // relasi sub-kategori dihapus: pivot kategori_input_gurus telah di-drop
-        return $this->belongsToMany(KategoriMasalah::class, 'kategori_input_gurus', 'input_guru_id', 'kategori_id')
-            ->whereRaw('1=0'); // legacy no-op to avoid runtime errors if accidentally called
+        return collect();
     }
 
     public function masterKategori()

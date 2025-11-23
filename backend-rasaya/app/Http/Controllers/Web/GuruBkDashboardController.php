@@ -7,6 +7,7 @@ use App\Models\AnalisisEntry;
 use App\Models\SlotKonseling;
 use App\Models\SlotBooking;
 use Illuminate\Support\Facades\Auth;
+use App\Models\CounselingReferral;
 
 class GuruBkDashboardController extends Controller
 {
@@ -54,10 +55,18 @@ class GuruBkDashboardController extends Controller
                 ->get();
         }
 
+        // Pending referrals (belum diterima) ditampilkan untuk Guru BK
+        $pendingReferrals = CounselingReferral::with(['siswaKelas.siswa.user','submittedBy'])
+            ->pending()
+            ->orderByDesc('created_at')
+            ->limit(15)
+            ->get();
+
         return view('roles.guru.guru_bk.dashboard', [
             'attentionList' => $attentionList,
             'handledList' => $handledList,
             'upcomingSchedules' => $upcomingSchedules,
+            'pendingReferrals' => $pendingReferrals,
         ]);
     }
 }

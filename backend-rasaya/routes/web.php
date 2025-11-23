@@ -26,6 +26,7 @@ use App\Http\Controllers\Web\GuruRefleksiController;
 use App\Http\Controllers\Web\AdminBackupController;
 use App\Http\Controllers\Web\YearRolloverController;
 use App\Http\Controllers\Web\RosterImportController;
+use App\Http\Controllers\Web\NotificationController;
 
 // Redirect landing page straight to login for a focused UX
 Route::redirect('/', '/login');
@@ -201,14 +202,6 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
         Route::get('/slots/{id}', [SlotApi::class, 'show'])->name('guru.guru_bk.slots.show');
         Route::post('/slots/publish', [SlotApi::class, 'publish'])->name('guru.guru_bk.slots.publish');
         Route::delete('/slots/{id}', [SlotApi::class, 'destroy'])->name('guru.guru_bk.slots.destroy');
-
-        // Tetap tersedia untuk BK (legacy route names)
-        Route::get('/analisis', [AnalisisEntryController::class, 'index'])->name('guru.bk.analisis.index');
-        Route::get('/analisis/create', [AnalisisEntryController::class, 'create'])->name('guru.bk.analisis.create');
-        Route::post('/analisis', [AnalisisEntryController::class, 'store'])->name('guru.bk.analisis.store');
-        Route::get('/analisis/{analisis}', [AnalisisEntryController::class, 'show'])->name('guru.bk.analisis.show');
-        Route::post('/analisis/{analisis}/rekomendasi/{rid}', [AnalisisEntryController::class, 'decide'])->name('guru.bk.analisis.decide');
-    Route::get('/analisis/{analisis}/rekomendasi/{rid}/alternatives', [AnalisisEntryController::class, 'alternatives'])->name('guru.bk.analisis.alternatives');
     });
 
     // Wali Kelas
@@ -230,14 +223,24 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
         Route::get('/create', [AnalisisEntryController::class, 'create'])->name('guru.analisis.create');
         Route::post('/', [AnalisisEntryController::class, 'store'])->name('guru.analisis.store');
         Route::get('/{analisis}', [AnalisisEntryController::class, 'show'])->name('guru.analisis.show');
-            Route::post('/{analisis}/rekomendasi/{rid}', [AnalisisEntryController::class, 'decide'])->name('guru.analisis.decide');
+        Route::post('/{analisis}/rekomendasi/{rid}', [AnalisisEntryController::class, 'decide'])->name('guru.analisis.decide');
         // Detail rekomendasi (JSON) untuk modal
         Route::get('/{analisis}/rekomendasi/{rid}', [AnalisisEntryController::class, 'detail'])->name('guru.analisis.rekomendasi.detail');
-            Route::post('/{analisis}/finalize', [AnalisisEntryController::class, 'finalize'])->name('guru.analisis.finalize');
+        Route::post('/{analisis}/finalize', [AnalisisEntryController::class, 'finalize'])->name('guru.analisis.finalize');
         Route::post('/{analisis}/attention', [AnalisisEntryController::class, 'attention'])->name('guru.analisis.attention');
         Route::post('/{analisis}/handling-status', [AnalisisEntryController::class, 'handlingStatus'])->name('guru.analisis.handling_status');
         Route::get('/{analisis}/rekomendasi/{rid}/alternatives', [AnalisisEntryController::class, 'alternatives'])->name('guru.analisis.alternatives');
     });
+
+    /** ===================== REFERRAL & PRIVATE KONSELING ===================== */
+    Route::post('/referrals', [\App\Http\Controllers\Web\CounselingReferralController::class, 'store'])->name('guru.referrals.store');
+    Route::post('/referrals/{id}/accept', [\App\Http\Controllers\Web\CounselingReferralController::class, 'accept'])->middleware('gurujenis:bk')->name('guru.referrals.accept');
+    Route::get('/referrals/{id}/private/create', [\App\Http\Controllers\Web\CounselingReferralController::class, 'createPrivateSlot'])->middleware('gurujenis:bk')->name('guru.guru_bk.private_slots.create');
+    Route::post('/referrals/{id}/private/schedule', [\App\Http\Controllers\Web\CounselingReferralController::class, 'schedule'])->middleware('gurujenis:bk')->name('guru.guru_bk.private_slots.schedule');
+    Route::post('/referrals/analysis/{analisis}/direct', [\App\Http\Controllers\Web\CounselingReferralController::class, 'createFromAnalysis'])->middleware('gurujenis:bk')->name('guru.referrals.analysis.direct');
+
+    // Notifikasi - tandai semua dibaca
+    Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read_all');
 
     // Tren Emosi (Dashboard chart + halaman khusus)
     Route::get('/tren-emosi', [EmosiTrenController::class, 'index'])->name('guru.tren_emosi.index');
@@ -251,6 +254,7 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
 /** ===================== SISWA ===================== */
 Route::prefix('siswa')->middleware(['auth', 'role:siswa'])->group(function () {
     Route::get('/', [SiswaDashboardController::class, 'index'])->name('siswa.dashboard');
+    Route::get('/private-session', [\App\Http\Controllers\Web\SiswaPrivateSessionController::class, 'show'])->name('siswa.private_session.show');
 });
 
 Route::redirect('/admin/dashboard', '/admin');

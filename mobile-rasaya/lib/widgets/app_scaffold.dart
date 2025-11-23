@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../auth/auth_controller.dart';
+import '../api/api_client.dart';
 // Drawer removed; use bottom navigation everywhere
 
 class AppScaffold extends StatefulWidget {
@@ -128,13 +131,89 @@ class _AppScaffoldState extends State<AppScaffold>
     return Scaffold(
       appBar: AppBar(
           title: Text(widget.title),
-          actions: widget.actions,
+          actions: [
+            const _NotificationBell(),
+            ...?widget.actions,
+          ],
           bottom: widget.bottom),
       body: widget.body,
       bottomNavigationBar: _RasayaBottomNav(
         selectedIndex: idx,
         onTap: _onSelect,
         controller: _dropController,
+      ),
+    );
+  }
+}
+
+// ===== Notification Bell (placeholder logic) =====
+final notificationsCountProvider = FutureProvider<int>((ref) async {
+  final token = ref.watch(authControllerProvider.select((s) => s.token));
+  if (token == null) return 0;
+  final api = ref.read(apiClientProvider);
+  // Placeholder: attempt GET /notifications if exists, else return 0
+  try {
+    final res = await api.get('/notifications');
+    if (!res.ok) return 0;
+    final data = res.data;
+    if (data is Map && data['unread'] is int) return data['unread'] as int;
+    if (data is List) {
+      // assume list of notifications with is_read flag
+      final list = data.cast<dynamic>();
+      int unread = 0;
+      for (final n in list) {
+        if (n is Map && (n['is_read'] == false || n['read_at'] == null))
+          unread++;
+      }
+      return unread;
+    }
+    return 0;
+  } catch (_) {
+    return 0;
+  }
+});
+
+class _NotificationBell extends ConsumerWidget {
+  const _NotificationBell();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final countAsync = ref.watch(notificationsCountProvider);
+    final badge = countAsync.maybeWhen(data: (c) => c, orElse: () => 0);
+    return IconButton(
+      tooltip: 'Notifikasi',
+      onPressed: () {
+        // Future: navigate to notifications page
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Notifikasi coming soon')),
+        );
+      },
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          const Icon(Icons.notifications_none),
+          if (badge > 0)
+            Positioned(
+              right: -2,
+              top: -2,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                constraints: const BoxConstraints(minWidth: 18),
+                child: Text(
+                  badge > 99 ? '99+' : badge.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

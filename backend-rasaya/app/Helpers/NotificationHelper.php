@@ -4,6 +4,10 @@ namespace App\Helpers;
 
 use App\Models\Notification;
 use App\Models\User;
+use App\Models\Guru;
+use App\Models\CounselingReferral;
+use App\Models\SlotKonseling;
+use App\Models\SlotBooking;
 
 class NotificationHelper
 {
@@ -29,6 +33,114 @@ class NotificationHelper
                     'identifier' => $requestedBy->identifier,
                 ],
                 'link' => route('admin.user.management.index'),
+            ]);
+        }
+    }
+
+    /**
+     * Notifikasi ke seluruh Guru BK saat referral baru diajukan.
+     */
+    public static function notifyReferralSubmitted(CounselingReferral $ref)
+    {
+        $siswaName = optional($ref->siswaKelas->siswa->user)->name;
+        $submittedBy = optional($ref->submittedBy)->name;
+        $kelasLabel = optional($ref->siswaKelas->kelas)->label;
+
+        $bkGurus = Guru::where('jenis','bk')->with('user')->get()->pluck('user')->filter();
+        foreach ($bkGurus as $bkUser) {
+            Notification::create([
+                'user_id' => $bkUser->id,
+                'type' => 'referral_submitted',
+                'title' => 'Referral Konseling Baru',
+                'message' => "{$submittedBy} mengajukan konseling untuk {$siswaName} ({$kelasLabel})",
+                'data' => [
+                    'referral_id' => $ref->id,
+                    'siswa_name' => $siswaName,
+                    'submitted_by' => $submittedBy,
+                ],
+                'link' => route('guru.bk.dashboard'),
+            ]);
+        }
+    }
+
+    /**
+     * Notifikasi ke pengaju referral saat diterima oleh Guru BK.
+     */
+    public static function notifyReferralAccepted(CounselingReferral $ref)
+    {
+        if (!$ref->submittedBy) return;
+        $siswaName = optional($ref->siswaKelas->siswa->user)->name;
+        Notification::create([
+            'user_id' => $ref->submittedBy->id,
+            'type' => 'referral_accepted',
+            'title' => 'Referral Diterima',
+            'message' => "Referral untuk {$siswaName} telah diterima Guru BK",
+            'data' => [
+                'referral_id' => $ref->id,
+                'siswa_name' => $siswaName,
+                'status' => $ref->status,
+            ],
+            'link' => route('guru.analisis.index'),
+        ]);
+    }
+
+    /**
+     * Notifikasi saat konseling privat dijadwalkan (siswa, wali kelas, guru BK penganggar).
+     */
+    public static function notifyPrivateSessionScheduled(CounselingReferral $ref, SlotKonseling $slot, SlotBooking $booking)
+    {
+        $siswaUser = optional($ref->siswaKelas->siswa)->user;
+        $waliGuruUser = optional(optional($ref->siswaKelas->kelas)->waliGuru);
+        $guruBkUser = optional($slot->guru)->user ?? optional($slot->guru); // tergantung relasi guru_id => user
+
+        $start = optional($slot->start_at)->format('d M Y H:i');
+        $siswaName = optional($siswaUser)->name;
+
+        // Ke siswa
+        if ($siswaUser) {
+            Notification::create([
+                'user_id' => $siswaUser->id,
+                'type' => 'private_session_scheduled',
+                'title' => 'Jadwal Konseling Privat',
+                'message' => "Konseling privat dijadwalkan pada {$start}",
+                'data' => [
+                    'slot_id' => $slot->id,
+                    'booking_id' => $booking->id,
+                    'referral_id' => $ref->id,
+                ],
+                'link' => null,
+            ]);
+        }
+
+        // Ke wali kelas (jika ada)
+        if ($waliGuruUser) {
+            Notification::create([
+                'user_id' => $waliGuruUser->id,
+                'type' => 'private_session_scheduled_wk',
+                'title' => 'Jadwal Konseling Siswa',
+                'message' => "{$siswaName} dijadwalkan konseling privat {$start}",
+                'data' => [
+                    'slot_id' => $slot->id,
+                    'booking_id' => $booking->id,
+                    'referral_id' => $ref->id,
+                ],
+                'link' => route('guru.tren_emosi.index'),
+            ]);
+        }
+
+        // Ke Guru BK (penganggar) - memastikan user id terset
+        if ($guruBkUser) {
+            Notification::create([
+                'user_id' => $guruBkUser->id,
+                'type' => 'private_session_scheduled_bk',
+                'title' => 'Konseling Privat Dijadwalkan',
+                'message' => "Slot privat dengan {$siswaName} berhasil dibuat untuk {$start}",
+                'data' => [
+                    'slot_id' => $slot->id,
+                    'booking_id' => $booking->id,
+                    'referral_id' => $ref->id,
+                ],
+                'link' => route('guru.guru_bk.slots.view'),
             ]);
         }
     }

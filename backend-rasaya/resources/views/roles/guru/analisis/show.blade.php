@@ -5,8 +5,46 @@
     <div class="container py-4">
         <a href="{{ route('guru.analisis.index') }}" class="btn btn-sm btn-outline-secondary mb-3">← Kembali</a>
 
+        @if (session('error'))
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-circle me-1"></i>{{ session('error') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        @if (session('success'))
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle me-1"></i>{{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        @if (session('info'))
+            <div class="alert alert-info alert-dismissible fade show" role="alert">
+                <i class="bi bi-info-circle me-1"></i>{{ session('info') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        @if (session('warning'))
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle me-1"></i>{{ session('warning') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
         <div class="card mb-3">
             <div class="card-body">
+                @php
+                    // Inisialisasi aman semua variabel tampilan analisis agar tidak undefined.
+                    $sentimenScore = (float) ($analisis->skor_sentimen ?? 0);
+                    $sentimenDesc = $sentimenDesc ?? 'Skor sentimen';
+                    $sentimenScaleInfo = $sentimenScaleInfo ?? 'Skala −1 (merah/negatif) → 0 (hijau/netral)';
+                    $moodDesc = $moodDesc ?? '';
+                    $moodScaleInfo = $moodScaleInfo ?? '';
+                    $clamped = max(-1, min(1, $sentimenScore));
+                    $sentimenMarkerPct = (($clamped + 1) / 2) * 100;
+                @endphp
                 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
                     <div>
                         <div class="small text-muted">Siswa</div>
@@ -40,48 +78,84 @@
                         </span>
                     </form>
                 </div>
-                
-                @if($analisis->needs_attention)
-                <div class="mb-2">
-                    <div class="small text-muted mb-1">Status Penanganan</div>
-                    <div class="btn-group btn-group-sm" role="group">
-                        <button type="button" class="btn btn-outline-warning {{ $analisis->handling_status === 'handled' ? 'active' : '' }}" 
+
+                <div id="handling-block" class="mb-2" style="{{ $analisis->needs_attention ? '' : 'display:none;' }}">
+                        <div class="small text-muted mb-1">Status Penanganan</div>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button"
+                                class="btn btn-outline-warning {{ $analisis->handling_status === 'handled' ? 'active' : '' }}"
                                 onclick="updateHandlingStatus('{{ $analisis->id }}', 'handled')">
-                            Sedang Ditangani
-                        </button>
-                        <button type="button" class="btn btn-outline-success {{ $analisis->handling_status === 'resolved' ? 'active' : '' }}" 
+                                Sedang Ditangani
+                            </button>
+                            <button type="button"
+                                class="btn btn-outline-success {{ $analisis->handling_status === 'resolved' ? 'active' : '' }}"
                                 onclick="updateHandlingStatus('{{ $analisis->id }}', 'resolved')">
-                            Sudah Selesai
-                        </button>
+                                Sudah Selesai
+                            </button>
+                        </div>
+                        @if ($analisis->handling_status)
+                            <span id="handling-badge"
+                                class="badge ms-2 {{ $analisis->handling_status === 'handled' ? 'text-bg-warning' : 'text-bg-success' }}">
+                                {{ $analisis->handling_status === 'handled' ? 'Sedang Ditangani' : 'Selesai' }}
+                            </span>
+                        @endif
                     </div>
-                    @if($analisis->handling_status)
-                    <span id="handling-badge" class="badge ms-2 {{ $analisis->handling_status === 'handled' ? 'text-bg-warning' : 'text-bg-success' }}">
-                        {{ $analisis->handling_status === 'handled' ? 'Sedang Ditangani' : 'Selesai' }}
-                    </span>
-                    @endif
-                </div>
-                @endif
                 <div class="text-muted small mb-3">
                     Rentang: {{ \Illuminate\Support\Carbon::parse($analisis->tanggal_awal_proses)->toDateString() }} —
                     {{ \Illuminate\Support\Carbon::parse($analisis->tanggal_akhir_proses)->toDateString() }}
                 </div>
                 @php
-                    $score = $analisis->skor_sentimen ?? 0;
-                    $clamped = max(-1, min(0, $score));
-                    $posPct = ($clamped + 1) * 100;
+                    $user = auth()->user();
+                @endphp
+                @php $guru = $user && $user->role === 'guru' ? \App\Models\Guru::where('user_id', $user->id)->first() : null; @endphp
+                <div id="attention-actions-block" class="mb-3 p-2 rounded-2 d-flex flex-wrap gap-2 align-items-center {{ ($analisis->needs_attention && $user && $user->role === 'guru') ? '' : 'd-none' }}"
+                    style="background:#f1f5f9;border:1px solid #e2e8f0;">
+                        <div class="small fw-semibold text-danger me-2"><i class="bi bi-exclamation-circle me-1"></i>Perlu
+                            Tindak Lanjut</div>
+                        @if ($guru && $guru->jenis === 'bk')
+                            <form method="post" action="{{ route('guru.referrals.analysis.direct', $analisis->id) }}"
+                                class="d-inline">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-primary" style="background:#0d6efd"
+                                    onclick="return confirm('Buat referral internal & jadwalkan konseling privat?')">
+                                    <i class="bi bi-calendar-plus me-1"></i>Jadwalkan Konseling Privat
+                                </button>
+                            </form>
+                        @elseif($guru)
+                            <form method="post" action="{{ route('guru.referrals.store') }}" class="d-inline">
+                                @csrf
+                                <input type="hidden" name="siswa_kelas_id" value="{{ $analisis->siswaKelas->id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-primary"
+                                    onclick="return confirm('Ajukan konseling BK untuk siswa ini?')">
+                                    <i class="bi bi-send me-1"></i>Ajukan Konseling BK
+                                </button>
+                            </form>
+                        @endif
+                    </div>
+                @php
+                    // Skor sentimen -1 (sangat negatif) .. +1 (sangat positif)
+                    $clamped = max(-1, min(1, $sentimenScore));
+                    $sentimenMarkerPct = (($clamped + 1) / 2) * 100;
+                    $sentimenScaleInfo = $sentimenScaleInfo ?? '−1 sangat negatif • 0 netral • +1 sangat positif';
+                    $moodDesc = $moodDesc ?? '';
+                    $moodScaleInfo = $moodScaleInfo ?? '';
                 @endphp
                 <div class="mb-3">
                     <div class="small text-muted mb-1">Skor Sentimen (visual)</div>
-                    <div class="sentimen-bar position-relative" title="Skor Sentimen: {{ $score }}"
-                        aria-label="Skor Sentimen: {{ $score }}"
-                        style="height:18px;border-radius:9px;max-width:380px;background:linear-gradient(90deg,#dc2626,#f59e0b,#22c55e);">
+                    <div class="sentimen-bar position-relative"
+                        title="Skor Sentimen: {{ number_format($sentimenScore, 2) }}"
+                        aria-label="Skor Sentimen: {{ number_format($sentimenScore, 2) }}"
+                        style="height:18px;border-radius:9px;max-width:420px;background:linear-gradient(90deg,#dc2626 0%,#fbbf24 50%,#16a34a 100%);">
                         <div class="sentimen-marker"
-                            style="position:absolute;top:0;bottom:0;left:{{ $posPct }}%;width:6px;background:#fff;border:1px solid #111827;border-radius:3px;box-shadow:0 0 4px rgba(0,0,0,.4);">
+                            style="position:absolute;top:-3px;bottom:-3px;left:calc({{ $sentimenMarkerPct }}% - 3px);width:8px;background:#fff;border:2px solid #1e293b;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.35);">
                         </div>
                     </div>
-                    <span class="d-block small text-muted mt-2">{{ $sentimenDesc }} (−1 merah → 0 hijau)</span>
-                    <span class="d-block small text-muted fst-italic">{{ $sentimenScaleInfo }} — hover bar untuk lihat
-                        angka.</span>
+                    <div class="d-flex justify-content-between mt-2 small text-muted" style="max-width:420px;">
+                        <span>-1</span><span>0</span><span>+1</span>
+                    </div>
+                    <span class="d-block small mt-1" style="font-weight:500;color:#334155;">{{ $sentimenDesc }}: <span
+                            class="badge text-bg-light">{{ number_format($sentimenScore, 2) }}</span></span>
+                    <span class="d-block small text-muted fst-italic">{{ $sentimenScaleInfo }}</span>
                 </div>
                 <div class="mt-3 mb-3">Skor Mood Rata-rata: <strong>{{ $avgMood ?? $analisis->avg_mood }}</strong>
                     <span class="d-block small text-muted">{{ $moodDesc }}</span>
@@ -90,69 +164,70 @@
                 @if (!empty($topEmojis) && isset($topEmojis[0]))
                     <div class="mt-3 mb-3">
                         <span class="text-muted">Emoji paling sering:</span>
-                        <span class="badge text-bg-light" title="muncul ×{{ $topEmojis[0]['count'] ?? 0 }}">{{ $topEmojis[0]['emoji'] ?? '—' }}
+                        <span class="badge text-bg-light"
+                            title="muncul ×{{ $topEmojis[0]['count'] ?? 0 }}">{{ $topEmojis[0]['emoji'] ?? '—' }}
                             <small class="text-muted">×{{ $topEmojis[0]['count'] ?? 0 }}</small></span>
                     </div>
                     <div class="border-top my-3"></div>
                 @endif
                 {{-- Kata kunci disembunyikan sesuai permintaan untuk fokus ke kategori --}}
                 @if (!empty($analisis->categories_overview))
-                        <div class="mt-3">
-                            <h6 class="mb-2">Top Kategori (Ranking)</h6>
-                            <div class="small text-muted mb-2">Ditentukan dari gabungan pernyataan negatif dan tingkat
-                                keparahan.</div>
-                            @php
-                                $allCats = collect($analisis->categories_overview ?? [])
-                                    ->sortByDesc(fn($r) => (float) ($r['score'] ?? 0))
-                                    ->values();
-                                // filter kategori kecil (default: >= 5%)
-                                $minScore = 0.05;
-                                $cats = $allCats->filter(fn($r) => (float) ($r['score'] ?? 0) >= $minScore)->values();
-                                if ($cats->isEmpty()) {
-                                    $cats = $allCats->take(5);
-                                }
-                                $max = max(0.0001, (float) ($cats->first()['score'] ?? 0.0001));
-                            @endphp
-                            <div class="list-group">
-                                @foreach ($cats as $row)
-                                    @php
-                                        $name = (string) ($row['category'] ?? '-');
-                                        $score = (float) ($row['score'] ?? 0);
-                                        $pct = (int) round(($score / $max) * 100);
-                                        $pctTxt = number_format($score * 100, 1) . '%';
-                                        $reasons = collect($row['reasons'] ?? [])
-                                            ->filter()
-                                            ->values()
-                                            ->take(3)
-                                            ->all();
-                                    @endphp
-                                    <div class="list-group-item">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <strong>{{ $name }}</strong>
-                                            <span class="small text-muted">{{ $pctTxt }}</span>
-                                        </div>
-                                        <div class="progress mt-1" style="height:8px;">
-                                            <div class="progress-bar" role="progressbar"
-                                                style="width: {{ $pct }}%" aria-valuenow="{{ $pct }}"
-                                                aria-valuemin="0" aria-valuemax="100"></div>
-                                        </div>
-                                        @if (!empty($reasons))
-                                            <div class="small text-muted mt-1">
-                                                Alasan:
-                                                @foreach ($reasons as $i => $r)
-                                                    <span
-                                                        class="badge rounded-pill text-bg-light ms-0 me-1 mb-1">{{ $r }}</span>
-                                                @endforeach
-                                            </div>
-                                        @endif
+                    <div class="mt-3">
+                        <h6 class="mb-2">Top Kategori (Ranking)</h6>
+                        <div class="small text-muted mb-2">Ditentukan dari gabungan pernyataan negatif dan tingkat
+                            keparahan.</div>
+                        @php
+                            $allCats = collect($analisis->categories_overview ?? [])
+                                ->sortByDesc(fn($r) => (float) ($r['score'] ?? 0))
+                                ->values();
+                            // filter kategori kecil (default: >= 5%)
+                            $minScore = 0.05;
+                            $cats = $allCats->filter(fn($r) => (float) ($r['score'] ?? 0) >= $minScore)->values();
+                            if ($cats->isEmpty()) {
+                                $cats = $allCats->take(5);
+                            }
+                            $max = max(0.0001, (float) ($cats->first()['score'] ?? 0.0001));
+                        @endphp
+                        <div class="list-group">
+                            @foreach ($cats as $row)
+                                @php
+                                    $name = (string) ($row['category'] ?? '-');
+                                    $catScore = (float) ($row['score'] ?? 0);
+                                    $pct = (int) round(($catScore / $max) * 100);
+                                    $pctTxt = number_format($catScore * 100, 1) . '%';
+                                    $reasons = collect($row['reasons'] ?? [])
+                                        ->filter()
+                                        ->values()
+                                        ->take(3)
+                                        ->all();
+                                @endphp
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <strong>{{ $name }}</strong>
+                                        <span class="small text-muted">{{ $pctTxt }}</span>
                                     </div>
-                                @endforeach
-                            </div>
-                            @if ($allCats->count() > $cats->count())
-                                <div class="form-text mt-1">Kategori dengan porsi di bawah 5% disembunyikan.</div>
-                            @endif
+                                    <div class="progress mt-1" style="height:8px;">
+                                        <div class="progress-bar" role="progressbar" style="width: {{ $pct }}%"
+                                            aria-valuenow="{{ $pct }}" aria-valuemin="0" aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    @if (!empty($reasons))
+                                        <div class="small text-muted mt-1">
+                                            Alasan:
+                                            @foreach ($reasons as $i => $r)
+                                                <span
+                                                    class="badge rounded-pill text-bg-light ms-0 me-1 mb-1">{{ $r }}</span>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
+                            @endforeach
                         </div>
-                    @endif
+                        @if ($allCats->count() > $cats->count())
+                            <div class="form-text mt-1">Kategori dengan porsi di bawah 5% disembunyikan.</div>
+                        @endif
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -160,7 +235,7 @@
             <div class="mt-4">
                 <h6>Catatan Sistem</h6>
                 @if (!empty($analisis->summary))
-                    <p class="text-muted small mb-1">{{ $analisis->summary['notes'] ?? '—' }}</p>
+                    <p class="text-muted small mb-1">{!! htmlspecialchars($analisis->summary['notes'] ?? '–', ENT_QUOTES, 'UTF-8') !!}</p>
                 @endif
                 @if (!empty($analisis->auto_summary))
                     <div class="alert alert-primary py-2 px-3 small mb-0">
@@ -227,7 +302,7 @@
                     <div class="col-md-4">
                         <h6 class="mb-2">Refleksi Diri <span
                                 class="badge text-bg-secondary">{{ $refleksisSelf->count() ?? 0 }}</span></h6>
-                        <div class="col-md-4">
+                        <div class="list-group">
                             @forelse(($refleksisSelf ?? collect()) as $it)
                                 <div class="list-group-item">
                                     <div class="d-flex justify-content-between">
@@ -430,29 +505,44 @@
 
 @push('scripts')
     <script>
-        const csrf = document.querySelector('meta[name="csrf-token"]').content;
+        // ===== GLOBAL SCOPE - Accessible from inline handlers =====
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        if (!csrf) console.warn('CSRF token tidak ditemukan');
+
         let rejModal;
         let rekomDetailModal;
+
+        // Init modals on DOM ready
         document.addEventListener('DOMContentLoaded', () => {
-            rejModal = new bootstrap.Modal(document.getElementById('rejectModal'), {
+            const rejectModalEl = document.getElementById('rejectModal');
+            const rekomDetailModalEl = document.getElementById('rekomDetailModal');
+
+            if (!rejectModalEl || !rekomDetailModalEl) {
+                console.error('Modal elements not found');
+                return;
+            }
+
+            rejModal = new bootstrap.Modal(rejectModalEl, {
                 backdrop: 'static'
             });
-            rekomDetailModal = new bootstrap.Modal(document.getElementById('rekomDetailModal'), {
+            rekomDetailModal = new bootstrap.Modal(rekomDetailModalEl, {
                 backdrop: 'static'
             });
+
+            // Attach event listener for kategori dropdown
             const sel = document.getElementById('rej-kategori');
             if (sel) sel.addEventListener('change', loadAlternatives);
         });
 
+        // ===== GLOBAL FUNCTIONS =====
         async function openRekomDetail(analisisId, rekomId) {
             try {
-                // reset content
                 document.getElementById('rekomDetailTitle').textContent = 'Detail Rekomendasi';
-                document.getElementById('rekomDetailJudul').textContent = '—';
-                document.getElementById('rekomDetailKategori').textContent = '—';
-                document.getElementById('rekomDetailDeskripsi').textContent = '—';
-                document.getElementById('rekomDetailSeverity').textContent = '—';
-                document.getElementById('rekomDetailMinScore').textContent = '—';
+                document.getElementById('rekomDetailJudul').textContent = '–';
+                document.getElementById('rekomDetailKategori').textContent = '–';
+                document.getElementById('rekomDetailDeskripsi').textContent = '–';
+                document.getElementById('rekomDetailSeverity').textContent = '–';
+                document.getElementById('rekomDetailMinScore').textContent = '–';
 
                 const url = `${location.origin}/guru/analisis/${analisisId}/rekomendasi/${rekomId}`;
                 const res = await fetch(url, {
@@ -460,15 +550,19 @@
                         'Accept': 'application/json'
                     }
                 });
+
                 if (!res.ok) throw new Error('Gagal memuat detail');
                 const data = await res.json();
+
                 document.getElementById('rekomDetailTitle').textContent = data.judul || 'Detail Rekomendasi';
-                document.getElementById('rekomDetailJudul').textContent = data.judul || '—';
+                document.getElementById('rekomDetailJudul').textContent = data.judul || '–';
                 document.getElementById('rekomDetailKategori').textContent = data.kategori || 'Umum';
-                document.getElementById('rekomDetailDeskripsi').textContent = data.deskripsi || '—';
-                document.getElementById('rekomDetailSeverity').textContent = (data.severity || '—');
+                document.getElementById('rekomDetailDeskripsi').textContent = data.deskripsi || '–';
+                document.getElementById('rekomDetailSeverity').textContent = data.severity || '–';
+
                 const ms = (typeof data.min_neg_score === 'number') ? data.min_neg_score : null;
-                document.getElementById('rekomDetailMinScore').textContent = (ms !== null) ? ms.toFixed(2) : '—';
+                document.getElementById('rekomDetailMinScore').textContent = (ms !== null) ? ms.toFixed(2) : '–';
+
                 rekomDetailModal.show();
             } catch (err) {
                 alert(err.message || 'Gagal memuat detail rekomendasi');
@@ -489,10 +583,13 @@
             const analisisId = document.getElementById('rej-analisis-id').value;
             const rekomId = document.getElementById('rej-rekom-id').value;
             const kategoriId = document.getElementById('rej-kategori').value;
+
             document.getElementById('rej-error').innerText = '';
             document.getElementById('rej-alt-list').innerHTML = '';
             document.getElementById('rej-alt-container').classList.add('d-none');
+
             if (!kategoriId) return;
+
             try {
                 const url =
                     `${location.origin}/guru/analisis/${analisisId}/rekomendasi/${rekomId}/alternatives?kategori_id=${encodeURIComponent(kategoriId)}`;
@@ -501,21 +598,24 @@
                         'Accept': 'application/json'
                     }
                 });
+
                 if (!res.ok) throw new Error('Gagal memuat alternatif');
                 const data = await res.json();
+
                 const list = document.getElementById('rej-alt-list');
                 (data.items || []).forEach(it => {
                     const id = `alt-${it.id}`;
                     const el = document.createElement('label');
                     el.className = 'list-group-item list-group-item-action';
                     el.innerHTML = `
-                    <input type="radio" class="form-check-input me-2" name="rej-alt" value="${it.id}" id="${id}">
-                    <span class="fw-semibold">${it.judul}</span>
-                    <div class="text-muted">${it.deskripsi || ''}</div>
-                    <span class="badge bg-secondary">${it.severity}</span>
-                `;
+                        <input type="radio" class="form-check-input me-2" name="rej-alt" value="${it.id}" id="${id}">
+                        <span class="fw-semibold">${it.judul}</span>
+                        <div class="text-muted">${it.deskripsi || ''}</div>
+                        <span class="badge bg-secondary">${it.severity}</span>
+                    `;
                     list.appendChild(el);
                 });
+
                 document.getElementById('rej-alt-container').classList.remove('d-none');
             } catch (err) {
                 document.getElementById('rej-error').innerText = err.message || 'Gagal memuat alternatif';
@@ -528,53 +628,127 @@
             const kategoriId = document.getElementById('rej-kategori').value;
             const alt = document.querySelector('input[name="rej-alt"]:checked');
             const altId = alt ? alt.value : '';
+
             document.getElementById('rej-error').innerText = '';
+
             if (!kategoriId || !altId) {
                 document.getElementById('rej-error').innerText =
-                'Pilih kategori dan salah satu rekomendasi alternatif.';
+                    'Pilih kategori dan salah satu rekomendasi alternatif.';
                 return;
             }
+
             const fd = new FormData();
             fd.append('action', 'reject');
             fd.append('kategori_id', kategoriId);
             fd.append('selected_master_rekomendasi_id', altId);
 
             try {
-                const res = await fetch(`${location.origin}/guru/analisis/${analisisId}/rekomendasi/${rekomId}`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': csrf,
-                        'Accept': 'application/json'
-                    },
-                    body: fd
-                });
+                const res = await fetch(
+                    `${location.origin}/guru/analisis/${analisisId}/rekomendasi/${rekomId}`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': csrf,
+                            'Accept': 'application/json'
+                        },
+                        body: fd
+                    }
+                );
+
                 if (res.ok) {
                     rejModal.hide();
                     location.reload();
                     return;
                 }
+
                 const data = await res.json().catch(() => ({}));
-                document.getElementById('rej-error').innerText = (data.message || '') + ' ' + (data.errors ? JSON
-                    .stringify(data.errors) : '');
+                document.getElementById('rej-error').innerText = (data.message || '') + ' ' +
+                    (data.errors ? JSON.stringify(data.errors) : '');
             } catch (err) {
                 document.getElementById('rej-error').innerText = err.message || 'Gagal menyimpan';
             }
         }
 
-        // Auto-finalize on page leave: reject remaining suggestions when user leaves the page
+        async function updateHandlingStatus(analisisId, status) {
+            const url = `${location.origin}/guru/analisis/${analisisId}/handling-status`;
+            const fd = new FormData();
+            fd.append('_token', csrf);
+            fd.append('handling_status', status);
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    body: fd,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (res.ok) {
+                    location.reload();
+                } else {
+                    alert('Gagal mengupdate status penanganan');
+                }
+            } catch (err) {
+                alert('Error: ' + (err.message || 'Gagal mengupdate status'));
+            }
+        }
+
+        // Hot toggle needs_attention without full reload
+        (function initAttentionToggle(){
+            const sw = document.getElementById('attention-switch');
+            if(!sw) return;
+            sw.addEventListener('change', async function(){
+                const needs = sw.checked ? '1' : '0';
+                const analisisId = {{ $analisis->id }};
+                const url = `${location.origin}/guru/analisis/${analisisId}/attention`;
+                const fd = new FormData();
+                fd.append('_token', csrf);
+                fd.append('needs_attention', needs);
+                try {
+                    const res = await fetch(url, { method:'POST', body: fd, headers:{ 'Accept':'application/json' } });
+                    if(!res.ok){ throw new Error('Gagal menyimpan'); }
+                    const data = await res.json();
+                    const statusSpan = document.getElementById('attention-status');
+                    const handlingBlock = document.getElementById('handling-block');
+                    const actionsBlock = document.getElementById('attention-actions-block');
+                    if(data.needs_attention){
+                        statusSpan.classList.remove('text-muted');
+                        statusSpan.classList.add('text-danger');
+                        statusSpan.textContent = 'Butuh perhatian';
+                        if(handlingBlock) handlingBlock.style.display='';
+                        if(actionsBlock) actionsBlock.classList.remove('d-none');
+                    } else {
+                        statusSpan.classList.remove('text-danger');
+                        statusSpan.classList.add('text-muted');
+                        statusSpan.textContent = 'Normal';
+                        if(handlingBlock) handlingBlock.style.display='none';
+                        if(actionsBlock) actionsBlock.classList.add('d-none');
+                    }
+                    document.getElementById('attention-input').value = data.needs_attention ? '1':'0';
+                } catch(err){
+                    alert(err.message || 'Gagal memperbarui status');
+                    // revert checkbox
+                    sw.checked = !sw.checked;
+                }
+            });
+        })();
+
+        // Auto-finalize on page leave
         (function() {
             window.__accepted = window.__accepted || false;
             window.__finalized = false;
+
             const finalize = () => {
                 if (window.__finalized) return;
-                if (!window.__accepted) return; // only if there was at least one acceptance
+                if (!window.__accepted) return;
                 window.__finalized = true;
+
                 try {
                     const analisisId = {{ $analisis->id }};
                     const url = `${location.origin}/guru/analisis/${analisisId}/finalize`;
                     const data = new FormData();
                     data.append('_token', csrf);
-                    // keepalive to allow sending during unload
+
                     fetch(url, {
                         method: 'POST',
                         body: data,
@@ -585,67 +759,11 @@
                     });
                 } catch (e) {}
             };
+
             window.addEventListener('beforeunload', finalize);
-            // also when clicking back button
             window.addEventListener('pagehide', finalize);
         })();
 
-        // Toggle needs_attention via fetch when switch changes
-        (function() {
-            const sw = document.getElementById('attention-switch');
-            if (!sw) return;
-            sw.addEventListener('change', async (e) => {
-                const checked = !!e.target.checked;
-                const analisisId = {{ $analisis->id }};
-                const url = `${location.origin}/guru/analisis/${analisisId}/attention`;
-                const fd = new FormData();
-                fd.append('_token', csrf);
-                fd.append('needs_attention', checked ? '1' : '0');
-                try {
-                    const res = await fetch(url, {
-                        method: 'POST',
-                        body: fd,
-                        headers: {
-                            'Accept': 'application/json'
-                        }
-                    });
-                    if (res.ok) {
-                        const data = await res.json().catch(() => ({}));
-                        const txt = document.getElementById('attention-status');
-                        if (txt) {
-                            const on = !!(data.needs_attention ?? checked);
-                            txt.textContent = on ? 'Butuh perhatian' : 'Normal';
-                            txt.classList.toggle('text-danger', on);
-                            txt.classList.toggle('text-muted', !on);
-                        }
-                    }
-                } catch (err) {
-                    /* ignore */ }
-            })
-        })();
-
-        // Update handling status
-        async function updateHandlingStatus(analisisId, status) {
-            const url = `${location.origin}/guru/analisis/${analisisId}/handling-status`;
-            const fd = new FormData();
-            fd.append('_token', csrf);
-            fd.append('handling_status', status);
-            try {
-                const res = await fetch(url, {
-                    method: 'POST',
-                    body: fd,
-                    headers: {
-                        'Accept': 'application/json'
-                    }
-                });
-                if (res.ok) {
-                    location.reload();
-                } else {
-                    alert('Gagal mengupdate status penanganan');
-                }
-            } catch (err) {
-                alert('Error: ' + (err.message || 'Gagal mengupdate status'));
-            }
-        }
+        // (Duplicate attention toggle listener removed)
     </script>
 @endpush

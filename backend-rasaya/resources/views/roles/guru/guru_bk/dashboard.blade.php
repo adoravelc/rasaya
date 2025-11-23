@@ -84,6 +84,56 @@
                     </div>
                 </div>
                 @endif
+                {{-- Pending Referrals --}}
+                @if(isset($pendingReferrals) && $pendingReferrals->count() > 0)
+                <div class="card shadow-sm mb-4" style="border-left:4px solid var(--guru-navy);background:rgba(30,58,138,0.04);">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <div>
+                                <h5 class="mb-0" style="color:var(--guru-navy);"><i class="bi bi-person-raised-hand me-2"></i>Permintaan Konseling (Referral)</h5>
+                                <small class="text-muted">Guru lain / Wali Kelas mengajukan siswa untuk konseling</small>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                    <tr style="background:rgba(30,58,138,0.08);">
+                                        <th style="color:var(--guru-navy);">Siswa</th>
+                                        <th style="color:var(--guru-navy);">Diajukan Oleh</th>
+                                        <th style="color:var(--guru-navy);">Kelas</th>
+                                        <th style="color:var(--guru-navy);">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($pendingReferrals as $ref)
+                                    <tr>
+                                        <td>
+                                            <div class="fw-medium">{{ optional($ref->siswaKelas->siswa->user)->name }}</div>
+                                            <small class="text-muted">{{ optional($ref->siswaKelas->siswa->user)->identifier }}</small>
+                                        </td>
+                                        <td>
+                                            <div class="fw-medium">{{ optional($ref->submittedBy)->name }}</div>
+                                            <small class="text-muted">{{ optional($ref->submittedBy)->identifier }}</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge text-bg-light">{{ optional($ref->siswaKelas->kelas)->label }}</span>
+                                        </td>
+                                        <td>
+                                            <form method="post" action="{{ route('guru.referrals.accept', $ref->id) }}" class="d-inline">
+                                                @csrf
+                                                <button class="btn btn-sm btn-primary" onclick="return confirm('Terima referral dan jadwalkan konseling privat?')">
+                                                    <i class="bi bi-check2-circle me-1"></i>Terima
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                @endif
                                 
                 {{-- Chart Section --}}
                 <div class="row g-3 mb-4">

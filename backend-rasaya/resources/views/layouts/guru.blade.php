@@ -130,6 +130,14 @@
                                 <small class="text-muted">{{ $unreadCount }} baru</small>
                                 @endif
                             </div>
+                            <div class="mt-2 d-flex justify-content-end">
+                                <form method="post" action="{{ route('notifications.read_all') }}">
+                                    @csrf
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: .65rem;">
+                                        <i class="bi bi-check2-all me-1"></i> Tandai semua dibaca
+                                    </button>
+                                </form>
+                            </div>
                         </li>
                         @if(isset($unreadNotifications) && $unreadNotifications->count() > 0)
                             @foreach($unreadNotifications as $notif)

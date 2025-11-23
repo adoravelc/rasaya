@@ -10,33 +10,32 @@ use Illuminate\Support\Facades\Auth;
 class NotificationController extends Controller
 {
     /**
-     * Mark single notification as read
+     * Tandai semua notifikasi yang belum dibaca menjadi dibaca.
      */
-    public function markAsRead($id)
+    public function readAll(Request $request)
     {
-        $notification = Notification::where('id', $id)
-            ->where('user_id', Auth::id())
-            ->first();
-
-        if ($notification) {
-            $notification->markAsRead();
+        $user = $request->user();
+        if (!$user) {
+            return redirect()->back();
         }
 
-        return redirect($notification->link ?? back());
+        Notification::forUser($user->id)->unread()->update([
+            'is_read' => true,
+            'read_at' => now(),
+        ]);
+
+        return redirect()->back()->with('info','Semua notifikasi telah ditandai dibaca.');
     }
 
     /**
-     * Mark all notifications as read
+     * Tandai satu notifikasi sebagai dibaca (opsional jika nanti diperlukan).
      */
-    public function markAllAsRead()
+    public function markAsRead(Request $request, int $id)
     {
-        Notification::where('user_id', Auth::id())
-            ->where('is_read', false)
-            ->update([
-                'is_read' => true,
-                'read_at' => now(),
-            ]);
-
-        return back()->with('success', 'Semua notifikasi telah ditandai sebagai dibaca');
+        $notif = Notification::where('id',$id)->where('user_id', Auth::id())->first();
+        if ($notif) {
+            $notif->markAsRead();
+        }
+        return redirect()->back();
     }
 }

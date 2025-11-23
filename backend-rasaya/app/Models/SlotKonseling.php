@@ -18,7 +18,9 @@ class SlotKonseling extends Model
         'booked_count',
         'status',
         'lokasi',
-        'notes'
+        'notes',
+        'is_private',
+        'target_siswa_kelas_id'
     ];
     protected $casts = [
         'start_at' => 'datetime',
@@ -43,6 +45,10 @@ class SlotKonseling extends Model
         return $q->where('status', 'published')
             ->where(function($qq){
                 $qq->whereNull('booked_count')->orWhere('booked_count', 0);
+            })
+            ->where(function($qq){
+                // Exclude private slots from generic availability listing
+                $qq->whereNull('is_private')->orWhere('is_private', false);
             });
     }
 

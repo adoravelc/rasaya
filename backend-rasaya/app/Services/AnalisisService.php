@@ -261,7 +261,12 @@ class AnalisisService
             $negPct = number_format($negRatio * 100, 1);
             $avgSentStr = number_format($avgSent, 2);
 
-            // Build paragraph
+            // Jika sama sekali tidak ada konten negatif & sentimen >= sedikit positif, buat fallback positif
+            if ($negRatio == 0.0 && $severeCount === 0 && $avgSent >= 0.05) {
+                $autoSummary = "Input siswa rata-rata bernilai positif atau netral tanpa indikasi masalah dari refleksi diri, laporan teman maupun observasi guru pada rentang ini. Lanjutkan pemantauan rutin.";
+            }
+
+            // Build paragraph normal jika belum di-set oleh fallback
             $parts = [];
             if ($avgSent <= -0.15) {
                 $parts[] = "Secara umum, curhatan siswa bernada $sentTxt (skor $avgSentStr) dengan $negPct% konten bernuansa negatif.";
@@ -282,7 +287,10 @@ class AnalisisService
             }
             $parts[] = "Silakan merujuk rekomendasi di bawah sebagai tindak lanjut awal.";
 
-            $autoSummary = implode(' ', $parts);
+            // Jangan timpa fallback positif jika sudah di-set
+            if ($autoSummary === null || $autoSummary === '') {
+                $autoSummary = implode(' ', $parts);
+            }
         } catch (\Throwable $e) {
             // fallback to prior short format
             if (is_array($summary)) {
