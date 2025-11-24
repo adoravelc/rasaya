@@ -80,26 +80,26 @@
                 </div>
 
                 <div id="handling-block" class="mb-2" style="{{ $analisis->needs_attention ? '' : 'display:none;' }}">
-                        <div class="small text-muted mb-1">Status Penanganan</div>
-                        <div class="btn-group btn-group-sm" role="group">
-                            <button type="button"
-                                class="btn btn-outline-warning {{ $analisis->handling_status === 'handled' ? 'active' : '' }}"
-                                onclick="updateHandlingStatus('{{ $analisis->id }}', 'handled')">
-                                Sedang Ditangani
-                            </button>
-                            <button type="button"
-                                class="btn btn-outline-success {{ $analisis->handling_status === 'resolved' ? 'active' : '' }}"
-                                onclick="updateHandlingStatus('{{ $analisis->id }}', 'resolved')">
-                                Sudah Selesai
-                            </button>
-                        </div>
-                        @if ($analisis->handling_status)
-                            <span id="handling-badge"
-                                class="badge ms-2 {{ $analisis->handling_status === 'handled' ? 'text-bg-warning' : 'text-bg-success' }}">
-                                {{ $analisis->handling_status === 'handled' ? 'Sedang Ditangani' : 'Selesai' }}
-                            </span>
-                        @endif
+                    <div class="small text-muted mb-1">Status Penanganan</div>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button"
+                            class="btn btn-outline-warning {{ $analisis->handling_status === 'handled' ? 'active' : '' }}"
+                            onclick="updateHandlingStatus('{{ $analisis->id }}', 'handled')">
+                            Sedang Ditangani
+                        </button>
+                        <button type="button"
+                            class="btn btn-outline-success {{ $analisis->handling_status === 'resolved' ? 'active' : '' }}"
+                            onclick="updateHandlingStatus('{{ $analisis->id }}', 'resolved')">
+                            Sudah Selesai
+                        </button>
                     </div>
+                    @if ($analisis->handling_status)
+                        <span id="handling-badge"
+                            class="badge ms-2 {{ $analisis->handling_status === 'handled' ? 'text-bg-warning' : 'text-bg-success' }}">
+                            {{ $analisis->handling_status === 'handled' ? 'Sedang Ditangani' : 'Selesai' }}
+                        </span>
+                    @endif
+                </div>
                 <div class="text-muted small mb-3">
                     Rentang: {{ \Illuminate\Support\Carbon::parse($analisis->tanggal_awal_proses)->toDateString() }} —
                     {{ \Illuminate\Support\Carbon::parse($analisis->tanggal_akhir_proses)->toDateString() }}
@@ -108,30 +108,31 @@
                     $user = auth()->user();
                 @endphp
                 @php $guru = $user && $user->role === 'guru' ? \App\Models\Guru::where('user_id', $user->id)->first() : null; @endphp
-                <div id="attention-actions-block" class="mb-3 p-2 rounded-2 d-flex flex-wrap gap-2 align-items-center {{ ($analisis->needs_attention && $user && $user->role === 'guru') ? '' : 'd-none' }}"
+                <div id="attention-actions-block"
+                    class="mb-3 p-2 rounded-2 d-flex flex-wrap gap-2 align-items-center {{ $analisis->needs_attention && $user && $user->role === 'guru' ? '' : 'd-none' }}"
                     style="background:#f1f5f9;border:1px solid #e2e8f0;">
-                        <div class="small fw-semibold text-danger me-2"><i class="bi bi-exclamation-circle me-1"></i>Perlu
-                            Tindak Lanjut</div>
-                        @if ($guru && $guru->jenis === 'bk')
-                            <form method="post" action="{{ route('guru.referrals.analysis.direct', $analisis->id) }}"
-                                class="d-inline">
-                                @csrf
-                                <button type="submit" class="btn btn-sm btn-primary" style="background:#0d6efd"
-                                    onclick="return confirm('Buat referral internal & jadwalkan konseling privat?')">
-                                    <i class="bi bi-calendar-plus me-1"></i>Jadwalkan Konseling Privat
-                                </button>
-                            </form>
-                        @elseif($guru)
-                            <form method="post" action="{{ route('guru.referrals.store') }}" class="d-inline">
-                                @csrf
-                                <input type="hidden" name="siswa_kelas_id" value="{{ $analisis->siswaKelas->id }}">
-                                <button type="submit" class="btn btn-sm btn-outline-primary"
-                                    onclick="return confirm('Ajukan konseling BK untuk siswa ini?')">
-                                    <i class="bi bi-send me-1"></i>Ajukan Konseling BK
-                                </button>
-                            </form>
-                        @endif
-                    </div>
+                    <div class="small fw-semibold text-danger me-2"><i class="bi bi-exclamation-circle me-1"></i>Perlu
+                        Tindak Lanjut</div>
+                    @if ($guru && $guru->jenis === 'bk')
+                        <form method="post" action="{{ route('guru.referrals.analysis.direct', $analisis->id) }}"
+                            class="d-inline">
+                            @csrf
+                            <button type="submit" class="btn btn-sm btn-primary" style="background:#0d6efd"
+                                onclick="return confirm('Buat referral internal & jadwalkan konseling privat?')">
+                                <i class="bi bi-calendar-plus me-1"></i>Jadwalkan Konseling Privat
+                            </button>
+                        </form>
+                    @elseif($guru)
+                        <form method="post" action="{{ route('guru.referrals.store') }}" class="d-inline">
+                            @csrf
+                            <input type="hidden" name="siswa_kelas_id" value="{{ $analisis->siswaKelas->id }}">
+                            <button type="submit" class="btn btn-sm btn-outline-primary"
+                                onclick="return confirm('Ajukan konseling BK untuk siswa ini?')">
+                                <i class="bi bi-send me-1"></i>Ajukan Konseling BK
+                            </button>
+                        </form>
+                    @endif
+                </div>
                 @php
                     // Skor sentimen -1 (sangat negatif) .. +1 (sangat positif)
                     $clamped = max(-1, min(1, $sentimenScore));
@@ -260,6 +261,11 @@
             <div class="card-header"><strong>Rekomendasi Sistem</strong></div>
             <div class="list-group list-group-flush">
                 @forelse($analisis->rekomendasis as $r)
+                    {{-- 
+                Logic Filter & Sorting sudah dipindah ke Controller.
+                View hanya bertugas merender apa yang diberikan.
+            --}}
+
                     <div class="list-group-item d-flex justify-content-between align-items-start">
                         <div>
                             <div class="fw-semibold">
@@ -267,6 +273,18 @@
                                     onclick="openRekomDetail({{ $analisis->id }}, {{ $r->id }})">{{ $r->judul }}</a>
                             </div>
                             <div class="small text-muted">Klik judul untuk lihat detail</div>
+
+                            {{-- Tampilkan Kategori & Severity untuk konfirmasi visual --}}
+                            @php
+                                $cats = $r->master?->kategoris->pluck('nama')->toArray() ?? [];
+                                $catStr = !empty($cats) ? implode(', ', $cats) : 'Umum';
+                                $minScore = $r->master?->rules['min_neg_score'] ?? 0;
+                            @endphp
+                            <div class="mt-1">
+                                <span class="badge bg-light text-dark border">{{ $catStr }}</span>
+                                <span class="badge bg-light text-secondary border ms-1" title="Minimal Skor Sentimen">Min:
+                                    {{ $minScore }}</span>
+                            </div>
                         </div>
                         <div class="text-end">
                             <div class="small text-muted mb-1">Status: <strong>{{ $r->status }}</strong></div>
@@ -284,7 +302,8 @@
                         </div>
                     </div>
                 @empty
-                    <div class="list-group-item text-muted">Belum ada rekomendasi.</div>
+                    <div class="list-group-item text-muted">Belum ada rekomendasi yang sesuai dengan profil masalah siswa.
+                    </div>
                 @endforelse
             </div>
         </div>
@@ -294,7 +313,8 @@
                 <strong>Semua Input dalam Rentang</strong>
                 <span class="small text-muted">
                     Total:
-                    {{ ($refleksisSelf->count() ?? 0) + ($friendReports->count() ?? 0) + ($guruNotes->count() ?? 0) }} item
+                    {{ ($refleksisSelf->count() ?? 0) + ($friendReports->count() ?? 0) + ($guruNotes->count() ?? 0) }}
+                    item
                 </span>
             </div>
             <div class="card-body">
@@ -694,10 +714,10 @@
         }
 
         // Hot toggle needs_attention without full reload
-        (function initAttentionToggle(){
+        (function initAttentionToggle() {
             const sw = document.getElementById('attention-switch');
-            if(!sw) return;
-            sw.addEventListener('change', async function(){
+            if (!sw) return;
+            sw.addEventListener('change', async function() {
                 const needs = sw.checked ? '1' : '0';
                 const analisisId = {{ $analisis->id }};
                 const url = `${location.origin}/guru/analisis/${analisisId}/attention`;
@@ -705,27 +725,35 @@
                 fd.append('_token', csrf);
                 fd.append('needs_attention', needs);
                 try {
-                    const res = await fetch(url, { method:'POST', body: fd, headers:{ 'Accept':'application/json' } });
-                    if(!res.ok){ throw new Error('Gagal menyimpan'); }
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        body: fd,
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+                    if (!res.ok) {
+                        throw new Error('Gagal menyimpan');
+                    }
                     const data = await res.json();
                     const statusSpan = document.getElementById('attention-status');
                     const handlingBlock = document.getElementById('handling-block');
                     const actionsBlock = document.getElementById('attention-actions-block');
-                    if(data.needs_attention){
+                    if (data.needs_attention) {
                         statusSpan.classList.remove('text-muted');
                         statusSpan.classList.add('text-danger');
                         statusSpan.textContent = 'Butuh perhatian';
-                        if(handlingBlock) handlingBlock.style.display='';
-                        if(actionsBlock) actionsBlock.classList.remove('d-none');
+                        if (handlingBlock) handlingBlock.style.display = '';
+                        if (actionsBlock) actionsBlock.classList.remove('d-none');
                     } else {
                         statusSpan.classList.remove('text-danger');
                         statusSpan.classList.add('text-muted');
                         statusSpan.textContent = 'Normal';
-                        if(handlingBlock) handlingBlock.style.display='none';
-                        if(actionsBlock) actionsBlock.classList.add('d-none');
+                        if (handlingBlock) handlingBlock.style.display = 'none';
+                        if (actionsBlock) actionsBlock.classList.add('d-none');
                     }
-                    document.getElementById('attention-input').value = data.needs_attention ? '1':'0';
-                } catch(err){
+                    document.getElementById('attention-input').value = data.needs_attention ? '1' : '0';
+                } catch (err) {
                     alert(err.message || 'Gagal memperbarui status');
                     // revert checkbox
                     sw.checked = !sw.checked;

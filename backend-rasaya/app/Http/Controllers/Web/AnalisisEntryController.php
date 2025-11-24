@@ -25,11 +25,11 @@ class AnalisisEntryController extends Controller
     {
         // daftar hasil analisis; wali kelas hanya melihat siswanya sendiri
         $q = AnalisisEntry::query()->with([
-                'rekomendasis.master',
-                'siswaKelas.kelas',
-                'siswaKelas.tahunAjaran',
-                'siswaKelas.siswa.user'
-            ])->latest()
+            'rekomendasis.master',
+            'siswaKelas.kelas',
+            'siswaKelas.tahunAjaran',
+            'siswaKelas.siswa.user'
+        ])->latest()
             ->where('created_by', $r->user()->id);
 
         $guru = optional($r->user())->guru;
@@ -87,36 +87,49 @@ class AnalisisEntryController extends Controller
     {
         $analisis->load(['rekomendasis.master.kategoris', 'siswaKelas.siswa.user', 'siswaKelas.kelas.jurusan', 'createdBy']);
 
-        // Urutkan rekomendasi: kategori tertinggi dulu, lalu skor sentimen paling mendekati
+        // 1. Ambil Overview & Sentimen
         $categoriesOverview = collect($analisis->categories_overview ?? []);
-        $avgSentimen = abs((float)($analisis->skor_sentimen ?? 0));
-        
-        $sortedRekomendasis = $analisis->rekomendasis->sortBy(function($rekom) use ($categoriesOverview, $avgSentimen) {
-            // Ambil kategori dari master rekomendasi
-            $kategoris = $rekom->master?->kategoris ?? collect();
-            
-            // Cari skor kategori tertinggi dari rekomendasi ini
-            $maxCategoryScore = 0;
-            foreach ($kategoris as $kat) {
-                $categoryInOverview = $categoriesOverview->firstWhere('category', $kat->nama);
-                if ($categoryInOverview) {
-                    $score = (float)($categoryInOverview['score'] ?? 0);
-                    if ($score > $maxCategoryScore) {
-                        $maxCategoryScore = $score;
-                    }
-                }
-            }
-            
-            // Hitung kedekatan skor sentimen minimal dengan skor sentimen analisis
-            $minNegScore = (float)($rekom->master?->rules['min_neg_score'] ?? 0);
-            $scoreDiff = abs($avgSentimen - abs($minNegScore));
-            
-            // Return tuple untuk sorting: negatif category score (desc), lalu diff (asc)
-            return [-$maxCategoryScore, $scoreDiff];
-        })->values();
-        
-        // Replace collection dengan yang sudah diurutkan
+        $studentSentiment = abs((float) ($analisis->skor_sentimen ?? 0));
+
+        // --- TAMBAHAN BARU: HITUNG POPULARITAS ---
+        // Kita ambil ID semua master rekomendasi yang sedang ditampilkan saat ini
+        $masterIds = $analisis->rekomendasis->pluck('master_rekomendasi_id')->unique();
+
+        // Query ke database: "Coba hitung, ID ini sudah berapa kali di-ACCEPT di seluruh sistem?"
+        // Hasilnya array: [ID_REKOMENDASI => JUMLAH_DIPILIH]
+        $popularityScores = \Illuminate\Support\Facades\DB::table('analisis_rekomendasis')
+            ->whereIn('master_rekomendasi_id', $masterIds)
+            ->where('status', 'accepted') // Hanya hitung yang diterima
+            ->select('master_rekomendasi_id', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
+            ->groupBy('master_rekomendasi_id')
+            ->pluck('total', 'master_rekomendasi_id');
+
+        // 2. Logic Sorting & Filtering (Diupdate)
+        $sortedRekomendasis = $analisis->rekomendasis
+            ->sortBy(function ($rekom) use ($studentSentiment, $popularityScores) {
+                // A. Prioritas Visual: Status Suggested Paling Atas
+                // 0 = Suggested, 1 = Accepted/Rejected
+                $statusOrder = ($rekom->status === 'suggested') ? 0 : 1;
+
+                // B. Popularitas (History Learning)
+                // Ambil jumlah accepted dari array yang kita buat tadi. Kalau gak ada, nilai 0.
+                $countAccepted = $popularityScores[$rekom->master_rekomendasi_id] ?? 0;
+
+                // C. Kedekatan Sentimen
+                $minNegScore = abs((float) ($rekom->master?->rules['min_neg_score'] ?? 0));
+                $scoreDiff = abs($studentSentiment - $minNegScore);
+
+                // RETURN TUPLE SORTING:
+                // 1. Status (ASC: 0 dulu baru 1)
+                // 2. Popularitas (DESC: Kita kasih MINUS biar yang angkanya GEDE jadi di atas)
+                // 3. Selisih Sentimen (ASC: Yang selisihnya dikit di atas)
+                return [$statusOrder, -$countAccepted, $scoreDiff];
+            })
+            ->values();
+
         $analisis->setRelation('rekomendasis', $sortedRekomendasis);
+
+        // ... (SISA KODE KE BAWAH TETAP SAMA SEPERTI ASLINYA) ...
 
         $isWali = optional(Auth::user()->guru)->jenis === 'wali_kelas';
 
@@ -130,10 +143,9 @@ class AnalisisEntryController extends Controller
 
         $used = collect($analisis->used_items ?? []);
         $topEmojis = collect();
-        $avgMood = $analisis->avg_mood; // already stored at analysis time
+        $avgMood = $analisis->avg_mood;
 
         if ($used->isNotEmpty()) {
-            // Ambil data tepat yang dipakai saat analisis (snapshot IDs)
             $selfIds = $used->where('type', 'ref_self')->pluck('id')->all();
             $friendIds = $used->where('type', 'ref_friend')->pluck('id')->all();
             $guruIds = $used->where('type', 'guru')->pluck('id')->all();
@@ -141,119 +153,86 @@ class AnalisisEntryController extends Controller
             if (!empty($selfIds)) {
                 $refleksisSelf = InputSiswa::with(['siswaKelas.siswa.user'])
                     ->whereIn('id', $selfIds)
-                    ->where('is_friend', false) // jaga-jaga: filter hanya refleksi diri
-                    ->orderBy('tanggal', 'desc')
-                    ->get();
+                    ->where('is_friend', false)
+                    ->orderBy('tanggal', 'desc')->get();
             }
             if (!empty($friendIds)) {
                 $friendReports = InputSiswa::with(['siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user'])
                     ->whereIn('id', $friendIds)
-                    ->where('is_friend', true) // jaga-jaga: pastikan ini laporan teman
-                    ->orderBy('tanggal', 'desc')
-                    ->get();
+                    ->where('is_friend', true)
+                    ->orderBy('tanggal', 'desc')->get();
             }
             if (!empty($guruIds)) {
                 $guruNotes = InputGuru::with(['siswaKelas.siswa.user'])
                     ->whereIn('id', $guruIds)
-                    ->orderBy('tanggal', 'desc')
-                    ->get();
+                    ->orderBy('tanggal', 'desc')->get();
             }
         } elseif ($from && $to) {
-            // Fallback untuk analisis lama (sebelum ada snapshot): gunakan rentang tanggal
             $refleksisSelf = InputSiswa::with(['siswaKelas.siswa.user'])
                 ->where('siswa_kelas_id', $analisis->siswa_kelas_id)
                 ->whereBetween('tanggal', [$from, $to])
-                ->where('is_friend', false)
-                ->orderBy('tanggal', 'desc')
-                ->get();
+                ->where('is_friend', false)->orderBy('tanggal', 'desc')->get();
 
             $friendReports = InputSiswa::with(['siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user'])
                 ->where('siswa_dilapor_kelas_id', $analisis->siswa_kelas_id)
                 ->whereBetween('tanggal', [$from, $to])
-                ->where('is_friend', true)
-                ->orderBy('tanggal', 'desc')
-                ->get();
+                ->where('is_friend', true)->orderBy('tanggal', 'desc')->get();
 
             $guruNotes = InputGuru::with(['siswaKelas.siswa.user'])
                 ->where('siswa_kelas_id', $analisis->siswa_kelas_id)
-                ->whereBetween('tanggal', [$from, $to])
-                ->orderBy('tanggal', 'desc')
-                ->get();
+                ->whereBetween('tanggal', [$from, $to])->orderBy('tanggal', 'desc')->get();
         }
 
-        // Ambil data mood untuk ringkasan (gunakan rentang yang tercatat di entry)
         if ($from && $to) {
             $moods = PemantauanEmosiSiswa::query()
                 ->where('siswa_kelas_id', $analisis->siswa_kelas_id)
                 ->whereBetween('tanggal', [$from, $to])
                 ->get(['skor']);
             if ($moods->isNotEmpty()) {
-                $freq = $moods->groupBy('skor')->map(function($g){ return $g->count(); })->sortDesc();
-                // Mapping skor->emoji: 1=😓 Awful, 2=😭 Overwhelmed, 3=😔 Bad, 4=😟 Stressed, 5=😐 Meh, 6=😴 Tired, 7=😊 Good, 8=😎 Chill, 9=😍 In Love, 10=🤩 Rad
-                $map = [
-                    1 => '😓',
-                    2 => '😭',
-                    3 => '😔',
-                    4 => '😟',
-                    5 => '😐',
-                    6 => '😴',
-                    7 => '😊',
-                    8 => '😎',
-                    9 => '😍',
-                    10 => '🤩'
-                ];
+                $freq = $moods->groupBy('skor')->map(function ($g) {
+                    return $g->count();
+                })->sortDesc();
+                $map = [1 => '😓', 2 => '😭', 3 => '😔', 4 => '😟', 5 => '😐', 6 => '😴', 7 => '😊', 8 => '😎', 9 => '😍', 10 => '🤩'];
                 $topEmojis = $freq->take(5)->map(function ($cnt, $skor) use ($map) {
                     $s = (int) $skor;
-                    $emoji = $map[$s] ?? '�';
-                    return ['skor' => $s, 'emoji' => $emoji, 'count' => (int) $cnt];
+                    return ['skor' => $s, 'emoji' => $map[$s] ?? '', 'count' => (int) $cnt];
                 })->values();
-                // If not stored previously, compute avg mood now for display fallback
                 $avgMood = $avgMood ?? round((float) $moods->avg('skor'), 2);
             }
         }
 
-        // ===================== Interpretasi skor untuk tampilan guru (awam) =====================
-        $sentimenScore = (float) ($analisis->skor_sentimen ?? 0.0); // asumsi sudah di [-1,1]
+        $sentimenScore = (float) ($analisis->skor_sentimen ?? 0.0);
         $sentimenDesc = match (true) {
-            $sentimenScore <= -0.80 => 'Sangat negatif: indikasi tekanan emosional berat atau keluhan serius; perlu perhatian segera.',
-            $sentimenScore <= -0.60 => 'Negatif berat: banyak ekspresi stres/keluhan; monitor intensif disarankan.',
-            $sentimenScore <= -0.35 => 'Negatif cukup kuat: muncul beberapa keluhan atau penurunan motivasi.',
-            $sentimenScore <= -0.15 => 'Agak negatif: ada tanda masalah ringan atau kejadian tidak menyenangkan.',
-            $sentimenScore < 0.15 => 'Netral: ekspresi campuran atau minim emosi kuat.',
-            $sentimenScore < 0.35 => 'Agak positif: ada nuansa semangat atau sikap cukup baik.',
-            $sentimenScore < 0.60 => 'Positif cukup kuat: menunjukkan motivasi dan emosi relatif sehat.',
-            $sentimenScore < 0.80 => 'Sangat positif: konsisten menampilkan sikap optimis dan stabil.',
-            default => 'Positif tinggi sekali: antusias / sangat konstruktif (cek konsistensi agar bukan sekadar euforia sementara).'
+            $sentimenScore <= -0.80 => 'Sangat negatif: indikasi tekanan emosional berat atau keluhan serius.',
+            $sentimenScore <= -0.60 => 'Negatif berat: banyak ekspresi stres/keluhan.',
+            $sentimenScore <= -0.35 => 'Negatif cukup kuat: muncul beberapa keluhan.',
+            $sentimenScore <= -0.15 => 'Agak negatif: ada tanda masalah ringan.',
+            $sentimenScore < 0.15 => 'Netral: ekspresi campuran.',
+            $sentimenScore < 0.35 => 'Agak positif.',
+            $sentimenScore < 0.60 => 'Positif cukup kuat.',
+            $sentimenScore < 0.80 => 'Sangat positif.',
+            default => 'Positif tinggi sekali.'
         };
 
-        // Mood range diasumsikan 1–10 (1 sangat buruk, 10 sangat baik)
         $avgMoodVal = (float) ($avgMood ?? $analisis->avg_mood ?? 0.0);
         $moodDesc = match (true) {
-            $avgMoodVal <= 0 => 'Tidak ada data mood pada rentang ini.',
-            $avgMoodVal <= 2 => 'Sangat rendah / tertekan: perasaan negatif dominan.',
-            $avgMoodVal <= 4 => 'Rendah: sering muncul rasa tidak nyaman / beban emosional.',
-            $avgMoodVal <= 6 => 'Sedang: kondisi wajar atau sedikit lelah, masih dalam batas normal.',
-            $avgMoodVal <= 8 => 'Baik: kestabilan emosi cukup terjaga.',
-            $avgMoodVal <= 9 => 'Sangat baik: menunjukkan kesejahteraan emosional tinggi.',
-            default => 'Sangat tinggi / euforia: perasaan sangat positif; tetap pantau agar stabil.'
+            $avgMoodVal <= 0 => 'Tidak ada data mood.',
+            $avgMoodVal <= 2 => 'Sangat rendah / tertekan.',
+            $avgMoodVal <= 4 => 'Rendah: tidak nyaman.',
+            $avgMoodVal <= 6 => 'Sedang: wajar.',
+            $avgMoodVal <= 8 => 'Baik.',
+            $avgMoodVal <= 9 => 'Sangat baik.',
+            default => 'Sangat tinggi.'
         };
 
-        // Penjelasan skala singkat
-        $sentimenScaleInfo = 'Skor Sentimen: -1 (sangat negatif) sampai +1 (sangat positif). Nilai mendekati 0 berarti netral.';
-        $moodScaleInfo = 'Skor Mood: 1 (sangat buruk) → 10 (sangat baik). Semakin tinggi biasanya semakin stabil dan positif.';
+        $sentimenScaleInfo = 'Skor Sentimen: -1 (negatif) ... +1 (positif).';
+        $moodScaleInfo = 'Skor Mood: 1 (buruk) ... 10 (baik).';
+        $kategoris = \App\Models\KategoriMasalah::aktif()->orderBy('nama')->get(['id', 'nama', 'kode']);
 
-        $kategoris = \App\Models\KategoriMasalah::aktif()->orderBy('nama')->get(['id','nama','kode']);
-
-        // Simple ML caveat notes for the UI
         $mlWarnings = [];
         $co = collect($analisis->categories_overview ?? []);
-        if ($co->isEmpty()) {
-            $mlWarnings[] = 'Kategori otomatis belum tersedia (teks negatif sangat sedikit atau kata kunci kurang jelas).';
-        }
-        $cl = collect($analisis->clusters ?? []);
-        if ($cl->count() < 1) {
-            $mlWarnings[] = 'Belum ada klasterisasi khusus data negatif (data negatif kurang dari 2).';
-        }
+        if ($co->isEmpty())
+            $mlWarnings[] = 'Kategori otomatis belum tersedia.';
 
         return view('roles.guru.analisis.show', [
             'analisis' => $analisis,
@@ -302,8 +281,8 @@ class AnalisisEntryController extends Controller
         // action = reject → require kategori + selected alternative
         $kategoriId = (int) ($validated['kategori_id'] ?? 0);
         $altId = (int) ($validated['selected_master_rekomendasi_id'] ?? 0);
-    $kategori = $kategoriId ? KategoriMasalah::aktif()->find($kategoriId) : null;
-    $alt = $altId ? MasterRekomendasi::with('kategoris')->find($altId) : null;
+        $kategori = $kategoriId ? KategoriMasalah::aktif()->find($kategoriId) : null;
+        $alt = $altId ? MasterRekomendasi::with('kategoris')->find($altId) : null;
 
         if (!$kategori || !$alt) {
             return back()->withErrors(['reject' => 'Kategori dan rekomendasi alternatif wajib dipilih.']);
@@ -337,7 +316,9 @@ class AnalisisEntryController extends Controller
         $r->validate(['kategori_id' => ['required', 'integer']]);
         $kategori = KategoriMasalah::aktif()->findOrFail((int) $r->kategori_id);
         $q = MasterRekomendasi::query()->where('is_active', true)
-            ->whereHas('kategoris', function($qq) use ($kategori){ $qq->where('kategori_masalahs.id', $kategori->id); })
+            ->whereHas('kategoris', function ($qq) use ($kategori) {
+                $qq->where('kategori_masalahs.id', $kategori->id);
+            })
             ->limit(5)
             ->get(['id', 'kode', 'judul', 'deskripsi', 'severity']);
         return response()->json(['items' => $q]);
@@ -368,7 +349,7 @@ class AnalisisEntryController extends Controller
             }
         }
         // ensure needs_attention stays true if any accepted high exists
-        $hasHigh = $analisis->rekomendasis()->where('status','accepted')->where('severity','high')->exists();
+        $hasHigh = $analisis->rekomendasis()->where('status', 'accepted')->where('severity', 'high')->exists();
         if ($hasHigh && !$analisis->needs_attention) {
             $analisis->needs_attention = true;
             $analisis->save();
@@ -416,12 +397,12 @@ class AnalisisEntryController extends Controller
 
         $status = $r->input('handling_status');
         $analisis->handling_status = $status;
-        
+
         // Jika status 'resolved', otomatis set needs_attention jadi false
         if ($status === 'resolved') {
             $analisis->needs_attention = false;
         }
-        
+
         $analisis->save();
 
         if ($r->wantsJson()) {

@@ -15,6 +15,26 @@ from datetime import datetime
 from typing import List, Dict
 from collections import defaultdict, Counter
 
+STOPWORDS_ID_CHAT = set(stopwords.words('indonesian')) | set(stopwords.words('english'))
+# Tambahkan kata-kata yang "lolos" di laporan kamu ke sini
+_CHAT_FILLERS = {
+    "sih", "dong", "kok", "kan", "tuh", "deh", "lah", "yah", "ni", "tu", 
+    "ya", "yak", "yuk", "loh", "masa", "mana", "tapi", "kalo", "kalau", 
+    "biar", "buat", "bikin", "bilang", "gak", "ga", "nggak", "enggak", 
+    "kagak", "tak", "ndak", "udah", "sudah", "blm", "belum", "pas", 
+    "lagi", "lg", "td", "tadi", "km", "kamu", "aku", "saya", "gw", "gue", 
+    "lu", "lo", "elu", "kita", "kalian", "mereka", "dia", "ini", "itu", 
+    "sini", "situ", "sana", "bgt", "banget", "aja", "saja", "cuma", 
+    "doang", "terus", "trs", "jd", "jadi", "karna", "karena", "krn", 
+    "bisa", "bs", "mau", "mo", "pengen", "ingin", "ada", "tiada",
+    "sama", "dgn", "dengan", "dr", "dari", "ke", "di", "pd", "pada",
+    "kapan", "dimana", "siapa", "mengapa", "kenapa", "gimana", "bagaimana",
+    "wkwk", "haha", "hehe", "huhu", "anjir", "njir", "anjing",
+    # TAMBAHAN DARI KASUS KAMU:
+    "apalah", "apa", "aduh", "wah", "nah", "kek", "kayak", "macam",
+}
+STOPWORDS_ID_CHAT.update(_CHAT_FILLERS)
+
 def ensure_nltk():
     # pastikan paket-paket penting ada
     needed = ["punkt", "punkt_tab", "stopwords", "vader_lexicon"]
@@ -139,7 +159,7 @@ _RE_URL = re.compile(r"https?://\S+|www\.\S+", re.I)
 _RE_MENTION = re.compile(r"[@#]\w+")
 _RE_NON_ALNUM = re.compile(r"[^0-9a-zA-Z\u00C0-\u024F\u1E00-\u1EFF\u0600-\u06FF\u0900-\u097F\u0980-\u09FF\u0A00-\u0AFF\u0B00-\u0B7F\u0C00-\u0C7F\u0D00-\u0D7F\u0E00-\u0E7F ]+")
 _RE_MULTISPACE = re.compile(r"\s+")
-_RE_REPEAT = re.compile(r"(.)\1{2,}")  # aaa -> aa
+_RE_REPEAT = re.compile(r"(.)\1+")
 
 def _norm_negasi(t: str) -> str:
     repl = {
@@ -156,7 +176,7 @@ def clean_text(t: str) -> str:
     t = _RE_URL.sub(" ", t)
     t = _RE_MENTION.sub(" ", t)
     t = _RE_NON_ALNUM.sub(" ", t)
-    t = _RE_REPEAT.sub(r"\1\1", t)
+    t = _RE_REPEAT.sub(r"\1", t)
     t = _norm_negasi(t)
     t = _RE_MULTISPACE.sub(" ", t).strip()
     # Dialect normalization (Kupang/common variants)
@@ -166,7 +186,7 @@ def clean_text(t: str) -> str:
         "beta": "saya",
         "b": "saya",
         "sy": "saya",
-        "aku": "saya",  # unify first person
+        "aku": "saya",
         "deng": "dengan",
         "dng": "dengan",
         "sm": "sama",
@@ -569,7 +589,7 @@ def analyze():
 
         # Keyphrases (RAKE) per-entry + normalization & dedup
         try:
-            rk = Rake()
+            rk = Rake(stopwords=STOPWORDS_ID_CHAT, min_length=1, max_length=3)
             rk.extract_keywords_from_text(raw_txt)
             raw_phrases = [p.lower() for p in rk.get_ranked_phrases()[:8]]
         except Exception:
@@ -731,12 +751,20 @@ def analyze():
     # aggregate category overview (from negative entries only)
     # Severity-weighted aggregation of ALL category scores for negative entries
     cat_counter = Counter()
+    
     for r in results:
+        # Ambil severity, minimal 0.5 agar input netral tetap dihitung
+        sev = r.get("severity", 0.0)
+        weight = 0.5 # Bobot dasar untuk input netral/positif
+        
         if r.get("negative_flag"):
-            sev = r.get("severity", 0.5)
-            for cat, sc in (r.get("cat_scores") or {}).items():
-                if sc > 0:
-                    cat_counter[cat] += sc * sev
+            # Jika negatif, bobotnya lebih besar (severity + 1.0)
+            weight = 1.0 + sev
+            
+        for cat, sc in (r.get("cat_scores") or {}).items():
+            if sc > 0:
+                cat_counter[cat] += sc * weight
+
     categories_overview = [
         {"category": cat, "score": round(val, 4)} for cat, val in cat_counter.most_common()
     ]
@@ -836,10 +864,19 @@ def analyze():
         bucket = (r.get("cluster") or {}).get("bucket")
         r["recommendations"] = recommend_rules(bucket, r.get("severity") or 0.0, r.get("negative_flag") or False)
 
-    # Global recommendations berdasarkan kategori_overview teratas
+   # Global recommendations logic
     abs_sent = abs(avg)
     global_recommendations = []
-    for cat in categories_overview:
+    
+    # REVISI FINAL: Hapus logic "top_score * 0.3". 
+    # Ambil SEMUA kategori yang skornya minimal 5% (0.05).
+    # Biarkan Laravel yang mengatur urutannya.
+    valid_categories = [
+        c for c in categories_overview 
+        if c["score"] >= 0.05 
+    ]
+
+    for cat in valid_categories:
         cname = cat["category"]
         score = cat["score"]
         meta = TOPIC_INDEX.get(cname.upper()) or {}

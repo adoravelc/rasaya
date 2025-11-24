@@ -140,7 +140,7 @@
       "keywords": ["scroll","FOMO","komen","bandingin","kacau tidur","game","rank","subuh","marah","gelisah"],
       "subtopics": [
   {"id": "OVERUSE_MEDIA_SOSIAL","code": "OMSO","name": "Overuse Media Sosial","keywords": ["scroll","FOMO","komen","bandingin","kacau tidur"],"examples": ["Scroll nggak kerasa berjam-jam.","Takut ketinggalan story.","Mood jelek habis lihat komen.","Bandingin diri terus.","Tidur jadi kacau."]},
-  {"id": "GAME_BERLEBIHAN","code": "GBRL","name": "Game Berlebihan","keywords": ["game","rank","subuh","marah","gelisah"],"examples": ["Rank harus naik, tugas belakangan.","Main sampe subuh.","Kalau disuruh stop jadi marah.","Susah fokus kalo nggak main.","HP disita langsung gelisah."]}
+  {"id": "GAME_BERLEBIHAN","code": "GBRL","name": "Game Berlebihan","keywords": ["game", "rank", "subuh", "top up", "mabar", "afk", "push rank", "kuota game"],"examples": ["Rank harus naik, tugas belakangan.","Main sampe subuh.","Kalau disuruh stop jadi marah.","Susah fokus kalo nggak main.","HP disita langsung gelisah."]}
       ]
     },
     {

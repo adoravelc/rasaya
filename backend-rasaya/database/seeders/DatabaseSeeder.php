@@ -16,14 +16,15 @@ class DatabaseSeeder extends Seeder
         // User::factory(10)->create();
 
         $this->call([
-            UserSeeder::class,   // seeder punyamu yg sudah isi identifier & role
-            TahunAjaranSeeder::class,
+            // UserSeeder::class,   // seeder punyamu yg sudah isi identifier & role
+            // TahunAjaranSeeder::class,
             KategoriMasalahSeeder::class,
-            MasterKategoriMasalahSeeder::class,
-            MasterKategoriPivotFromTaxonomySeeder::class,
+            MasterRekomendasiCompleteSeeder::class,
+            // MasterKategoriMasalahSeeder::class,
+            // MasterKategoriPivotFromTaxonomySeeder::class,
             // MasterRekomendasiBulkSeeder::class,
-            MasterRekomendasiPsychSeeder::class,
-            MasterRekomendasiPivotSeeder::class,
+            // MasterRekomendasiPsychSeeder::class,
+            // MasterRekomendasiPivotSeeder::class,
                 // SiswaKelasSeeder::class,            
             // SetupKelasXiiIps2Seeder::class,
             // SiswaXiiIps2Seeder::class,
