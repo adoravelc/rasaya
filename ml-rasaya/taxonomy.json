@@ -1,157 +1,154 @@
 {
   "topics": [
     {
-      "id": "MENTAL_EMOSI",
-      "name": "Kesehatan Mental & Emosi",
+      "id": "KME_SA",
+      "name": "Stres Akademik",
       "bucket": "EMOSI",
-      "keywords": ["stres","cemas","marah","sedih","kosong","tidur","insomnia","gelisah","overthinking","lelah","ngantuk"],
-      "subtopics": [
-        {
-          "id": "STRES_AKADEMIK",
-          "code": "SAKD",
-          "name": "Stres Akademik",
-          "keywords": ["tugas","ujian","nilai","deadline","pusing","remedial","belajar","mapel"],
-          "examples": [
-            "Tugas numpuk banget, pusing.",
-            "Mau ujian tapi kepala kayak meledak.",
-            "Nilai turun terus, panik.",
-            "Belajar tapi nggak masuk ke otak.",
-            "Deadline nempel tiap hari, capek."
-          ]
-        },
-        {
-          "id": "KECEMASAN_SOSIAL",
-          "code": "KSOS",
-          "name": "Kecemasan Sosial",
-          "keywords": ["takut","malu","gugup","presentasi","deg-degan","diam","ditanya","ketawain"],
-          "examples": [
-            "Disuruh maju langsung blank.",
-            "Takut salah ngomong di depan kelas.",
-            "Deg-degan kalau ditanya guru.",
-            "Mending diam daripada diketawain.",
-            "Keringet dingin tiap presentasi."
-          ]
-        },
-        {
-          "id": "DEPRESI_RINGAN",
-          "code": "DPRN",
-          "name": "Depresi Ringan",
-          "keywords": ["sedih","kosong","nggak semangat","nangis","menarik diri","murung"],
-          "examples": [
-            "Rasanya kosong aja.",
-            "Bangun pagi berat banget.",
-            "Nggak ada yang bikin semangat.",
-            "Pengen nangis terus.",
-            "Males ketemu orang."
-          ]
-        },
-        {
-          "id": "GANGGUAN_TIDUR",
-          "code": "GTDR",
-          "name": "Gangguan Tidur",
-          "keywords": ["begadang","insomnia","ngantuk","layar","kepikiran","bangun kesiangan"],
-          "examples": [
-            "Begadang scroll sampe jam 2.",
-            "Susah tidur, kepikiran tugas.",
-            "Tidur kebangun-bangun.",
-            "Bangun kesiangan tiap hari.",
-            "Ngantuk di kelas."
-          ]
-        }
-      ]
+      "keywords": ["stres", "pusing", "tekanan", "ujian", "nilai", "deadline", "tugas", "meledak", "panik", "takut gagal"]
     },
     {
-      "id": "SOSIAL_PERGAULAN",
-      "name": "Sosial & Pergaulan",
-      "bucket": "SOSIAL",
-      "keywords": ["teman","berantem","cekcok","konflik","bully","perundungan","grup","medsos","komentar"],
-      "subtopics": [
-  {"id": "BULLYING_TATAP_MUKA","code": "BTMK","name": "Bullying Tatap Muka","keywords": ["bully","ejek","eks-klusi","dorong","gibah","dijahuin"],"examples": ["Aku dijauhin geng kelas.","Sering diejekin fisik.","Tasku pernah disembunyiin.","Didorong pas istirahat.","Digibahin terus."]},
-  {"id": "CYBERBULLYING","code": "CBUL","name": "Cyberbullying","keywords": ["grup","sebar","hina","akun palsu","DM","doxing","komentar"],"examples": ["Fotoku disebar di grup.","Dihina di komentar IG.","Ada akun palsu nyindir.","DM ancaman jadi takut buka HP.","Ditarik-tarik ke grup olok-olok."]},
-  {"id": "TEKANAN_TEMAN_SEBAYA","code": "TTSP","name": "Tekanan Teman Sebaya","keywords": ["tekanan","ikut-ikutan","keren","solid","nolak","bolos"],"examples": ["Disuruh coba rokok biar dibilang keren.","Kalau nggak ikut nongkrong, dibilang nggak solid.","Takut ditolak kalau nolak ajakan.","Ikut-ikutan bolos.","Nge-bully karena rame-rame."]},
-  {"id": "KESEPIAN_ISOLASI","code": "KISO","name": "Kesepian/Isolasi","keywords": ["kesepian","sendirian","dukungan","nggak diterima","tidak dianggap"],"examples": ["Nggak ada yang bisa diajak cerita.","Istirahat sering sendirian.","Nggak kepilih kelompok.","Takut nimbrung, takut nggak diterima.","Berasa nggak dianggap."]}
-      ]
+      "id": "KME_KS",
+      "name": "Kecemasan Sosial",
+      "bucket": "EMOSI",
+      "keywords": ["takut", "malu", "gugup", "presentasi", "diam", "blank", "keringat dingin", "gemetar", "diliatin"]
     },
     {
-      "id": "KELUARGA_ASUH",
-      "name": "Keluarga & Pola Asuh",
-      "bucket": "SOSIAL",
-      "keywords": ["ribut","pisah","takut","broken home","dituntut","ranking","dibandingkan"],
-      "subtopics": [
-  {"id": "KONFLIK_ORANG_TUA","code": "KOTH","name": "Konflik Orang Tua/Broken Home","keywords": ["ribut","pisah","nggak tenang","takut","kabur"],"examples": ["Di rumah sering ribut.","Mereka pisah, aku kebingungan.","Rumah nggak pernah tenang.","Takut kalau pulang.","Pengen kabur aja."]},
-  {"id": "TEKANAN_PRESTASI_KELUARGA","code": "TPKL","name": "Tekanan Prestasi Keluarga","keywords": ["dituntut","ranking","dibandingkan","marah","takut gagal"],"examples": ["Kalau nilai nggak 90 dimarahin.","Disuruh ranking terus.","Semua dibandingin sama kakak.","Takut pulang kalau jelek.","Nilai jadi beban, bukan tujuan."]}
-      ]
+      "id": "KME_DR",
+      "name": "Depresi Ringan",
+      "bucket": "EMOSI",
+      "keywords": ["sedih", "kosong", "nangis", "menangis", "lelah", "berat", "tidak semangat", "menarik diri", "hampa"]
     },
     {
-      "id": "AKADEMIS_DISIPLIN",
-      "name": "Akademis & Disiplin",
-      "bucket": "AKADEMIK",
-      "keywords": ["males","nggak minat","capek","scroll","nggak guna","nunda","deadline","telat","bolos","mager"],
-      "subtopics": [
-  {"id": "MOTIVASI_BELAJAR_RENDAH","code": "MBRD","name": "Motivasi Belajar Rendah","keywords": ["males","nggak minat","capek","scroll","nggak guna"],"examples": ["Buka buku rasanya berat.","Belajar 5 menit udah capek.","Mending scroll aja.","Nggak lihat gunanya belajar.","Tugas numpuk, tapi nggak gerak."]},
-  {"id": "PROKRASTINASI_TUGAS","code": "PRTG","name": "Prokrastinasi Tugas","keywords": ["nunda","deadline","perfeksionis","subuh","nanti"],"examples": ["Deadline mepet baru gerak.","Nunda karena perfeksionis.","Kerja pas subuh.","PR dikerjain di sekolah.","Selalu bilang nanti."]},
-  {"id": "KETIDAKHADIRAN_BOLOS","code": "KBLN","name": "Ketidakhadiran/Bolos","keywords": ["bolos","telat","mager","cabut","ijin"],"examples": ["Mager berangkat.","Suka telat karena tidur pagi.","Cabut kalo bosen.","Ikut teman bolos.","Sering ijin palsu."]}
-      ]
-    },
-    {
-      "id": "FISIK_GAYA_HIDUP",
-      "name": "Kesehatan Fisik & Gaya Hidup",
+      "id": "KME_GT",
+      "name": "Gangguan Tidur",
       "bucket": "FISIK",
-      "keywords": ["olahraga","ngos-ngosan","duduk","mager","kebugaran","sarapan","kurang tidur","lemas","kopi","diet"],
-      "subtopics": [
-  {"id": "KURANG_AKTIVITAS_FISIK","code": "KAFK","name": "Kurang Aktivitas Fisik","keywords": ["olahraga","ngos-ngosan","duduk","mager","kebugaran"],"examples": ["Lari 1 putaran aja ngos-ngosan.","Jarang olahraga.","Capek duduk terus.","Males gerak kalau libur.","Tugas olahraga ditunda mulu."]},
-  {"id": "POLA_TIDUR_GIZI_BURUK","code": "PTGB","name": "Pola Tidur & Gizi Buruk","keywords": ["skip sarapan","kurang tidur","lemas","kopi","diet"],"examples": ["Sering skip sarapan.","Tidur jam 2 bangun 6.","Ngopi biar melek.","Lemas pas jam pelajaran.","Diet ekstrim biar kurus."]}
-      ]
+      "keywords": ["tidur", "begadang", "insomnia", "ngantuk", "terbangun", "subuh", "melek"]
     },
     {
-      "id": "RELASI_PERCINTAAN",
-      "name": "Relasi & Percintaan",
+      "id": "SOP_BTM",
+      "name": "Bullying Tatap Muka",
+      "bucket": "SOSIAL",
+      "keywords": ["bully", "ejek", "hina", "pukul", "dorong", "labrak", "palak", "ancam", "takut masuk"]
+    },
+    {
+      "id": "SOP_CB",
+      "name": "Cyberbullying",
+      "bucket": "SOSIAL",
+      "keywords": ["komen", "jahat", "sebar", "foto", "video", "grup", "wa", "ig", "sosmed", "akun palsu", "hujat"]
+    },
+    {
+      "id": "SOP_TTS",
+      "name": "Tekanan Teman Sebaya",
+      "bucket": "SOSIAL",
+      "keywords": ["dipaksa", "diajak", "ikut", "rokok", "nongkrong", "bolos", "takut nolak", "dijauhi", "solid"]
+    },
+    {
+      "id": "SOP_KI",
+      "name": "Kesepian / Isolasi",
+      "bucket": "SOSIAL",
+      "keywords": ["sendiri", "sepi", "tidak punya teman", "dicuekin", "diabaikan", "menyendiri", "asing"]
+    },
+    {
+      "id": "KPA_KOB",
+      "name": "Konflik Orang Tua / Broken Home",
+      "bucket": "KELUARGA",
+      "keywords": ["orang tua", "ortu", "ayah", "ibu", "papa", "mama", "berkelahi", "bertengkar", "cerai", "pisah", "rumah", "kabur"]
+    },
+    {
+      "id": "KPA_TPK",
+      "name": "Tekanan Prestasi Keluarga",
+      "bucket": "KELUARGA",
+      "keywords": ["tuntut", "banding", "ranking", "juara", "harus", "marah", "kecewa", "bangga", "nilai jelek"]
+    },
+    {
+      "id": "AKD_MBR",
+      "name": "Motivasi Belajar Rendah",
+      "bucket": "AKADEMIK",
+      "keywords": ["malas", "mager", "bosan", "tidak minat", "ngantuk", "main hp", "bolos", "capek belajar"]
+    },
+    {
+      "id": "AKD_PT",
+      "name": "Prokrastinasi Tugas",
+      "bucket": "AKADEMIK",
+      "keywords": ["nunda", "tunda", "nanti", "besok", "mepet", "sks", "belum siap", "lupa"]
+    },
+    {
+      "id": "AKD_KB",
+      "name": "Ketidakhadiran / Bolos",
+      "bucket": "AKADEMIK",
+      "keywords": ["bolos", "alfa", "izin", "sakit", "telat", "terlambat", "cabut", "warung"]
+    },
+    {
+      "id": "KFG_KAF",
+      "name": "Kurang Aktivitas Fisik",
+      "bucket": "FISIK",
+      "keywords": ["lemas", "loyo", "sakit", "pucat", "jarang olahraga", "gerak", "kesehatan"]
+    },
+    {
+      "id": "KFG_PTG",
+      "name": "Pola Tidur & Gizi Buruk",
+      "bucket": "FISIK",
+      "keywords": ["makan", "sarapan", "lapar", "kurus", "gemuk", "diet", "jajan", "pola hidup"]
+    },
+    {
+      "id": "REP_KP",
+      "name": "Konflik Percintaan",
       "bucket": "RELASI",
-      "keywords": ["cemburu","curiga","berantem","ghosting","posesif","putus","nangis","nggak nafsu","menarik diri"],
-      "subtopics": [
-  {"id": "KONFLIK_PERCINTAAN","code": "KPCR","name": "Konflik Percintaan","keywords": ["cemburu","curiga","berantem","ghosting","posesif"],"examples": ["Kesel lihat dia chat orang lain.","Berantem mulu sama pacar.","Dia ghosting, kepikiran terus.","Nggak fokus karena overthinking.","Takut kehilangan, jadi posesif."]},
-  {"id": "PUTUS_KEHILANGAN","code": "PTKH","name": "Putus & Kehilangan","keywords": ["putus","sedih","nangis","nggak nafsu","menarik diri"],"examples": ["Susah move on.","Nangis tiap malam.","Nggak nafsu makan.","Nilai turun sejak putus.","Males ketemu orang."]}
-      ]
+      "keywords": ["pacar", "putus", "selingkuh", "cemburu", "galau", "mantan", "suka", "cinta", "pdkt", "ghosting"]
     },
     {
-      "id": "KARIER_MASA_DEPAN",
-      "name": "Karier & Masa Depan",
+      "id": "REP_PK",
+      "name": "Putus & Kehilangan",
+      "bucket": "RELASI",
+      "keywords": ["putus", "hilang", "tinggal", "pergi", "sedih", "kangen", "rindu", "luka"]
+    },
+    {
+      "id": "KMD_KJK",
+      "name": "Kebingungan Jurusan / Karier",
       "bucket": "KARIER",
-      "keywords": ["kuliah","bingung","minat","bakat","takut salah","SPP","biaya","beasiswa","kerja"],
-      "subtopics": [
-  {"id": "KEBINGUNGAN_JURUSAN_KARIER","code": "KJUR","name": "Kebingungan Jurusan/Karier","keywords": ["kuliah","bingung","minat","bakat","takut salah"],"examples": ["Nggak tahu mau kuliah apa.","Takut salah pilih.","Bingung minat bakat sendiri.","Pengen kerja tapi nggak tau bidangnya.","Ortu maunya A, aku maunya B."]},
-  {"id": "HAMBATAN_EKONOMI","code": "HEKO","name": "Hambatan Ekonomi","keywords": ["SPP","biaya","beasiswa","kerja","kuliah"],"examples": ["SPP aja ngos-ngosan.","Kuliah mahal banget.","Kayaknya harus kerja dulu.","Nggak enak minta ortu.","Pengen beasiswa tapi bingung mulai."]}
-      ]
+      "keywords": ["kuliah", "jurusan", "kerja", "masa depan", "bingung", "minat", "bakat", "cita-cita"]
     },
     {
-      "id": "TATA_TERTIB",
-      "name": "Disiplin & Tata Tertib",
+      "id": "KMD_HE",
+      "name": "Hambatan Ekonomi",
+      "bucket": "KARIER",
+      "keywords": ["uang", "biaya", "bayar", "spp", "miskin", "kurang", "hutang", "kerja", "tulang punggung"]
+    },
+    {
+      "id": "DTT_PTT",
+      "name": "Pelanggaran Tata Tertib",
       "bucket": "DISIPLIN",
-      "keywords": ["poin","seragam","HP","sepatu","telat","aturan"],
-      "subtopics": [
-  {"id": "PELANGGARAN_TATA_TERTIB","code": "PTTB","name": "Pelanggaran Tata Tertib","keywords": ["poin","seragam","HP","sepatu","telat"],"examples": ["Kena poin karena rambut.","HP ketauan di jam pelajaran.","Seragam nggak lengkap.","Sepatu warna-warni.","Masuk kelas telat."]},
-  {"id": "MANAJEMEN_WAKTU_BURUK","code": "MWBK","name": "Manajemen Waktu Buruk","keywords": ["prioritas","jadwal","bentrok","lupa","numpuk"],"examples": ["Semua mepet.","Banyak bentrok jadwal.","Sering lupa kerjaan.","Tugas numpuk bareng-bareng.","Nggak keburu ngerjain."]}
-      ]
+      "keywords": ["seragam", "rambut", "sepatu", "atribut", "rokok", "hp", "razia", "hukum", "poin"]
     },
     {
-      "id": "DIGITAL_WELLBEING",
-      "name": "Digital Wellbeing",
+      "id": "DTT_MWB",
+      "name": "Manajemen Waktu Buruk",
+      "bucket": "DISIPLIN",
+      "keywords": ["telat", "lambat", "waktu", "jadwal", "berantakan", "susah bagi", "sibuk"]
+    },
+    {
+      "id": "DGW_OMS",
+      "name": "Overuse Media Sosial",
       "bucket": "DIGITAL",
-      "keywords": ["scroll","FOMO","komen","bandingin","kacau tidur","game","rank","subuh","marah","gelisah"],
-      "subtopics": [
-  {"id": "OVERUSE_MEDIA_SOSIAL","code": "OMSO","name": "Overuse Media Sosial","keywords": ["scroll","FOMO","komen","bandingin","kacau tidur"],"examples": ["Scroll nggak kerasa berjam-jam.","Takut ketinggalan story.","Mood jelek habis lihat komen.","Bandingin diri terus.","Tidur jadi kacau."]},
-  {"id": "GAME_BERLEBIHAN","code": "GBRL","name": "Game Berlebihan","keywords": ["game", "rank", "subuh", "top up", "mabar", "afk", "push rank", "kuota game"],"examples": ["Rank harus naik, tugas belakangan.","Main sampe subuh.","Kalau disuruh stop jadi marah.","Susah fokus kalo nggak main.","HP disita langsung gelisah."]}
-      ]
+      "keywords": ["hp", "sosmed", "ig", "tiktok", "scroll", "layar", "kecanduan", "lupa waktu"]
     },
     {
-      "id": "KEAMANAN_KESELAMATAN",
-      "name": "Keamanan & Keselamatan",
+      "id": "DGW_GB",
+      "name": "Game Berlebihan",
+      "bucket": "DIGITAL",
+      "keywords": ["game", "main", "ml", "ff", "pubg", "rank", "topup", "warnet", "mabar"]
+    },
+    {
+      "id": "KKS_KFD",
+      "name": "Kekerasan Fisik / Verbal oleh Dewasa",
       "bucket": "KEAMANAN",
-      "keywords": ["dibentak","ditampar","dipermalukan","takut","deg-degan","gender","pelecehan","stereotip","catcalling","objek"],
-      "subtopics": [
-  {"id": "KEKERASAN_DEWASA","code": "KFVD","name": "Kekerasan Fisik/Verbal oleh Dewasa","keywords": ["dibentak","ditampar","dipermalukan","takut","deg-degan"],"examples": ["Dibentak depan kelas.","Ditampar gara-gara PR.","Dipermalukan di depan teman.","Takut ketemu guru itu.","Deg-degan kalau pelajaran dia."]},
-  {"id": "PERUNDUNGAN_BERBASIS_GENDER","code": "PBGD","name": "Perundungan Berbasis Gender","keywords": ["gender","pelecehan","stereotip","catcalling","objek"],"examples": ["Dikatain banci/tomboy.","Disiul-siulin.","Diobjekin badan.","Komentar pakaian terus.","Ditekan soal peran cewek/cowok."]}
-      ]
+      "keywords": ["guru", "orang dewasa", "pukul", "bentak", "maki", "kasar", "takut"]
+    },
+    {
+      "id": "KKS_PBG",
+      "name": "Perundungan Berbasis Gender",
+      "bucket": "KEAMANAN",
+      "keywords": ["bencong", "tomboy", "cewek", "cowok", "banci", "leceh", "pegang", "badan"]
     }
   ]
 }

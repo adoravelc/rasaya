@@ -232,11 +232,17 @@
             </div>
         </div>
 
-        @if (!empty($analisis->summary) || !empty($analisis->auto_summary))
+        @php
+            $legacyNote = '';
+            if (!empty($analisis->summary) && is_array($analisis->summary)) {
+                $legacyNote = trim((string) ($analisis->summary['notes'] ?? ''));
+            }
+        @endphp
+        @if ($legacyNote !== '' || !empty($analisis->auto_summary))
             <div class="mt-4">
                 <h6>Catatan Sistem</h6>
-                @if (!empty($analisis->summary))
-                    <p class="text-muted small mb-1">{!! htmlspecialchars($analisis->summary['notes'] ?? '–', ENT_QUOTES, 'UTF-8') !!}</p>
+                @if ($legacyNote !== '')
+                    <p class="text-muted small mb-1">{!! htmlspecialchars($legacyNote, ENT_QUOTES, 'UTF-8') !!}</p>
                 @endif
                 @if (!empty($analisis->auto_summary))
                     <div class="alert alert-primary py-2 px-3 small mb-0">

@@ -1,12 +1,10 @@
 flask
-uvicorn
+nltk
+rake-nltk
 scikit-learn
 numpy
 pandas
-nltk
-rake-nltk
-langdetect
-transformers>=4.44.0
-sentencepiece
-# Torch CPU build; you may pin a specific version suitable for your OS/Python
 torch
+transformers
+emoji
+langdetect

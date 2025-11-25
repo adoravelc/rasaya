@@ -136,13 +136,20 @@ class KategoriWebController extends Controller
             'nama' => ['required', 'max:100'],
             'deskripsi' => ['nullable', 'max:255'],
             'is_active' => ['boolean'],
+            'master_id' => ['nullable','integer'],
         ]);
 
         // Pastikan field 'kode' yang mungkin ikut terkirim diabaikan
         unset($data['kode']);
 
         $kategori->update($data);
-        return ['ok' => true, 'data' => $kategori->fresh()];
+        
+        // Update master relationship if provided
+        if (isset($data['master_id'])) {
+            $kategori->topikBesars()->sync([$data['master_id']]);
+        }
+        
+        return ['ok' => true, 'data' => $kategori->fresh('topikBesars')];
     }
 
     // Create Master (Kategori Besar)
@@ -180,6 +187,43 @@ class KategoriWebController extends Controller
         $row->save();
 
         return response()->json(['ok' => true, 'data' => $row], 201);
+    }
+
+    // Update Master (Kategori Besar)
+    public function updateMaster(Request $r, $id)
+    {
+        $master = MasterKategoriMasalah::findOrFail($id);
+        $data = $r->validate([
+            'nama' => ['required','max:100'],
+            'deskripsi' => ['nullable','max:255'],
+            'is_active' => ['boolean'],
+        ]);
+
+        $master->nama = $data['nama'];
+        $master->deskripsi = $data['deskripsi'] ?? null;
+        $master->is_active = (bool) ($data['is_active'] ?? $master->is_active);
+        $master->save();
+
+        return ['ok' => true, 'data' => $master];
+    }
+
+    // Toggle Active Master (Kategori Besar)
+    public function toggleActiveMaster(Request $r, $id)
+    {
+        $master = MasterKategoriMasalah::findOrFail($id);
+        $data = $r->validate(['is_active' => ['required', 'boolean']]);
+        $master->is_active = (bool) $data['is_active'];
+        $master->save();
+
+        return ['ok' => true, 'data' => $master];
+    }
+
+    // Soft Delete Master (Kategori Besar)
+    public function destroyMaster($id)
+    {
+        $master = MasterKategoriMasalah::findOrFail($id);
+        $master->delete();
+        return ['ok' => true];
     }
 
     // SOFT DELETE

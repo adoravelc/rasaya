@@ -1,22 +1,62 @@
-from flask import Flask, request, jsonify
-from nltk.sentiment import SentimentIntensityAnalyzer
-from nltk.corpus import stopwords
-from nltk import download
-from rake_nltk import Rake
-from langdetect import detect
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.cluster import KMeans
+import sys
 import os
 import re
-import nltk
 import json
 import math
+import logging
+from collections import Counter, defaultdict
 from datetime import datetime
-from typing import List, Dict
-from collections import defaultdict, Counter
+from typing import List, Dict, Tuple, Optional
 
+import nltk
+import numpy as np
+import pandas as pd
+from flask import Flask, request, jsonify
+try:
+    from langdetect import detect
+except Exception:
+    # Fallback sederhana jika langdetect tidak tersedia
+    def detect(_text: str) -> str:
+        return "id"
+
+# --- LIBRARY BARU (Deep Learning & Emoji) ---
+import emoji
+import torch
+from transformers import AutoTokenizer, AutoModel
+from sklearn.cluster import KMeans
+from sklearn.feature_extraction.text import TfidfVectorizer # Tetap butuh untuk fallback
+
+# NLTK & RAKE
+from nltk.corpus import stopwords
+from nltk.sentiment import SentimentIntensityAnalyzer
+from rake_nltk import Rake
+
+# Setup Logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Download NLTK resources quietly
+try:
+    nltk.data.find('tokenizers/punkt')
+    nltk.data.find('sentiment/vader_lexicon')
+    nltk.data.find('corpora/stopwords')
+    nltk.data.find('tokenizers/punkt_tab')
+except LookupError:
+    print("Downloading NLTK resources...")
+    nltk.download('punkt', quiet=True)
+    nltk.download('vader_lexicon', quiet=True)
+    nltk.download('stopwords', quiet=True)
+    nltk.download('punkt_tab', quiet=True)
+
+app = Flask(__name__)
+
+# Configuration
+API_KEY = os.getenv("FLASK_API_KEY", "rahasia-negara-123") # Gunakan env var
+SERVICE_VERSION = "1.2.0-bert-sarcasm" # Version bump
+
+# --- GLOBAL VARIABLES ---
+sia = SentimentIntensityAnalyzer()
 STOPWORDS_ID_CHAT = set(stopwords.words('indonesian')) | set(stopwords.words('english'))
-# Tambahkan kata-kata yang "lolos" di laporan kamu ke sini
 _CHAT_FILLERS = {
     "sih", "dong", "kok", "kan", "tuh", "deh", "lah", "yah", "ni", "tu", 
     "ya", "yak", "yuk", "loh", "masa", "mana", "tapi", "kalo", "kalau", 
@@ -30,10 +70,24 @@ _CHAT_FILLERS = {
     "sama", "dgn", "dengan", "dr", "dari", "ke", "di", "pd", "pada",
     "kapan", "dimana", "siapa", "mengapa", "kenapa", "gimana", "bagaimana",
     "wkwk", "haha", "hehe", "huhu", "anjir", "njir", "anjing",
-    # TAMBAHAN DARI KASUS KAMU:
-    "apalah", "apa", "aduh", "wah", "nah", "kek", "kayak", "macam",
+    "apalah", "apa", "aduh", "wah", "nah", "kek", "kayak", "macam"
 }
 STOPWORDS_ID_CHAT.update(_CHAT_FILLERS)
+
+# ==== Integrasi TALA Stopwords tambahan ====
+try:
+    _TALA_PATH = os.path.join(os.path.dirname(__file__), 'tala-stopwords-indonesia.txt')
+    if os.path.exists(_TALA_PATH):
+        with open(_TALA_PATH, 'r', encoding='utf-8') as _tf:
+            tala_words = {w.strip().lower() for w in _tf if w.strip() and not w.startswith('#')}
+            # Hindari kata yang terlalu pendek (1 huruf) agar tidak over-filter
+            tala_words = {w for w in tala_words if len(w) > 1}
+            STOPWORDS_ID_CHAT.update(tala_words)
+            logger.info(f"Loaded TALA stopwords: +{len(tala_words)} terms (total={len(STOPWORDS_ID_CHAT)})")
+    else:
+        logger.warning('TALA stopwords file not found, skipping integration.')
+except Exception as e:
+    logger.warning(f'Failed loading TALA stopwords: {e}')
 
 def ensure_nltk():
     # pastikan paket-paket penting ada
@@ -51,20 +105,37 @@ def ensure_nltk():
 ensure_nltk()
 
 
-# --- bootstrap ---
-download('vader_lexicon', quiet=True)
-download('stopwords', quiet=True)
 sia = SentimentIntensityAnalyzer()
 
 # Lexicon sederhana untuk Indonesia/Kupang dalam range standar [-1, +1]
 ID_EXTRA = {
+    # Emosi negatif umum
     "capek": -0.7, "capai": -0.5, "pusing": -0.7, "marah": -0.8, "sedih": -0.7,
-    "senang": 0.7, "bahagia": 0.8, "semangat": 0.7, "hepi": 0.7,
+    "murung": -0.7, "galau": -0.6, "bingung": -0.5, "takut": -0.7, "cemas": -0.7,
+    "kecewa": -0.7, "kesal": -0.6, "jengkel": -0.6, "frustasi": -0.8, "depresi": -0.9,
+    "stres": -0.8, "tegang": -0.6, "resah": -0.7, "gelisah": -0.7,
+    # Emosi positif umum
+    "senang": 0.7, "bahagia": 0.8, "semangat": 0.7, "hepi": 0.7, "gembira": 0.8,
+    "excited": 0.7, "antusias": 0.7, "optimis": 0.6, "tenang": 0.5, "damai": 0.6,
+    "puas": 0.6, "lega": 0.6, "syukur": 0.7, "bangga": 0.7,
+    # Masalah sekolah
     "telat": -0.6, "bolos": -0.8, "berantem": -0.9, "ribut": -0.7, "gaduh": -0.6,
+    "berkelahi": -0.9, "bertengkar": -0.8, "keributan": -0.7, "masalah": -0.5,
     "PR": -0.3, "tugas": -0.2, "banyak": -0.2, "malas": -0.5, "rajin": 0.5,
-    # Kupang-style (contoh)
-    "sonde": -0.3, "beta": 0.0, "ko": 0.0, "pigi": -0.1, "teda": -0.2,
-    "tara": -0.2, "kaco": -0.5, "cungkel": -0.5, "bongkar": -0.2, "kobo": -0.4
+    "skip": -0.6, "cabut": -0.6, "pontang": -0.7, "mangkir": -0.7,
+    # Keluarga & rumah
+    "berantem": -0.9, "cekcok": -0.8, "bertengkar": -0.8, "marahan": -0.7,
+    "berisik": -0.5, "berantakan": -0.4, "kacau": -0.7, "chaos": -0.7,
+    "pisah": -0.7, "bercerai": -0.8, "kabur": -0.7, "minggat": -0.8, "pergi": -0.3,
+    # Kupang/Manado dialect dengan sentiment
+    "sonde": -0.3, "tara": -0.2, "teda": -0.2, "pigi": -0.1,  # Kupang negation/pergi
+    "kaco": -0.5, "cungkel": -0.5, "bongkar": -0.2, "kobo": -0.4, "susa": -0.6,
+    "dolo": -0.4, "molo": -0.4, "so": -0.3, "nda": -0.3,  # Manado negation
+    "bodo": -0.6, "bodoh": -0.7, "tolol": -0.8, "goblok": -0.8,  # Insults
+    # Neutral pronouns (score 0 won't affect sentiment)
+    "beta": 0.0, "ko": 0.0, "torang": 0.0, "katong": 0.0, "deng": 0.0,
+    "dong": 0.0, "de": 0.0, "so": 0.0, "pe": 0.0, "pung": 0.0,
+    "tanta": 0.0, "oma": 0.0, "opa": 0.0, "mama": 0.0, "papa": 0.0,
 }
 # tambahkan ke VADER
 sia.lexicon.update({k.lower(): v for k, v in ID_EXTRA.items()})
@@ -154,55 +225,182 @@ def score_categories_for_text(txt: str, categories_map: dict, feedback: dict):
 """
 Cleaning & Lexicon Loader (InSet + optional Barasa)
 """
-
-_RE_URL = re.compile(r"https?://\S+|www\.\S+", re.I)
+# Regex patterns
+_RE_URL = re.compile(r"https?://\S+|www\.\S+")
 _RE_MENTION = re.compile(r"[@#]\w+")
-_RE_NON_ALNUM = re.compile(r"[^0-9a-zA-Z\u00C0-\u024F\u1E00-\u1EFF\u0600-\u06FF\u0900-\u097F\u0980-\u09FF\u0A00-\u0AFF\u0B00-\u0B7F\u0C00-\u0C7F\u0D00-\u0D7F\u0E00-\u0E7F ]+")
+_RE_REPEAT = re.compile(r"(.)\1{2,}") # 3 kali atau lebih
 _RE_MULTISPACE = re.compile(r"\s+")
-_RE_REPEAT = re.compile(r"(.)\1+")
-
-def _norm_negasi(t: str) -> str:
-    repl = {
-        "gak": "tidak", "ga": "tidak", "gk": "tidak", "nggak": "tidak",
-        "ngga": "tidak", "engga": "tidak", "enggak": "tidak", "kagak": "tidak",
-        "ndak": "tidak", "tak": "tidak"
-    }
-    for k, v in repl.items():
-        t = re.sub(rf"\b{k}\b", v, t)
-    return t
 
 def clean_text(t: str) -> str:
-    t = (t or "").strip().lower()
+    """
+    Cleaning text tapi mempertahankan emoji dan tanda baca penting untuk sentimen.
+    """
+    if not t: return ""
+    
+    # 1. Demojize: Ubah emoji jadi teks bahasa Indonesia (manual mapping dikit)
+    t = emoji.demojize(t, delimiters=(" ", " ")) 
+    t = t.replace("loudly_crying_face", "menangis") \
+         .replace("crying_face", "sedih") \
+         .replace("pensive_face", "murung") \
+         .replace("angry_face", "marah") \
+         .replace("rolling_on_the_floor_laughing", "tertawa") \
+         .replace("face_with_rolling_eyes", "bosan") \
+         .replace("broken_heart", "patah hati")
+
+    t = t.lower().strip()
+
+    # 2. Remove URL & Mention
     t = _RE_URL.sub(" ", t)
     t = _RE_MENTION.sub(" ", t)
-    t = _RE_NON_ALNUM.sub(" ", t)
+
+    # 3. Keep punctuation important for emotion (?!.,)
+    # Hapus karakter aneh selain alphanumeric dan tanda baca penting
+    t = re.sub(r"[^a-z0-9\?\!\.\,\s]", " ", t)
+    
+    # Pisahkan tanda baca biar jadi token terpisah
+    t = re.sub(r"([\?\!\.\,])", r" \1 ", t)
+
+    # 4. Normalize Repeat (bangeeet -> banget)
     t = _RE_REPEAT.sub(r"\1", t)
-    t = _norm_negasi(t)
-    t = _RE_MULTISPACE.sub(" ", t).strip()
-    # Dialect normalization (Kupang/common variants)
+
+    # 5. Slang & Dialect Normalization (Indonesian + Kupang + Manado + Ambon)
     dialect = {
-        "pung": "punya",
-        "puny": "punya",
-        "beta": "saya",
-        "b": "saya",
-        "sy": "saya",
-        "aku": "saya",
-        "deng": "dengan",
-        "dng": "dengan",
-        "sm": "sama",
-        "ko": "kamu",
-        "kau": "kamu",
+        # Standard Indonesian slang
+        "gw": "saya", "gue": "saya", "lu": "kamu", "lo": "kamu", "elu": "kamu",
+        "ak": "aku", "aq": "aku", "sy": "saya", "w": "saya", "ane": "saya",
+        "gak": "tidak", "ga": "tidak", "nggak": "tidak", "kaga": "tidak", "ndak": "tidak",
+        "enggak": "tidak", "engga": "tidak", "ngga": "tidak", "kagak": "tidak",
+        "krn": "karena", "karna": "karena", "bgt": "banget", "bgtt": "banget",
+        "tdk": "tidak", "jgn": "jangan", "udh": "sudah", "sdh": "sudah",
+        "blm": "belum", "trus": "terus", "jd": "jadi", "dgn": "dengan",
+        "sm": "sama", "yg": "yang", "kalo": "kalau", "kl": "kalau",
+        "mager": "malas gerak", "baper": "bawa perasaan", "gabut": "bosan",
+        "anjir": "kaget", "njir": "kaget", "anjay": "hebat", 
+        "mantul": "mantap", "santuy": "santai", "sans": "santai",
+        "gajelas": "tidak jelas", "gaje": "tidak jelas",
+        # Kupang/NTT dialect
+        # --- KATA GANTI ORANG (PRONOUNS) ---
+        "beta": "saya", "b": "saya", "bt": "saya", # Kupang/Ambon
+        "kita": "saya", # Manado (konteks santai)
+        "ana": "saya", "awak": "saya", "sa": "saya", "sy": "saya",
+        "ak": "aku", "aq": "aku", "gw": "saya", "gue": "saya",
+        
+        "lu": "kamu", "lo": "kamu", "elu": "kamu", 
+        "ose": "kamu", "os": "kamu", "ale": "kamu", # Ambon
+        "ngana": "kamu", "nga": "kamu", # Manado
+        "ko": "kamu", "kau": "kamu", "ju": "kamu", # Kupang/Papua
+        "bo": "kamu", # Bima/Dompu kadang masuk
+        
+        "dia": "dia", "de": "dia", "i": "dia", # Papua/Kupang (De pung rumah)
+        "antua": "beliau", # Ambon (respektif)
+        
+        "katong": "kita", "ketong": "kita", "ktg": "kita", # Kupang/Ambon
+        "torang": "kita", "tong": "kita", # Manado/Papua
+        
+        "dorang": "mereka", "dong": "mereka", "drg": "mereka", # Manado/Kupang/Ambon
+        "besong": "kalian", "basong": "kalian", "kamorang": "kalian", # Kupang/Papua
+        "ngoni": "kalian", # Manado
+
+        # --- NEGASI (TIDAK/BUKAN) ---
+        "sonde": "tidak", "son": "tidak", "snd": "tidak", "sond": "tidak", # Kupang
+        "seng": "tidak", "sing": "tidak", "tra": "tidak", "trada": "tidak", # Ambon/Papua
+        "tara": "tidak", "tar": "tidak", 
+        "nyanda": "tidak", "nda": "tidak", "ndak": "tidak", # Manado/Jawa
+        "gak": "tidak", "ga": "tidak", "nggak": "tidak", "kaga": "tidak", 
+        "bukang": "bukan",
+
+        # --- KATA KERJA & KETERANGAN (VERBS & ADVERBS) ---
+        "pi": "pergi", "p": "pergi", "pig": "pergi", # Kupang/Ambon (saya kabur 'pi'...)
+        "su": "sudah", "so": "sudah", # Kupang/Manado/Ambon
+        "sdh": "sudah", "udh": "sudah", "udah": "sudah",
+        "blm": "belum", "balom": "belum", 
+        
+        "mo": "mau", "mau": "mau", 
+        "kasi": "beri", "kase": "beri", "kas": "beri", # Kase tinggal -> Beri tinggal
+        "omong": "bicara", "baomong": "bicara", "bakata": "berkata",
+        "dapa": "dapat", "dap": "dapat",
+        "baku": "saling", # Baku pukul -> Saling pukul
+        "bae": "baik", "baek": "baik",
+        "ancor": "hancur",
+        "ambe": "ambil", "pigi": "pergi",
+        
+        # --- KEPEMILIKAN & PENGHUBUNG ---
+        "pung": "punya", "puny": "punya", "pu": "punya", "pe": "punya", # Beta pung -> Saya punya
+        "deng": "dengan", "dg": "dengan", "dng": "dengan", 
+        "par": "untuk", "for": "untuk", # Ambon/Manado (For ngana)
+        "vor": "untuk",
+        "kek": "seperti", "mcam": "macam", "kek": "kayak",
+
+        # --- KATA SIFAT & LAINNYA ---
+        "talalu": "terlalu", "tlalu": "terlalu",
+        "sadiki": "sedikit", "sadikit": "sedikit",
+        "banya": "banyak", 
+        "skali": "sekali",
+        "samua": "semua",
+        "karna": "karena", "krn": "karena", "gara": "karena",
+        
+        # --- GENERAL SLANG INDONESIA ---
+        "bgt": "banget", "bgtt": "banget",
+        "trus": "terus", "trs": "terus",
+        "jd": "jadi", "jdi": "jadi", 
+        "yg": "yang", "kalo": "kalau", "kl": "kalau",
+        "mager": "malas gerak", "baper": "bawa perasaan", "gabut": "bosan",
+        "anjir": "kaget", "njir": "kaget", "anjay": "hebat", 
+        "mantul": "mantap", "santuy": "santai", "sans": "santai",
+        "gajelas": "tidak jelas", "gaje": "tidak jelas",
+        "ortu": "orang tua", "mksd": "maksud",
+        "knp": "kenapa", "np": "kenapa", "napa": "kenapa",
+        "utk": "untuk"
     }
+    
     toks = []
     for tk in t.split():
         toks.append(dialect.get(tk, tk))
+    
     t = " ".join(toks)
+    t = _RE_MULTISPACE.sub(" ", t).strip()
     return t
 
+def detect_sarcasm_heuristic(text_clean, raw_text, current_sentiment):
+    """
+    Mendeteksi potensi sarkasme berdasarkan kontras sentimen, emoji, dan tanda baca.
+    Returns: (is_sarcasm: bool, confidence: float)
+    """
+    is_sarcasm = False
+    confidence = 0.0
+    text_clean = text_clean.lower()
+    
+    # Kamus Heuristik
+    intensifiers = ["banget", "bgt", "kali", "sumpah", "bener", "bet", "parah", "amat"]
+    positives = ["hebat", "bagus", "pinter", "jenius", "mantap", "enak", "keren", "rajin", "suci"]
+    negatives = ["pusing", "capek", "stres", "gila", "mati", "rusak", "hancur", "sebel", "benci", "malas", "bodoh", "tolol"]
+    
+    # Fitur
+    has_pos = any(p in text_clean for p in positives)
+    has_neg = any(n in text_clean for n in negatives)
+    has_intensifier = any(i in text_clean for i in intensifiers)
+    has_exclamation = "!" in raw_text or "?" in raw_text
+    
+    # LOGIC 1: Kalimat mengandung Positif DAN Negatif ("Hebat banget lo bikin gue stres")
+    if has_pos and has_neg:
+        return True, 0.75
 
-def load_inset_lexicon(base_dir: str) -> Dict[str, float]:
+    # LOGIC 2: Kalimat Positif + Tanda baca agresif + Konteks ambigu ("Pinter ya lo??")
+    # Biasanya kalau muji beneran jarang pake '??'
+    if has_pos and ("??" in raw_text or "!!" in raw_text):
+        return True, 0.6
+
+    # LOGIC 3: Positif + Emoji Negatif (Manual check raw text for common sarcastic emojis)
+    # Emoji: Rolling eyes, Unamused face, Upside-down face
+    sarcastic_emojis = ["🙄", "😒", "🙃", "😤", "🤡"]
+    if has_pos and any(e in raw_text for e in sarcastic_emojis):
+        return True, 0.9
+
+    return False, 0.0
+
+def load_inset_lexicon(base_dir: str) -> dict[str, float]:
     """Load InSet format: lexicons/inset/{positive.tsv,negative.tsv}."""
-    out: Dict[str, float] = {}
+    out: dict[str, float] = {}
     inset_dir = os.path.join(base_dir, "inset")
     pos = os.path.join(inset_dir, "positive.tsv")
     neg = os.path.join(inset_dir, "negative.tsv")
@@ -221,13 +419,13 @@ def load_inset_lexicon(base_dir: str) -> Dict[str, float]:
     return out
 
 
-def load_barasa_csv(path: str) -> Dict[str, float]:
+def load_barasa_csv(path: str) -> dict[str, float]:
     """Load Barasa CSV with headers; expects at least a 'lemma' column and
     either a 'score' column (float, negative to positive) or separate
     'pos'/'neg' columns that can be combined (score = pos - neg).
     Values are clamped to [-1, 1].
     """
-    lex: Dict[str, float] = {}
+    lex: dict[str, float] = {}
     try:
         import csv
         with open(path, encoding="utf-8") as f:
@@ -258,7 +456,7 @@ def load_barasa_csv(path: str) -> Dict[str, float]:
     return lex
 
 
-def load_barasa_optional(base_dir: str) -> Dict[str, float]:
+def load_barasa_optional(base_dir: str) -> dict[str, float]:
     """
     Try to read Barasa resources if available. The provided file wn-msa-all.tab
     is a WordNet-style tab file (no explicit polarity). We don't assign scores
@@ -275,7 +473,7 @@ def load_barasa_optional(base_dir: str) -> Dict[str, float]:
     # also support barasa.csv if added by user
     csv_file = os.path.join(base_dir, "barasa.csv")
     if os.path.exists(csv_file):
-        out: Dict[str, float] = {}
+        out: dict[str, float] = {}
         with open(csv_file, "r", encoding="utf-8") as f:
             for line in f:
                 if "," in line:
@@ -288,7 +486,7 @@ def load_barasa_optional(base_dir: str) -> Dict[str, float]:
     return {}
 
 
-def build_lexicon() -> Dict[str, float]:
+def build_lexicon() -> dict[str, float]:
     # Start from InSet if available
     lex = load_inset_lexicon(LEXICON_DIR)
     # Merge Barasa if CSV provided; else try optional WordNet source (no polarity)
@@ -311,9 +509,48 @@ def score_with_lexicon(text: str, lex: Dict[str, float]) -> float:
     toks = clean_text(text).split()
     if not toks:
         return 0.0
-    s = sum(lex.get(t, 0.0) for t in toks)
-    # dampen by sqrt length
-    return max(-1.0, min(1.0, s / max(1.0, math.sqrt(len(toks)))))
+    
+    # Context-aware scoring: handle negation & intensifiers
+    negation_words = {"tidak", "bukan", "belum", "jangan", "tanpa", "sonde", "tara", "teda", "nda", "tra"}
+    intensifiers = {"banget", "sangat", "amat", "sekali", "parah", "bener", "pisan"}
+    
+    s = 0.0
+    negated = False
+    intensify = 1.0
+    
+    for i, tok in enumerate(toks):
+        # Check negation (flip sign for next 3 words)
+        if tok in negation_words:
+            negated = True
+            continue
+        
+        # Check intensifier (boost next word by 1.5x)
+        if tok in intensifiers:
+            intensify = 1.5
+            continue
+        
+        # Get sentiment score
+        score = lex.get(tok, 0.0)
+        
+        # Apply negation (flip sign)
+        if negated and score != 0.0:
+            score = -score * 0.8  # Slightly dampen negated sentiment
+            negated = False  # Reset after applying
+        
+        # Apply intensifier
+        if intensify > 1.0 and score != 0.0:
+            score = score * intensify
+            intensify = 1.0  # Reset
+        
+        s += score
+        
+        # Reset negation after 3 words
+        if negated and i > 0 and (i % 3 == 0):
+            negated = False
+    
+    # Dampen by sqrt length to avoid bias for long texts
+    normalized = s / max(1.0, math.sqrt(len(toks)))
+    return max(-1.0, min(1.0, normalized))
 
 INTENSIFIERS = {"banget": 1.0, "sangat": 0.8, "parah": 0.9, "amat": 0.5}
 
@@ -464,20 +701,27 @@ def health():
 # =====================
 BERT_CACHE = {"tok": None, "mdl": None, "device": "cpu"}
 
+# --- GLOBAL BERT VARIABLES ---
+_bert_tokenizer = None
+_bert_model = None
+_bert_device = None
+
 def get_bert():
-    if not ENABLE_BERT:
-        return None, None, None
-    try:
-        from transformers import AutoTokenizer, AutoModel  # type: ignore
-        import torch  # type: ignore
-        dev = "cuda" if torch.cuda.is_available() else "cpu"
-        if BERT_CACHE["tok"] is None:
-            BERT_CACHE["tok"] = AutoTokenizer.from_pretrained(BERT_MODEL_NAME)
-            BERT_CACHE["mdl"] = AutoModel.from_pretrained(BERT_MODEL_NAME).to(dev).eval()
-            BERT_CACHE["device"] = dev
-        return BERT_CACHE["tok"], BERT_CACHE["mdl"], BERT_CACHE["device"]
-    except Exception:
-        return None, None, None
+    global _bert_tokenizer, _bert_model, _bert_device
+    if _bert_tokenizer is None:
+        print("⏳ Loading IndoBERT model... (First run might take a while)")
+        try:
+            model_name = "indobenchmark/indobert-base-p1"
+            _bert_tokenizer = AutoTokenizer.from_pretrained(model_name)
+            _bert_model = AutoModel.from_pretrained(model_name)
+            _bert_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            _bert_model.to(_bert_device)
+            _bert_model.eval()
+            print(f"✅ IndoBERT loaded on {_bert_device}")
+        except Exception as e:
+            print(f"❌ Failed to load IndoBERT: {e}")
+            return None, None, None
+    return _bert_tokenizer, _bert_model, _bert_device
 
 # Warmup at startup if requested (download/load once)
 if ENABLE_BERT and ENABLE_BERT_WARMUP:
@@ -509,70 +753,109 @@ def warmup():
         return jsonify({"bert": "error", "message": str(e)}), 500
 
 @app.post("/analyze")
+@app.post("/analyze")
+# (Load helpers lain seperti check_key, load_feedback, taxonomy, dll biarkan seperti file lama Anda)
+# ... (Pastikan functions: check_key, load_feedback_weights, build_topic_index..., load_inset_lexicon ada) ...
+
+@app.post("/analyze")
 def analyze():
     if not check_key():
         return jsonify({"error": "unauthorized"}), 401
 
     data = request.get_json(force=True) or {}
-    # Support single or batch
     items = data.get("items")
+    
     if items is None:
         items = [{
             "id": data.get("id") or "item-1",
             "text": data.get("text") or "",
             "lang_hint": (data.get("context") or {}).get("lang_hint") if isinstance(data.get("context"), dict) else None
         }]
-    categories_override = data.get("categories")  # optional: { name: [keywords] }
-    # Build taxonomy-driven default categories (topics) and index
-    TOPIC_INDEX, TAXONOMY_CATEGORIES = build_topic_index_and_categories_map()
-    categories_map = {}
-    if isinstance(categories_override, dict) and categories_override:
-        # sanitize override
-        for k, v in categories_override.items():
-            if isinstance(v, list):
-                categories_map[str(k).upper()] = [str(x) for x in v if isinstance(x, (str, int))]
-    if not categories_map:
-        # fall back to taxonomy topics aggregated keywords
-        categories_map = TAXONOMY_CATEGORIES
-
-    feedback = load_feedback_weights()
+    
     if not isinstance(items, list) or not items:
         return jsonify({"error": "items required"}), 422
 
-    # New detailed results per item
+    # Setup Taxonomy & Feedback
+    categories_override = data.get("categories")
+    TOPIC_INDEX, TAXONOMY_CATEGORIES = build_topic_index_and_categories_map()
+    
+    categories_map = {}
+    if isinstance(categories_override, dict) and categories_override:
+        for k, v in categories_override.items():
+            if isinstance(v, list):
+                categories_map[str(k).upper()] = [str(x) for x in v if isinstance(x, (str, int))]
+    
+    if not categories_map:
+        categories_map = TAXONOMY_CATEGORIES
+
+    feedback = load_feedback_weights()
+
+    # Setup Variables
     results = []
-    # Legacy structures we keep for compatibility
     per_legacy = []
     all_texts = []
     negatives = []
     per_entry_cats = {}
 
+    # Load IndoBERT Model
+    tok, mdl, dev = get_bert()
+
+    # --- PROCESS PER ITEM ---
     for it in items:
-        _id = it.get("id") or ""
+        item_id = it.get("id")
         raw_txt = (it.get("text") or "").strip()
-        clean = clean_text(raw_txt)
         lang_hint = it.get("lang_hint")
+
+        # 1. Text Cleaning (New Logic)
+        clean = clean_text(raw_txt)
         if not clean:
             continue
 
-        # lang detect simple
-        lang = detect_lang(raw_txt, hint=lang_hint)
-
-        # sentiment hybrid: Indonesian lexicon + VADER (raw for emoticons)
+        # 2. Sentiment Scoring (Hybrid)
         s_lex = score_with_lexicon(clean, LEXICON_ID)
         s_vad = sia.polarity_scores(raw_txt).get("compound", 0.0)
         aggregate = float(0.7 * s_lex + 0.3 * s_vad)
-        lbl = label_from_score(aggregate)
+        
+        # Fallback: keyword-based detection if aggregate is neutral (0)
+        if abs(aggregate) < 0.05:
+            negative_keywords = ["berkelahi", "bertengkar", "murung", "sedih", "marah", "kabur", "masalah", "ribut", "berantem", "stress", "pusing", "takut", "cemas", "galau", "kecewa"]
+            positive_keywords = ["senang", "bahagia", "gembira", "semangat", "excited", "bagus", "oke", "mantap", "suka", "hebat"]
+            
+            neg_count = sum(1 for kw in negative_keywords if kw in clean)
+            pos_count = sum(1 for kw in positive_keywords if kw in clean)
+            
+            if neg_count > pos_count and neg_count > 0:
+                aggregate = -0.35  # Set mild negative
+            elif pos_count > neg_count and pos_count > 0:
+                aggregate = 0.3   # Set mild positive
 
+        # 3. Sarcasm Detection (New Logic)
+        is_sarcasm, sarc_conf = detect_sarcasm_heuristic(clean, raw_txt, aggregate)
+        
+        if is_sarcasm:
+            # Flip score: Positive -> Negative
+            if aggregate > 0:
+                aggregate = -0.5 * aggregate - 0.3
+            elif aggregate == 0:
+                aggregate = -0.4
+            lbl = "negatif"
+        else:
+            lbl = label_from_score(aggregate)
+
+        # 4. Negative Gate & Severity
+        # Check severity based on flipped score
         neg_flag, severity = negative_gate(aggregate, raw_txt)
+        if is_sarcasm: 
+            neg_flag = True
+            severity = max(severity, 0.6) # Sarkasme biasanya sakit
 
-        # keyword category scoring (quick)
+        # 5. Category Scoring
         cat_scores, reasons = score_categories_for_text(clean, categories_map, feedback)
         best_cat = max(cat_scores, key=cat_scores.get) if cat_scores else None
 
+        # 6. Cluster Labeling
         cluster = None
         if best_cat:
-            # Prefer mapping to taxonomy TOPIC if available
             tp_meta = TOPIC_INDEX.get(str(best_cat).upper())
             if tp_meta:
                 cluster = {
@@ -584,329 +867,173 @@ def analyze():
                     "confidence": 0.5
                 }
             else:
-                # Fallback to raw category name
                 cluster = {"id": best_cat, "label": best_cat, "bucket": str(best_cat).upper(), "confidence": 0.4}
 
-        # Keyphrases (RAKE) per-entry + normalization & dedup
+        # 7. Keywords Extraction
         try:
             rk = Rake(stopwords=STOPWORDS_ID_CHAT, min_length=1, max_length=3)
-            rk.extract_keywords_from_text(raw_txt)
+            rk.extract_keywords_from_text(clean) # Use clean text
             raw_phrases = [p.lower() for p in rk.get_ranked_phrases()[:8]]
         except Exception:
             raw_phrases = []
-        dialect_map = {
-            "pung": "punya", "puny": "punya", "beta": "saya", "b": "saya", "sy": "saya", "aku": "saya",
-            "deng": "dengan", "dng": "dengan", "sm": "sama", "ko": "kamu", "kau": "kamu"
-        }
-        norm_set = []
-        seen = set()
-        for phr in raw_phrases:
-            toks = [dialect_map.get(t, t) for t in phr.split()]
-            norm = " ".join(toks).strip()
-            if not norm or norm in seen:
-                continue
-            seen.add(norm)
-            norm_set.append(norm)
-        phrases = norm_set[:5]
+        
+        # Filter phrases
+        phrases = sorted(list(set(raw_phrases)), key=len)[:5]
 
-        # Simple rule-based summary per entry
-        if cluster:
-            summary = f"Masalah utama: {cluster['label']}. Gejala: {', '.join(phrases[:3])}."
+        # 8. Summary Text
+        if is_sarcasm:
+            summary_text = f"Terdeteksi sarkasme/sindiran. Inti keluhan: {', '.join(phrases[:3])}."
+        elif cluster:
+            summary_text = f"Masalah utama: {cluster['label']}. Gejala: {', '.join(phrases[:3])}."
         else:
-            summary = f"Inti keluhan: {', '.join(phrases[:3])}."
+            summary_text = f"Inti keluhan: {', '.join(phrases[:3])}."
 
         results.append({
-            "id": _id,
+            "id": item_id,
             "clean_text": clean,
-            "lang": lang,
             "sentiment": {
-                "barasa": s_lex,  # merged Indo lexicon score
-                "kupang": 0.0,    # placeholder if you split later
-                "english": s_vad, # VADER compound
-                "aggregate": aggregate,
-                "label": lbl
+                "barasa": s_lex, "english": s_vad, "aggregate": aggregate, "label": lbl
             },
             "negative_flag": neg_flag,
+            "is_sarcasm": is_sarcasm, # Field Baru
             "severity": severity,
             "cluster": cluster,
-            "summary": summary,
+            "summary": summary_text,
             "key_phrases": phrases,
-            "recommendations": [],  # filled later
+            "recommendations": [],
             "cat_scores": cat_scores,
             "cat_reasons": reasons,
         })
 
-        # legacy aggregation inputs
         per_legacy.append({
-            "id": _id,
-            "text": raw_txt,
-            "lang": lang,
-            "sentiment": aggregate,
-            "label": lbl,
-            "keywords": phrases
+            "id": item_id, "text": raw_txt, "sentiment": aggregate, 
+            "label": lbl, "keywords": phrases
         })
+        
         all_texts.append(clean)
-        if aggregate <= -0.05:
+        
+        # Collect negatives for clustering
+        if neg_flag:
             negatives.append(clean)
             ranked = sorted([(c, s) for c, s in cat_scores.items() if s > 0], key=lambda x: x[1], reverse=True)
-            per_entry_cats[_id] = {
+            per_entry_cats[item_id] = {
                 "ranked": ranked[:3],
                 "reasons": {c: reasons.get(c, []) for c, _ in ranked[:3]}
             }
 
-    # global keyphrases + normalization & dedup
-    keyphrases = extract_keyphrases(all_texts) if all_texts else []
-    if keyphrases:
-        dmap = {"pung": "punya", "puny": "punya", "beta": "saya", "b": "saya", "sy": "saya", "aku": "saya", "deng": "dengan", "dng": "dengan", "sm": "sama", "ko": "kamu", "kau": "kamu"}
-        agg = {}
-        for kp in keyphrases:
-            term = kp.get("term", "").lower()
-            toks = [dmap.get(t, t) for t in term.split()]
-            norm = " ".join(toks).strip()
-            if not norm:
-                continue
-            agg[norm] = max(float(kp.get("weight", 0.0)), agg.get(norm, 0.0))
-        keyphrases = [{"term": k, "weight": v} for k, v in sorted(agg.items(), key=lambda x: x[1], reverse=True)[:30]]
-        # Inject high-frequency tokens not already present (captures 'telat' dsb)
-        freq = Counter()
-        try:
-            sw_id = set(stopwords.words('indonesian'))
-        except Exception:
-            sw_id = set()
-        for t in all_texts:
-            for tok in clean_text(t).split():
-                if len(tok) >= 4 and tok not in sw_id:
-                    freq[tok] += 1
-        top_tokens = [w for w, _ in freq.most_common(20)]
-        existing = {kp["term"] for kp in keyphrases}
-        for w in top_tokens:
-            if w not in existing:
-                keyphrases.append({"term": w, "weight": float(freq[w])})
-        keyphrases = sorted(keyphrases, key=lambda x: x["weight"], reverse=True)[:30]
+    # --- AGGREGATION & CLUSTERING ---
 
-    # clustering untuk yang negatif
+    # Global Keywords
+    keyphrases = extract_keyphrases(all_texts) if all_texts else []
+
+    # Clustering with IndoBERT
     clusters = []
     if len(negatives) >= 2:
         used_engine = "tfidf"
-        try:
-            X = None
-            if ENABLE_BERT:
-                tok, mdl, dev = get_bert()
-                if tok is not None and mdl is not None:
-                    import torch
-                    with torch.no_grad():
-                        enc = tok(negatives, padding=True, truncation=True, max_length=160, return_tensors="pt").to(dev)
-                        out = mdl(**enc)
-                        cls = out.last_hidden_state[:, 0, :]
-                        X = cls.detach().cpu().numpy()
-                        used_engine = "bert"
-            if X is None:
-                # fallback TF-IDF with unigram-only and heavy stopwords for clean top terms
-                vec = _build_cluster_vectorizer()
-                X = vec.fit_transform(negatives)
-            k = 2 if len(negatives) == 2 else min(4, max(2, len(negatives)//2))
-            km = KMeans(n_clusters=k, n_init='auto', random_state=42)
-            y = km.fit_predict(X)
-            # kumpulkan contoh teks per cluster + representative terms if TF-IDF
-            rep_terms = []
-            if 'vec' in locals():
-                terms = vec.get_feature_names_out()
-                try:
-                    centroids = km.cluster_centers_
-                    for ci in range(k):
-                        top_idx = centroids[ci].argsort()[-8:][::-1]
-                        rep_terms.append([terms[j] for j in top_idx])
-                except Exception:
-                    rep_terms = [[] for _ in range(k)]
-            else:
-                rep_terms = [[] for _ in range(k)]
-            for ci in range(k):
-                ex = [negatives[i] for i in range(len(negatives)) if y[i] == ci][:5]
-                clusters.append({
-                    "cluster": int(ci),
-                    "engine": used_engine,
-                    "top_terms": rep_terms[ci] if ci < len(rep_terms) else [],
-                    "examples": ex
-                })
-        except Exception:
-            # Hard fallback to pure TF-IDF if BERT failed
-            vec = _build_cluster_vectorizer()
-            X = vec.fit_transform(negatives)
-            k = 2 if len(negatives) == 2 else min(4, max(2, len(negatives)//2))
-            km = KMeans(n_clusters=k, n_init='auto', random_state=42)
-            y = km.fit_predict(X)
-            terms = vec.get_feature_names_out()
-            centroids = km.cluster_centers_
-            for ci in range(k):
-                top_idx = centroids[ci].argsort()[-8:][::-1]
-                top_terms = [terms[j] for j in top_idx]
-                ex = [negatives[i] for i in range(len(negatives)) if y[i] == ci][:5]
-                clusters.append({
-                    "cluster": int(ci),
-                    "engine": "tfidf",
-                    "top_terms": top_terms,
-                    "examples": ex
-                })
-
-    # aggregate category overview (from negative entries only)
-    # Severity-weighted aggregation of ALL category scores for negative entries
-    cat_counter = Counter()
-    
-    for r in results:
-        # Ambil severity, minimal 0.5 agar input netral tetap dihitung
-        sev = r.get("severity", 0.0)
-        weight = 0.5 # Bobot dasar untuk input netral/positif
+        X = None
         
-        if r.get("negative_flag"):
-            # Jika negatif, bobotnya lebih besar (severity + 1.0)
-            weight = 1.0 + sev
+        # Try BERT
+        if tok and mdl:
+            try:
+                with torch.no_grad():
+                    enc = tok(negatives, padding=True, truncation=True, max_length=128, return_tensors="pt").to(dev)
+                    out = mdl(**enc)
+                    cls = out.last_hidden_state[:, 0, :]
+                    X = cls.detach().cpu().numpy()
+                    used_engine = "bert"
+            except Exception as e:
+                print(f"⚠️ BERT error, falling back: {e}")
+                X = None
+        
+        # Fallback TF-IDF
+        if X is None:
+            vec = _build_cluster_vectorizer() # Pastikan fungsi ini ada (helper lama)
+            X = vec.fit_transform(negatives)
             
+        k = 2 if len(negatives) == 2 else min(4, max(2, len(negatives)//2))
+        km = KMeans(n_clusters=k, n_init='auto', random_state=42)
+        y = km.fit_predict(X)
+        
+        for ci in range(k):
+            ex = [negatives[i] for i in range(len(negatives)) if y[i] == ci][:5]
+            clusters.append({
+                "cluster": int(ci),
+                "engine": used_engine,
+                "examples": ex
+            })
+
+    # Overview Weighted by Severity & Sarcasm
+    cat_counter = Counter()
+    for r in results:
+        sev = r.get("severity", 0.0)
+        weight = 0.5
+        if r.get("negative_flag"): 
+            weight = 1.0 + sev
+        
         for cat, sc in (r.get("cat_scores") or {}).items():
-            if sc > 0:
-                cat_counter[cat] += sc * weight
+            if sc > 0: cat_counter[cat] += sc * weight
 
     categories_overview = [
         {"category": cat, "score": round(val, 4)} for cat, val in cat_counter.most_common()
     ]
 
+    # Summary Stats
     avg = sum([x["sentiment"] for x in per_legacy]) / len(per_legacy) if per_legacy else 0.0
     summary = {
         "avg_sentiment": round(avg, 3),
-        "negative_ratio": round(sum(1 for x in per_legacy if x["label"]=="negatif")/len(per_legacy), 3) if per_legacy else 0.0,
-        "notes": "Rangkuman kasar berdasar skor rata-rata & proporsi negatif."
+        "negative_ratio": round(sum(1 for x in per_legacy if x["label"]=="negatif")/len(per_legacy), 3) if per_legacy else 0.0
     }
 
-    # Core tokens & auto summary (lebih fokus kata inti bersih)
-    core_tokens = extract_core_tokens(all_texts) if all_texts else []
-    top_cat_names = [c["category"].title() for c in categories_overview[:2]]
-    neg_ratio_pct = f"{summary['negative_ratio']*100:.1f}%" if per_legacy else "0%"
-    ct_display = ", ".join(core_tokens[:5]) if core_tokens else "(tidak ada kata inti mencolok)"
-    auto_summary = (
-        f"Secara umum curhatan bernada {'negatif' if avg < -0.05 else ('positif' if avg > 0.05 else 'netral')} "
-        f"(skor {summary['avg_sentiment']}). Proporsi negatif {neg_ratio_pct}. "
-        f"Topik dominan: {', '.join(top_cat_names) if top_cat_names else '-'}. "
-        f"Kata inti: {ct_display}."
-    )
-
-    # Optional semi-supervised subtopic assignment via BERT centroids
-    if ENABLE_BERT and results:
-        # build centroids from taxonomy examples
-        st_ids, st_texts = [], []
-        for st_id, meta in SUBTOPICS.items():
-            ex = meta.get("examples") or list(meta.get("keywords", []))
-            ex = [e for e in ex if isinstance(e, str) and e.strip()]
-            if not ex:
-                continue
-            st_ids.extend([st_id] * len(ex))
-            st_texts.extend(ex)
-        try:
-            import numpy as np
-            tok, mdl, dev = get_bert()
-            if tok is not None and mdl is not None and st_texts:
-                # embed examples
-                import torch
-                with torch.no_grad():
-                    enc = tok(st_texts, padding=True, truncation=True, max_length=160, return_tensors="pt").to(dev)
-                    out = mdl(**enc)
-                    ex_cls = out.last_hidden_state[:, 0, :].detach().cpu().numpy()
-                by = {}
-                for sid, vec in zip(st_ids, ex_cls):
-                    by.setdefault(sid, []).append(vec)
-                centroids = {sid: np.vstack(arr).mean(axis=0) for sid, arr in by.items()}
-                # embed inputs and assign
-                texts = [r["clean_text"] for r in results]
-                with torch.no_grad():
-                    enc2 = tok(texts, padding=True, truncation=True, max_length=160, return_tensors="pt").to(dev)
-                    out2 = mdl(**enc2)
-                    in_cls = out2.last_hidden_state[:, 0, :].detach().cpu().numpy()
-                for i, vec in enumerate(in_cls):
-                    best_sid, best_sim = None, -1.0
-                    for sid, cvec in centroids.items():
-                        num = float((vec * cvec).sum())
-                        den = float((vec**2).sum())**0.5 * float((cvec**2).sum())**0.5 + 1e-8
-                        sim = num / den
-                        if sim > best_sim:
-                            best_sid, best_sim = sid, sim
-                    if best_sid:
-                        meta = SUBTOPICS.get(best_sid)
-                        if meta:
-                            prev_conf = (results[i].get("cluster") or {}).get("confidence", 0.0)
-                            results[i]["cluster"] = {
-                                "id": best_sid,
-                                "subtopic_code": meta.get("code"),
-                                "label": meta["name"],
-                                "bucket": meta["bucket"],
-                                "topic_id": meta.get("topic_id"),
-                                "topic_name": meta.get("topic_name"),
-                                "confidence": round(max(prev_conf, float(best_sim)), 3)
-                            }
-        except Exception:
-            pass
-
-    # Rule-based recommendations based on bucket & severity
-    def recommend_rules(bucket: str, severity_val: float, negative: bool):
+    # Recommendations Generation
+    def recommend_rules(bucket: str, severity_val: float, negative: bool, sarcasm: bool):
         recs = []
-        if not bucket:
-            return recs
-        if negative and severity_val >= 0.7:
-            recs.append({"tag": "KONSELING_INDIVIDU", "title": "Sesi konseling individu", "priority": 1, "rationale": "Severity tinggi"})
+        if not bucket: return recs
+        
+        # Prioritize Sarcasm/High Severity
+        if (negative or sarcasm) and severity_val >= 0.6:
+            recs.append({"tag": "KONSELING_INDIVIDU", "title": "Sesi konseling individu", "priority": 1, "rationale": "Indikasi masalah mendalam/sarkasme"})
+        
         if bucket in ("SOSIAL", "DISIPLIN") and negative:
-            recs.append({"tag": "MEDIASI_WALI", "title": "Mediasi dengan wali kelas/pihak terkait", "priority": 2, "rationale": f"Kategori {bucket}"})
+            recs.append({"tag": "MEDIASI_WALI", "title": "Mediasi dengan wali kelas", "priority": 2})
         if bucket == "AKADEMIK":
-            recs.append({"tag": "RAPAT_JADWAL_TUGAS", "title": "Penataan jadwal/tugas", "priority": 3, "rationale": "Kendala akademik"})
+            recs.append({"tag": "RAPAT_JADWAL", "title": "Evaluasi jadwal belajar", "priority": 3})
         if bucket == "EMOSI":
-            recs.append({"tag": "PSYCHOEDU_EMOSI", "title": "Psychoeducation regulasi emosi", "priority": 3, "rationale": "Keluhan emosi"})
-        if bucket == "DISIPLIN":
-            recs.append({"tag": "PEMBINAAN_DISIPLIN", "title": "Pembinaan disiplin terarah", "priority": 3, "rationale": "Pelanggaran berulang / tata tertib"})
+            recs.append({"tag": "REGULASI_EMOSI", "title": "Latihan regulasi emosi", "priority": 3})
+            
         return recs
 
+    # Assign Recs per item
     for r in results:
         bucket = (r.get("cluster") or {}).get("bucket")
-        r["recommendations"] = recommend_rules(bucket, r.get("severity") or 0.0, r.get("negative_flag") or False)
+        r["recommendations"] = recommend_rules(
+            bucket, r.get("severity", 0), r.get("negative_flag", False), r.get("is_sarcasm", False)
+        )
 
-   # Global recommendations logic
+    # Global Recs
     abs_sent = abs(avg)
     global_recommendations = []
+    valid_cats = [c for c in categories_overview if c["score"] >= 0.05]
+    is_neg_avg = avg < -0.05
     
-    # REVISI FINAL: Hapus logic "top_score * 0.3". 
-    # Ambil SEMUA kategori yang skornya minimal 5% (0.05).
-    # Biarkan Laravel yang mengatur urutannya.
-    valid_categories = [
-        c for c in categories_overview 
-        if c["score"] >= 0.05 
-    ]
-
-    for cat in valid_categories:
+    for cat in valid_cats:
         cname = cat["category"]
-        score = cat["score"]
         meta = TOPIC_INDEX.get(cname.upper()) or {}
         bucket = meta.get("bucket", "")
-        diff = abs(abs_sent - score)
-        recs = recommend_rules(bucket, max(0.3, abs_sent), avg < -0.05)
+        recs = recommend_rules(bucket, max(0.3, abs_sent), is_neg_avg, False)
         if recs:
             global_recommendations.append({
                 "category": cname,
-                "bucket": bucket,
-                "score": score,
-                "sentiment_abs": round(abs_sent,3),
-                "diff_vs_sentiment": round(diff,3),
+                "score": cat["score"],
                 "recommendations": recs
             })
-    global_recommendations.sort(key=lambda x: (-x["score"], x["diff_vs_sentiment"]))
 
     return jsonify({
         "version": SERVICE_VERSION,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
         "items": results,
-        # legacy outputs for compatibility with earlier UI/bridge
-        "per_entry": per_legacy,
         "summary": summary,
-        "auto_summary": auto_summary,
         "keyphrases": keyphrases,
         "clusters": clusters,
-        "per_entry_categories": per_entry_cats,
         "categories_overview": categories_overview,
-        "core_tokens": core_tokens,
         "global_recommendations": global_recommendations,
     })
 

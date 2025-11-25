@@ -89,9 +89,18 @@ class AnalisisService
         // 2) panggil ML API
         $res = $this->ml->analyze($payload);
 
-        // ambil per_entry untuk rata-rata
-        $per = collect($res['per_entry'] ?? []);
-        $avg = $per->avg(fn($x) => (float) ($x['sentiment'] ?? 0.0));
+        // Ambil daftar item untuk perhitungan rata-rata sentimen.
+        // Versi ML terbaru mengembalikan "items" dengan struktur
+        //   [ 'sentiment' => ['barasa'=>..,'english'=>..,'aggregate'=>..,'label'=>..], ... ]
+        // Sedangkan versi lama mengembalikan "per_entry" dengan field numerik langsung.
+        $per = collect($res['items'] ?? $res['per_entry'] ?? []);
+        $avg = $per->avg(function ($x) {
+            $s = $x['sentiment'] ?? 0.0;
+            if (is_array($s)) {
+                return (float) ($s['aggregate'] ?? 0.0);
+            }
+            return (float) $s;
+        });
 
         // gunakan keyphrases dari ML (konversi ke format {term,count}) + normalisasi & dedup
         $dialectMap = [

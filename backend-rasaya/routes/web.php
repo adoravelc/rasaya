@@ -109,7 +109,10 @@ Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
     Route::patch('/kategori/{kategori}/active', [KategoriWebController::class, 'toggleActive'])->name('admin.kategori.toggle');
     Route::get('/kategori/trashed', [KategoriWebController::class, 'trashed'])->name('admin.kategori.trashed');
     Route::post('/kategori/{id}/restore', [KategoriWebController::class, 'restore'])->name('admin.kategori.restore');
-    Route::delete('/kategori/{id}/force', [KategoriWebController::class, 'force'])->name('admin.kategori.force');
+    Route::delete('/kategori/{id}/force', [KategoriWebController::class, 'forceDelete'])->name('admin.kategori.force');
+    Route::put('/kategori/master/{id}', [KategoriWebController::class, 'updateMaster'])->name('admin.kategori.master.update');
+    Route::delete('/kategori/master/{id}', [KategoriWebController::class, 'destroyMaster'])->name('admin.kategori.master.destroy');
+    Route::patch('/kategori/master/{id}/active', [KategoriWebController::class, 'toggleActiveMaster'])->name('admin.kategori.master.toggle');
 
     // Guru
     Route::get('/guru', [AdminGuruController::class, 'index'])->name('admin.guru.index');
