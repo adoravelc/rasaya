@@ -13,19 +13,53 @@ class RekomendasiWebController extends Controller
     public function index(Request $r)
     {
         $kategoris = KategoriMasalah::orderBy('nama')->get();
-        $kategoriId = $r->integer('kategori_id');
+        $kategoriId = $r->input('kategori_id');
 
         $selectedKategori = null;
+        $showUnassigned = false;
         $q = MasterRekomendasi::with('kategoris')->orderBy('kode');
-        if ($kategoriId) {
-            $selectedKategori = $kategoris->firstWhere('id', $kategoriId);
+        
+        if ($kategoriId === '-1') {
+            // Filter untuk rekomendasi tanpa kategori
+            $showUnassigned = true;
+            $q->whereDoesntHave('kategoris');
+        } elseif ($kategoriId) {
+            $selectedKategori = $kategoris->firstWhere('id', (int) $kategoriId);
             $q->whereHas('kategoris', function ($qq) use ($kategoriId) {
-                $qq->where('kategori_masalah_id', $kategoriId);
+                $qq->where('kategori_masalah_id', (int) $kategoriId);
             });
         }
         $rows = $q->paginate(15)->withQueryString();
 
-        return view('roles.admin.rekomendasi.index', compact('kategoris', 'selectedKategori', 'rows'));
+        return view('roles.admin.rekomendasi.index', compact('kategoris', 'selectedKategori', 'rows', 'showUnassigned'));
+    }
+
+    public function detail(MasterRekomendasi $rekomendasi)
+    {
+        $rekomendasi->load(['kategoris.topikBesars']);
+        
+        return [
+            'ok' => true,
+            'rekomendasi' => [
+                'id' => $rekomendasi->id,
+                'kode' => $rekomendasi->kode,
+                'judul' => $rekomendasi->judul,
+                'deskripsi' => $rekomendasi->deskripsi,
+                'severity' => $rekomendasi->severity,
+                'is_active' => $rekomendasi->is_active,
+                'rules' => $rekomendasi->rules,
+                'kategoris' => $rekomendasi->kategoris->map(fn($k) => [
+                    'id' => $k->id,
+                    'kode' => $k->kode,
+                    'nama' => $k->nama,
+                    'topik_besar' => $k->topikBesars->map(fn($tb) => [
+                        'id' => $tb->id,
+                        'kode' => $tb->kode,
+                        'nama' => $tb->nama,
+                    ])->values(),
+                ])->values(),
+            ],
+        ];
     }
 
     public function suggestKode(Request $r)
@@ -57,7 +91,6 @@ class RekomendasiWebController extends Controller
             'severity' => ['required', Rule::in(['low', 'medium', 'high'])],
             'is_active' => ['boolean'],
             'min_neg_score' => ['nullable', 'numeric'],
-            'any_keywords' => ['nullable', 'string'],
         ]);
 
         // Generate kode if empty
@@ -70,13 +103,7 @@ class RekomendasiWebController extends Controller
         if (isset($data['min_neg_score']) && $data['min_neg_score'] !== null) {
             $rules['min_neg_score'] = (float) $data['min_neg_score'];
         }
-        if (!empty($data['any_keywords'])) {
-            $rules['any_keywords'] = collect(explode(',', $data['any_keywords']))
-                ->map(fn($s) => trim($s))
-                ->filter()
-                ->values()
-                ->all();
-        }
+        // Keywords are sourced from kategori; no per-rekomendasi keywords
 
         $row = new MasterRekomendasi();
         $row->kode = $data['kode'];
@@ -94,6 +121,8 @@ class RekomendasiWebController extends Controller
 
     public function update(Request $r, MasterRekomendasi $rekomendasi)
     {
+        $kategoriId = $r->integer('kategori_id');
+        
         $data = $r->validate([
             'kode' => ['required', 'string', 'max:100', Rule::unique('master_rekomendasis', 'kode')->ignore($rekomendasi->id)],
             'judul' => ['required', 'string', 'max:255'],
@@ -101,20 +130,13 @@ class RekomendasiWebController extends Controller
             'severity' => ['required', Rule::in(['low', 'medium', 'high'])],
             'is_active' => ['boolean'],
             'min_neg_score' => ['nullable', 'numeric'],
-            'any_keywords' => ['nullable', 'string'],
         ]);
 
         $rules = [];
         if (isset($data['min_neg_score']) && $data['min_neg_score'] !== null) {
             $rules['min_neg_score'] = (float) $data['min_neg_score'];
         }
-        if (!empty($data['any_keywords'])) {
-            $rules['any_keywords'] = collect(explode(',', $data['any_keywords']))
-                ->map(fn($s) => trim($s))
-                ->filter()
-                ->values()
-                ->all();
-        }
+        // Keywords are sourced from kategori; no per-rekomendasi keywords
 
         $rekomendasi->update([
             'kode' => $data['kode'],
@@ -124,8 +146,14 @@ class RekomendasiWebController extends Controller
             'is_active' => (bool) ($data['is_active'] ?? $rekomendasi->is_active),
             'rules' => $rules ?: null,
         ]);
+        
+        // Update kategori relationship if kategori_id is provided
+        if ($kategoriId) {
+            // Replace all kategori with the new one
+            $rekomendasi->kategoris()->sync([$kategoriId]);
+        }
 
-        return ['ok' => true, 'data' => $rekomendasi->fresh()];
+        return ['ok' => true, 'data' => $rekomendasi->fresh('kategoris')];
     }
 
     public function toggleActive(Request $r, MasterRekomendasi $rekomendasi)

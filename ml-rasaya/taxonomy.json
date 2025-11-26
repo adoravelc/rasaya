@@ -1,154 +1,376 @@
 {
-  "topics": [
-    {
-      "id": "KME_SA",
-      "name": "Stres Akademik",
-      "bucket": "EMOSI",
-      "keywords": ["stres", "pusing", "tekanan", "ujian", "nilai", "deadline", "tugas", "meledak", "panik", "takut gagal"]
-    },
-    {
-      "id": "KME_KS",
-      "name": "Kecemasan Sosial",
-      "bucket": "EMOSI",
-      "keywords": ["takut", "malu", "gugup", "presentasi", "diam", "blank", "keringat dingin", "gemetar", "diliatin"]
-    },
-    {
-      "id": "KME_DR",
-      "name": "Depresi Ringan",
-      "bucket": "EMOSI",
-      "keywords": ["sedih", "kosong", "nangis", "menangis", "lelah", "berat", "tidak semangat", "menarik diri", "hampa"]
-    },
-    {
-      "id": "KME_GT",
-      "name": "Gangguan Tidur",
-      "bucket": "FISIK",
-      "keywords": ["tidur", "begadang", "insomnia", "ngantuk", "terbangun", "subuh", "melek"]
-    },
-    {
-      "id": "SOP_BTM",
-      "name": "Bullying Tatap Muka",
-      "bucket": "SOSIAL",
-      "keywords": ["bully", "ejek", "hina", "pukul", "dorong", "labrak", "palak", "ancam", "takut masuk"]
-    },
-    {
-      "id": "SOP_CB",
-      "name": "Cyberbullying",
-      "bucket": "SOSIAL",
-      "keywords": ["komen", "jahat", "sebar", "foto", "video", "grup", "wa", "ig", "sosmed", "akun palsu", "hujat"]
-    },
-    {
-      "id": "SOP_TTS",
-      "name": "Tekanan Teman Sebaya",
-      "bucket": "SOSIAL",
-      "keywords": ["dipaksa", "diajak", "ikut", "rokok", "nongkrong", "bolos", "takut nolak", "dijauhi", "solid"]
-    },
-    {
-      "id": "SOP_KI",
-      "name": "Kesepian / Isolasi",
-      "bucket": "SOSIAL",
-      "keywords": ["sendiri", "sepi", "tidak punya teman", "dicuekin", "diabaikan", "menyendiri", "asing"]
-    },
-    {
-      "id": "KPA_KOB",
-      "name": "Konflik Orang Tua / Broken Home",
-      "bucket": "KELUARGA",
-      "keywords": ["orang tua", "ortu", "ayah", "ibu", "papa", "mama", "berkelahi", "bertengkar", "cerai", "pisah", "rumah", "kabur"]
-    },
-    {
-      "id": "KPA_TPK",
-      "name": "Tekanan Prestasi Keluarga",
-      "bucket": "KELUARGA",
-      "keywords": ["tuntut", "banding", "ranking", "juara", "harus", "marah", "kecewa", "bangga", "nilai jelek"]
-    },
-    {
-      "id": "AKD_MBR",
-      "name": "Motivasi Belajar Rendah",
-      "bucket": "AKADEMIK",
-      "keywords": ["malas", "mager", "bosan", "tidak minat", "ngantuk", "main hp", "bolos", "capek belajar"]
-    },
-    {
-      "id": "AKD_PT",
-      "name": "Prokrastinasi Tugas",
-      "bucket": "AKADEMIK",
-      "keywords": ["nunda", "tunda", "nanti", "besok", "mepet", "sks", "belum siap", "lupa"]
-    },
-    {
-      "id": "AKD_KB",
-      "name": "Ketidakhadiran / Bolos",
-      "bucket": "AKADEMIK",
-      "keywords": ["bolos", "alfa", "izin", "sakit", "telat", "terlambat", "cabut", "warung"]
-    },
-    {
-      "id": "KFG_KAF",
-      "name": "Kurang Aktivitas Fisik",
-      "bucket": "FISIK",
-      "keywords": ["lemas", "loyo", "sakit", "pucat", "jarang olahraga", "gerak", "kesehatan"]
-    },
-    {
-      "id": "KFG_PTG",
-      "name": "Pola Tidur & Gizi Buruk",
-      "bucket": "FISIK",
-      "keywords": ["makan", "sarapan", "lapar", "kurus", "gemuk", "diet", "jajan", "pola hidup"]
-    },
-    {
-      "id": "REP_KP",
-      "name": "Konflik Percintaan",
-      "bucket": "RELASI",
-      "keywords": ["pacar", "putus", "selingkuh", "cemburu", "galau", "mantan", "suka", "cinta", "pdkt", "ghosting"]
-    },
-    {
-      "id": "REP_PK",
-      "name": "Putus & Kehilangan",
-      "bucket": "RELASI",
-      "keywords": ["putus", "hilang", "tinggal", "pergi", "sedih", "kangen", "rindu", "luka"]
-    },
-    {
-      "id": "KMD_KJK",
-      "name": "Kebingungan Jurusan / Karier",
-      "bucket": "KARIER",
-      "keywords": ["kuliah", "jurusan", "kerja", "masa depan", "bingung", "minat", "bakat", "cita-cita"]
-    },
-    {
-      "id": "KMD_HE",
-      "name": "Hambatan Ekonomi",
-      "bucket": "KARIER",
-      "keywords": ["uang", "biaya", "bayar", "spp", "miskin", "kurang", "hutang", "kerja", "tulang punggung"]
-    },
-    {
-      "id": "DTT_PTT",
-      "name": "Pelanggaran Tata Tertib",
-      "bucket": "DISIPLIN",
-      "keywords": ["seragam", "rambut", "sepatu", "atribut", "rokok", "hp", "razia", "hukum", "poin"]
-    },
-    {
-      "id": "DTT_MWB",
-      "name": "Manajemen Waktu Buruk",
-      "bucket": "DISIPLIN",
-      "keywords": ["telat", "lambat", "waktu", "jadwal", "berantakan", "susah bagi", "sibuk"]
-    },
-    {
-      "id": "DGW_OMS",
-      "name": "Overuse Media Sosial",
-      "bucket": "DIGITAL",
-      "keywords": ["hp", "sosmed", "ig", "tiktok", "scroll", "layar", "kecanduan", "lupa waktu"]
-    },
-    {
-      "id": "DGW_GB",
-      "name": "Game Berlebihan",
-      "bucket": "DIGITAL",
-      "keywords": ["game", "main", "ml", "ff", "pubg", "rank", "topup", "warnet", "mabar"]
-    },
-    {
-      "id": "KKS_KFD",
-      "name": "Kekerasan Fisik / Verbal oleh Dewasa",
-      "bucket": "KEAMANAN",
-      "keywords": ["guru", "orang dewasa", "pukul", "bentak", "maki", "kasar", "takut"]
-    },
-    {
-      "id": "KKS_PBG",
-      "name": "Perundungan Berbasis Gender",
-      "bucket": "KEAMANAN",
-      "keywords": ["bencong", "tomboy", "cewek", "cowok", "banci", "leceh", "pegang", "badan"]
+    "topics": [
+        {
+            "id": "AKD_KB",
+            "name": "Ketidakhadiran \/ Bolos",
+            "bucket": "AKADEMIS & DISIPLIN",
+            "keywords": [],
+            "deskripsi": "Sering absen\/telat tanpa alasan jelas yang mengganggu capaian belajar."
+        },
+        {
+            "id": "AKD_MBR",
+            "name": "Motivasi Belajar Rendah",
+            "bucket": "AKADEMIS & DISIPLIN",
+            "keywords": [],
+            "deskripsi": "Minat\/energi belajar menurun, lebih memilih aktivitas non-akademik."
+        },
+        {
+            "id": "AKD_PT",
+            "name": "Prokrastinasi Tugas",
+            "bucket": "AKADEMIS & DISIPLIN",
+            "keywords": [],
+            "deskripsi": "Menunda pekerjaan hingga mendekati tenggat, memicu kualitas rendah & stres."
+        },
+        {
+            "id": "DGW_GB",
+            "name": "Game Berlebihan",
+            "bucket": "DIGITAL WELLBEING",
+            "keywords": [],
+            "deskripsi": "Jam bermain gim tinggi mengganggu tidur, tugas, dan relasi keluarga."
+        },
+        {
+            "id": "DGW_OMS",
+            "name": "Overuse Media Sosial",
+            "bucket": "DIGITAL WELLBEING",
+            "keywords": [],
+            "deskripsi": "Penggunaan medsos berlebihan yang memicu distraksi, FOMO, dan mood negatif."
+        },
+        {
+            "id": "DTT_MWB",
+            "name": "Manajemen Waktu Buruk",
+            "bucket": "DISIPLIN & TATA TERTIB",
+            "keywords": [],
+            "deskripsi": "Kesulitan menyusun prioritas\/jadwal sehingga kewalahan akademik & kegiatan."
+        },
+        {
+            "id": "DTT_PTT",
+            "name": "Pelanggaran Tata Tertib",
+            "bucket": "DISIPLIN & TATA TERTIB",
+            "keywords": [],
+            "deskripsi": "Melanggar aturan (seragam, rambut, gawai) karena resistensi atau ketidaktahuan."
+        },
+        {
+            "id": "KFG_KAF",
+            "name": "Kurang Aktivitas Fisik",
+            "bucket": "KESEHATAN FISIK & GAYA HIDUP",
+            "keywords": [],
+            "deskripsi": "Aktivitas fisik rendah yang berdampak pada kebugaran, mood, dan fokus belajar."
+        },
+        {
+            "id": "KFG_PTG",
+            "name": "Pola Tidur & Gizi Buruk",
+            "bucket": "KESEHATAN FISIK & GAYA HIDUP",
+            "keywords": [],
+            "deskripsi": "Jam tidur pendek\/berantakan dan kebiasaan makan tidak teratur yang mengganggu kinerja."
+        },
+        {
+            "id": "KKS_KFD",
+            "name": "Kekerasan Fisik \/ Verbal oleh Dewasa",
+            "bucket": "KEAMANAN & KESELAMATAN",
+            "keywords": [],
+            "deskripsi": "Pengalaman kekerasan dari orang dewasa (termasuk guru) yang menimbulkan takut\/trauma."
+        },
+        {
+            "id": "KKS_PBG",
+            "name": "Perundungan Berbasis Gender",
+            "bucket": "KEAMANAN & KESELAMATAN",
+            "keywords": [],
+            "deskripsi": "Pelecehan stereotip\/perilaku tidak pantas yang menarget identitas gender."
+        },
+        {
+            "id": "KMD_HE",
+            "name": "Hambatan Ekonomi",
+            "bucket": "KARIER & MASA DEPAN",
+            "keywords": [],
+            "deskripsi": "Keterbatasan biaya\/dukungan finansial yang menghambat rencana studi lanjut."
+        },
+        {
+            "id": "KMD_KJK",
+            "name": "Kebingungan Jurusan \/ Karier",
+            "bucket": "KARIER & MASA DEPAN",
+            "keywords": [],
+            "deskripsi": "Kurang pemahaman diri\/informasi sehingga ragu menentukan langkah pasca-SMA."
+        },
+        {
+            "id": "KME_DR",
+            "name": "Depresi Ringan",
+            "bucket": "KESEHATAN MENTAL & EMOSI",
+            "keywords": [
+                "sedih",
+                "kosong",
+                "nggak semangat",
+                "nangis",
+                "menarik diri",
+                "hampia",
+                "gelap",
+                "lelah hati",
+                "putus asa",
+                "malas hidup",
+                "diam",
+                "menyendiri",
+                "sensitif"
+            ],
+            "deskripsi": "Perasaan sedih\/kehilangan minat berkepanjangan, energi rendah, dan menarik diri."
+        },
+        {
+            "id": "KME_GT",
+            "name": "Gangguan Tidur",
+            "bucket": "KESEHATAN MENTAL & EMOSI",
+            "keywords": [
+                "begadang",
+                "insomnia",
+                "ngantuk",
+                "layar",
+                "kepikiran",
+                "subuh",
+                "jam 3 pagi",
+                "mata panda",
+                "ketiduran",
+                "melek",
+                "susah tidur",
+                "lemas",
+                "overthinking"
+            ],
+            "deskripsi": "Kesulitan tidur\/insomnia akibat stres atau paparan layar yang mengganggu fungsi siang hari."
+        },
+        {
+            "id": "KME_KS",
+            "name": "Kecemasan Sosial",
+            "bucket": "KESEHATAN MENTAL & EMOSI",
+            "keywords": [
+                "takut",
+                "malu",
+                "gugup",
+                "presentasi",
+                "diam",
+                "blank",
+                "gemetar",
+                "keringat dingin",
+                "dilihatin",
+                "diketawain",
+                "minder",
+                "grogi",
+                "deg-degan",
+                "sembunyi",
+                "pojok"
+            ],
+            "deskripsi": "Rasa takut, malu, gugup saat tampil\/berinteraksi sehingga menghindar dari partisipasi."
+        },
+        {
+            "id": "KME_SA",
+            "name": "Stres Akademik",
+            "bucket": "KESEHATAN MENTAL & EMOSI",
+            "keywords": [
+                "tugas",
+                "ujian",
+                "nilai",
+                "deadline",
+                "pusing",
+                "remedial",
+                "anjlok",
+                "meledak",
+                "mumet",
+                "beban",
+                "stress",
+                "panik",
+                "otak penuh",
+                "capek belajar",
+                "tuntutan",
+                "burnout"
+            ],
+            "deskripsi": "Tekanan berlebih karena tugas\/ujian\/nilai yang memicu tegang, lelah, dan kesulitan fokus."
+        },
+        {
+            "id": "KPA_KOB",
+            "name": "Konflik Orang Tua \/ Broken Home",
+            "bucket": "KELUARGA & POLA ASUH",
+            "keywords": [
+                "ribut",
+                "pisah",
+                "nggak tenang",
+                "takut",
+                "kabur",
+                "cerai",
+                "bentak",
+                "banting barang",
+                "broken home",
+                "piring terbang",
+                "nangis malam",
+                "rumah neraka",
+                "benci rumah",
+                "kabur dari rumah",
+                "KDRT"
+            ],
+            "deskripsi": "Konflik rumah tangga, perceraian, atau kekerasan verbal yang memicu distress siswa."
+        },
+        {
+            "id": "KPA_TPK",
+            "name": "Tekanan Prestasi Keluarga",
+            "bucket": "KELUARGA & POLA ASUH",
+            "keywords": [],
+            "deskripsi": "Tuntutan nilai\/peringkat yang tidak realistis hingga memicu stres dan takut gagal."
+        },
+        {
+            "id": "REP_KP",
+            "name": "Konflik Percintaan",
+            "bucket": "RELASI & PERCINTAAN",
+            "keywords": [],
+            "deskripsi": "Cemburu\/curiga\/selisih paham yang menurunkan fokus belajar & kestabilan emosi."
+        },
+        {
+            "id": "REP_PK",
+            "name": "Putus & Kehilangan",
+            "bucket": "RELASI & PERCINTAAN",
+            "keywords": [],
+            "deskripsi": "Kehilangan pasangan memicu sedih\/menarik diri, mengganggu rutinitas sekolah."
+        },
+        {
+            "id": "SOP_BTM",
+            "name": "Bullying Tatap Muka",
+            "bucket": "SOSIAL & PERGAULAN",
+            "keywords": [
+                "bully",
+                "ejek",
+                "eksklusi",
+                "dorong",
+                "gibah",
+                "palak",
+                "labrak",
+                "jegal",
+                "ancam",
+                "takut masuk",
+                "dipalak",
+                "geng",
+                "sinis",
+                "kekerasan",
+                "pukul",
+                "dimaki"
+            ],
+            "deskripsi": "Perundungan secara langsung seperti ejekan, dorongan, atau pengucilan."
+        },
+        {
+            "id": "SOP_CB",
+            "name": "Cyberbullying",
+            "bucket": "SOSIAL & PERGAULAN",
+            "keywords": [
+                "hoax",
+                "grup",
+                "sebar",
+                "hina",
+                "akun palsu",
+                "DM",
+                "spill",
+                "viralin",
+                "sticker aib",
+                "hate comment",
+                "doxing",
+                "teror",
+                "chat",
+                "kasar",
+                "screenshot",
+                "story jahat"
+            ],
+            "deskripsi": "Perundungan digital melalui chat\/grup\/medsos: penghinaan, sebar foto, doxing."
+        },
+        {
+            "id": "SOP_KI",
+            "name": "Kesepian \/ Isolasi",
+            "bucket": "SOSIAL & PERGAULAN",
+            "keywords": [
+                "kesepian",
+                "sendirian",
+                "dukungan",
+                "nggak diterima",
+                "tidak dianggap",
+                "dicuekin",
+                "asing",
+                "invisible",
+                "makan sendiri",
+                "gaada teman",
+                "sepi",
+                "tersisih"
+            ],
+            "deskripsi": "Perasaan tidak punya teman dekat\/dukungan sosial di sekolah."
+        },
+        {
+            "id": "SOP_TTS",
+            "name": "Tekanan Teman Sebaya",
+            "bucket": "SOSIAL & PERGAULAN",
+            "keywords": [
+                "tekanan",
+                "ikut-ikutan",
+                "keren",
+                "solid",
+                "nolak",
+                "fomo",
+                "gak asik",
+                "cupu",
+                "gengsi",
+                "dipaksa",
+                "rokok",
+                "vape",
+                "nongkrong",
+                "bolos",
+                "dimusuhin"
+            ],
+            "deskripsi": "Dorongan mengikuti perilaku yang tidak diinginkan agar diterima kelompok."
+        }
+    ],
+    "buckets": [
+        {
+            "id": "AKADEMIS_DISIPLIN",
+            "name": "Akademis & Disiplin",
+            "deskripsi": "Motivasi belajar, tugas, kedisiplinan sekolah."
+        },
+        {
+            "id": "DIGITAL_WELLBEING",
+            "name": "Digital Wellbeing",
+            "deskripsi": "Keseimbangan penggunaan media sosial dan game."
+        },
+        {
+            "id": "FISIK_GAYA_HIDUP",
+            "name": "Kesehatan Fisik & Gaya Hidup",
+            "deskripsi": "Aktivitas fisik, tidur, gizi dan kebiasaan."
+        },
+        {
+            "id": "KARIER_MASA_DEPAN",
+            "name": "Karier & Masa Depan",
+            "deskripsi": "Perencanaan jurusan, pendidikan lanjutan, ekonomi."
+        },
+        {
+            "id": "KEAMANAN_KESELAMATAN",
+            "name": "Keamanan & Keselamatan",
+            "deskripsi": "Isu kekerasan fisik\/verbal dan keselamatan pribadi."
+        },
+        {
+            "id": "KELUARGA_ASUH",
+            "name": "Keluarga & Pola Asuh",
+            "deskripsi": "Relasi keluarga, tekanan atau dinamika rumah."
+        },
+        {
+            "id": "MENTAL_EMOSI",
+            "name": "Kesehatan Mental & Emosi",
+            "deskripsi": "Topik besar terkait kesehatan mental dan regulasi emosi."
+        },
+        {
+            "id": "RELASI_PERCINTAAN",
+            "name": "Relasi & Percintaan",
+            "deskripsi": "Hubungan romantis dan dinamika emosionalnya."
+        },
+        {
+            "id": "SOSIAL_PERGAULAN",
+            "name": "Sosial & Pergaulan",
+            "deskripsi": "Interaksi sosial, konflik teman sebaya, perundungan."
+        },
+        {
+            "id": "TATA_TERTIB",
+            "name": "Disiplin & Tata Tertib",
+            "deskripsi": "Kepatuhan terhadap aturan sekolah dan manajemen waktu."
+        }
+    ],
+    "meta": {
+        "last_synced": "2025-11-26T13:31:13+08:00",
+        "version": "2.0",
+        "source": "database"
     }
-  ]
 }

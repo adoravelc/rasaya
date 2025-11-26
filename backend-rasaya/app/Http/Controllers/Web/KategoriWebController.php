@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use App\Models\KategoriMasalah;
 use App\Models\MasterKategoriMasalah;
 use Illuminate\Validation\Rule;
+use App\Services\TaxonomySync;
 
 class KategoriWebController extends Controller
 {
@@ -58,6 +60,7 @@ class KategoriWebController extends Controller
                 'kode' => $kategori->kode,
                 'nama' => $kategori->nama,
                 'deskripsi' => $kategori->deskripsi,
+                'kata_kunci' => is_array($kategori->kata_kunci) ? $kategori->kata_kunci : (empty($kategori->kata_kunci) ? [] : (array) $kategori->kata_kunci),
                 'topik_besar' => $kategori->topikBesars->map(fn($m)=>[
                     'id'=>$m->id,
                     'kode'=>$m->kode,
@@ -84,6 +87,8 @@ class KategoriWebController extends Controller
         $data = $r->validate([
             'nama' => ['required', 'max:100'],
             'deskripsi' => ['nullable', 'max:255'],
+            'kata_kunci' => ['nullable', 'array'],
+            'kata_kunci.*' => ['string', 'max:50'],
             'is_active' => ['boolean'],
             'master_id' => ['nullable','integer'],
         ]);
@@ -123,6 +128,15 @@ class KategoriWebController extends Controller
                 $row->topikBesars()->syncWithoutDetaching([$data['master_id']]);
             } catch (\Throwable $e) {}
         }
+        
+        // Sync to taxonomy.json
+        try {
+            $sync = new TaxonomySync();
+            $sync->syncAll();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to sync taxonomy after create', ['error' => $e->getMessage()]);
+        }
+        
         return response()->json(['ok' => true, 'data' => $row->load('topikBesars')], 201);
     }
 
@@ -135,6 +149,8 @@ class KategoriWebController extends Controller
         $data = $r->validate([
             'nama' => ['required', 'max:100'],
             'deskripsi' => ['nullable', 'max:255'],
+            'kata_kunci' => ['nullable', 'array'],
+            'kata_kunci.*' => ['string', 'max:50'],
             'is_active' => ['boolean'],
             'master_id' => ['nullable','integer'],
         ]);
@@ -147,6 +163,14 @@ class KategoriWebController extends Controller
         // Update master relationship if provided
         if (isset($data['master_id'])) {
             $kategori->topikBesars()->sync([$data['master_id']]);
+        }
+        
+        // Sync to taxonomy.json
+        try {
+            $sync = new TaxonomySync();
+            $sync->syncAll();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to sync taxonomy after update', ['error' => $e->getMessage()]);
         }
         
         return ['ok' => true, 'data' => $kategori->fresh('topikBesars')];
@@ -186,6 +210,14 @@ class KategoriWebController extends Controller
         $row->is_active = (bool) ($data['is_active'] ?? true);
         $row->save();
 
+        // Sync to taxonomy.json
+        try {
+            $sync = new TaxonomySync();
+            $sync->syncAll();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to sync taxonomy after create master', ['error' => $e->getMessage()]);
+        }
+
         return response()->json(['ok' => true, 'data' => $row], 201);
     }
 
@@ -203,6 +235,14 @@ class KategoriWebController extends Controller
         $master->deskripsi = $data['deskripsi'] ?? null;
         $master->is_active = (bool) ($data['is_active'] ?? $master->is_active);
         $master->save();
+
+        // Sync to taxonomy.json
+        try {
+            $sync = new TaxonomySync();
+            $sync->syncAll();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to sync taxonomy after update master', ['error' => $e->getMessage()]);
+        }
 
         return ['ok' => true, 'data' => $master];
     }
@@ -223,6 +263,15 @@ class KategoriWebController extends Controller
     {
         $master = MasterKategoriMasalah::findOrFail($id);
         $master->delete();
+        
+        // Sync to taxonomy.json
+        try {
+            $sync = new TaxonomySync();
+            $sync->syncAll();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to sync taxonomy after delete master', ['error' => $e->getMessage()]);
+        }
+        
         return ['ok' => true];
     }
 
@@ -230,6 +279,15 @@ class KategoriWebController extends Controller
     public function destroy(KategoriMasalah $kategori)
     {
         $kategori->delete();             // <- soft delete
+        
+        // Sync to taxonomy.json
+        try {
+            $sync = new TaxonomySync();
+            $sync->syncAll();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to sync taxonomy after delete', ['error' => $e->getMessage()]);
+        }
+        
         return ['ok' => true];
     }
 
@@ -245,6 +303,15 @@ class KategoriWebController extends Controller
     {
         $row = KategoriMasalah::onlyTrashed()->findOrFail($id);
         $row->restore();
+        
+        // Sync to taxonomy.json
+        try {
+            $sync = new TaxonomySync();
+            $sync->syncAll();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to sync taxonomy after restore', ['error' => $e->getMessage()]);
+        }
+        
         return ['ok' => true, 'data' => $row];
     }
 
@@ -252,6 +319,15 @@ class KategoriWebController extends Controller
     {
         $row = KategoriMasalah::onlyTrashed()->findOrFail($id);
         $row->forceDelete();
+        
+        // Sync to taxonomy.json
+        try {
+            $sync = new TaxonomySync();
+            $sync->syncAll();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to sync taxonomy after force delete', ['error' => $e->getMessage()]);
+        }
+        
         return response()->noContent();
     }
 }

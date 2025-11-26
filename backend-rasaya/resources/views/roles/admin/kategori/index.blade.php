@@ -44,6 +44,7 @@
                             <th>Topik Besar</th>
                             <th>Kode</th>
                             <th>Nama</th>
+                            <th>Kata Kunci</th>
                             <th>Status</th>
                             <th style="width:210px">Aksi</th>
                         </tr>
@@ -68,6 +69,19 @@
                                 <td>
                                     <span class="fw-bold" data-nama>{{ $k->nama }}</span>
                                     <span class="d-none" data-deskripsi>{{ $k->deskripsi }}</span>
+                                    <span class="d-none" data-keywords>{{ json_encode($k->kata_kunci ?? []) }}</span>
+                                </td>
+                                <td class="text-muted small">
+                                    @if($k->kata_kunci && count($k->kata_kunci) > 0)
+                                        @foreach(array_slice($k->kata_kunci, 0, 3) as $kw)
+                                            <span class="badge bg-light text-dark border me-1 mb-1">{{ $kw }}</span>
+                                        @endforeach
+                                        @if(count($k->kata_kunci) > 3)
+                                            <span class="text-muted">+{{ count($k->kata_kunci) - 3 }}</span>
+                                        @endif
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
                                 </td>
                                 <td class="td-is_active">
                                     <div class="form-check form-switch m-0">
@@ -85,7 +99,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">Belum ada data kategori kecil.</td>
+                                <td colspan="7" class="text-center py-4 text-muted">Belum ada data kategori kecil.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -206,6 +220,13 @@
                         <div class="mb-3">
                             <label class="form-label">Deskripsi (opsional)</label>
                             <textarea id="ms-deskripsi" class="form-control" rows="2" maxlength="255"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Kata Kunci <small class="text-muted">(pisahkan dengan Enter, koma, atau titik koma)</small></label>
+                            <div id="ms-keywords-container" class="border rounded p-2 bg-light" style="min-height:80px">
+                                <div id="ms-keywords-tags" class="d-flex flex-wrap gap-1 mb-1"></div>
+                                <input type="text" id="ms-keyword-input" class="border-0 bg-transparent" placeholder="Ketik kata kunci..." style="outline:none;width:100%">
+                            </div>
                         </div>
                         <div class="form-check mb-2">
                             <input class="form-check-input" type="checkbox" id="ms-active" checked>
@@ -329,10 +350,82 @@
             location.href = url.toString();
         }
 
+        // === KEYWORD TAG MANAGEMENT (Kategori Kecil Only) ===
+        let msKeywords = [];
+
+        function initKeywordInput(prefix) {
+            const input = document.getElementById(`${prefix}-keyword-input`);
+            const tagsContainer = document.getElementById(`${prefix}-keywords-tags`);
+            const keywords = msKeywords;
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ',' || e.key === ';') {
+                    e.preventDefault();
+                    const value = input.value.trim().replace(/[,;]$/g, '');
+                    if (value && !keywords.includes(value)) {
+                        addKeywordTag(prefix, value);
+                    }
+                    input.value = '';
+                }
+            });
+
+            input.addEventListener('blur', () => {
+                const value = input.value.trim().replace(/[,;]$/g, '');
+                if (value && !keywords.includes(value)) {
+                    addKeywordTag(prefix, value);
+                    input.value = '';
+                }
+            });
+        }
+
+        function addKeywordTag(prefix, keyword) {
+            const keywords = msKeywords;
+            const tagsContainer = document.getElementById(`${prefix}-keywords-tags`);
+            
+            keywords.push(keyword);
+            
+            const tag = document.createElement('span');
+            tag.className = 'badge bg-primary d-inline-flex align-items-center gap-1';
+            tag.innerHTML = `${keyword} <span style="cursor:pointer" onclick="removeKeywordTag('${prefix}', '${keyword.replace(/'/g, "\\'")}')">×</span>`;
+            tagsContainer.appendChild(tag);
+        }
+
+        function removeKeywordTag(prefix, keyword) {
+            const keywords = msKeywords;
+            const idx = keywords.indexOf(keyword);
+            if (idx > -1) keywords.splice(idx, 1);
+            renderKeywordTags(prefix);
+        }
+
+        function renderKeywordTags(prefix) {
+            const keywords = msKeywords;
+            const tagsContainer = document.getElementById(`${prefix}-keywords-tags`);
+            tagsContainer.innerHTML = '';
+            keywords.forEach(kw => {
+                const tag = document.createElement('span');
+                tag.className = 'badge bg-primary d-inline-flex align-items-center gap-1';
+                tag.innerHTML = `${kw} <span style="cursor:pointer" onclick="removeKeywordTag('${prefix}', '${kw.replace(/'/g, "\\'")}')">×</span>`;
+                tagsContainer.appendChild(tag);
+            });
+        }
+
+        function loadKeywords(prefix, keywordsArray) {
+            msKeywords = keywordsArray || [];
+            renderKeywordTags(prefix);
+        }
+
+        function clearKeywords(prefix) {
+            msKeywords = [];
+            renderKeywordTags(prefix);
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             bsModalSmall = new bootstrap.Modal(modalSmallEl, { backdrop: 'static' });
             bsModalBig = new bootstrap.Modal(modalBigEl, { backdrop: 'static' });
             bsDetailModal = new bootstrap.Modal(detailEl, { backdrop: 'static' });
+
+            // Init keyword input (kategori kecil only)
+            initKeywordInput('ms');
 
             // Toggle aktif kategori kecil
             document.querySelectorAll('.toggle-active').forEach(el => {
@@ -387,6 +480,7 @@
             document.getElementById('ms-error').innerText = '';
             const currentMaster = document.getElementById('f-master')?.value || '';
             document.getElementById('ms-master').value = currentMaster;
+            clearKeywords('ms');
             bsModalSmall.show();
         }
 
@@ -400,6 +494,11 @@
             const deskripsi = row.querySelector('span[data-deskripsi].d-none')?.textContent.trim() || '';
             const masterId = row.querySelector('.td-masters .badge[data-master-id]')?.dataset.masterId || '';
             const isActive = row.querySelector('.toggle-active')?.checked || false;
+            const keywordsJson = row.querySelector('span[data-keywords].d-none')?.textContent.trim() || '[]';
+            let keywords = [];
+            try {
+                keywords = JSON.parse(keywordsJson);
+            } catch (e) {}
 
             document.getElementById('ms-title').innerText = 'Edit Kategori Kecil';
             document.getElementById('ms-id').value = id;
@@ -408,6 +507,7 @@
             document.getElementById('ms-master').value = masterId;
             document.getElementById('ms-active').checked = isActive;
             document.getElementById('ms-error').innerText = '';
+            loadKeywords('ms', keywords);
             bsModalSmall.show();
         }
 
@@ -423,7 +523,8 @@
                 nama: document.getElementById('ms-nama').value.trim(),
                 deskripsi: document.getElementById('ms-deskripsi').value.trim() || null,
                 is_active: document.getElementById('ms-active').checked ? 1 : 0,
-                master_id: masterId
+                master_id: masterId,
+                kata_kunci: msKeywords
             };
             const url = id ? `${base}/${id}` : base;
             const method = id ? 'PUT' : 'POST';
@@ -481,7 +582,7 @@
             const payload = {
                 nama: document.getElementById('mb-nama').value.trim(),
                 deskripsi: document.getElementById('mb-deskripsi').value.trim() || null,
-                is_active: document.getElementById('mb-active').checked ? 1 : 0,
+                is_active: document.getElementById('mb-active').checked ? 1 : 0
             };
             const url = id ? `${base}/master/${id}` : `${base}/master`;
             const method = id ? 'PUT' : 'POST';
@@ -606,6 +707,15 @@
                 const tops = (kb.topik_besar || []).map(t =>
                     `<li><code>[${t.kode}]</code> ${t.nama}${t.deskripsi?` — <span class="text-muted">${t.deskripsi}</span>`:''}</li>`
                 ).join('') || '<li class="text-muted">(Belum terhubung)</li>';
+                // Robustly resolve keywords from API payload (supports various shapes)
+                let keywordsRaw = kb.kata_kunci ?? kb.keywords ?? kb.kataKunci ?? [];
+                if (typeof keywordsRaw === 'string') {
+                    try { keywordsRaw = JSON.parse(keywordsRaw); } catch (_) { keywordsRaw = []; }
+                }
+                const keywords = Array.isArray(keywordsRaw) ? keywordsRaw.filter(k => typeof k === 'string' && k.trim().length) : [];
+                const keywordsHtml = keywords.length
+                    ? keywords.map(k => `<span class="badge bg-light text-dark border me-1 mb-1">${k}</span>`).join('')
+                    : '<span class="text-muted">-</span>';
                 const rekoms = (data.rekomendasis || []).map(r =>
                     `<li><code>${r.kode}</code> — ${r.judul} <span class="badge ${r.is_active?'bg-success':'bg-secondary'}">${r.is_active?'aktif':'nonaktif'}</span></li>`
                 ).join('') || '<li class="text-muted">(Belum ada rekomendasi)</li>';
@@ -620,6 +730,7 @@
                             <div><strong>Kode:</strong> <code>${kb.kode}</code></div>
                             <div><strong>Nama:</strong> ${kb.nama}</div>
                             <div><strong>Deskripsi:</strong> <span class="text-muted">${kb.deskripsi||'-'}</span></div>
+                            <div><strong>Kata Kunci:</strong> ${keywordsHtml}</div>
                         </div>
                         <div class="col-12">
                             <h6 class="mb-2">Rekomendasi Tindakan</h6>

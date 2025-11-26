@@ -8,7 +8,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class KategoriMasalah extends Model
 {
     use SoftDeletes;
-    protected $fillable = ['kode','nama','deskripsi','is_active'];
+    protected $fillable = ['kode','nama','deskripsi','kata_kunci','is_active'];
+    
+    protected $casts = [
+        'kata_kunci' => 'array',
+        'is_active' => 'boolean',
+    ];
+    
     public function scopeAktif($q){ return $q->where('is_active',true); }
 
     public function masters()

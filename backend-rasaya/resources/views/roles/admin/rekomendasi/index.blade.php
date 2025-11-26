@@ -11,6 +11,7 @@
         <form method="GET" action="" class="d-flex gap-2">
             <select name="kategori_id" class="form-select form-select-sm" style="width:260px" onchange="this.form.submit()">
                 <option value="">— Pilih Kategori —</option>
+                <option value="-1" {{ request('kategori_id') === '-1' ? 'selected' : '' }}>🔴 Tidak memiliki kategori</option>
                 @foreach ($kategoris as $k)
                     <option value="{{ $k->id }}" {{ optional($selectedKategori)->id === $k->id ? 'selected' : '' }}>
                         [{{ $k->kode }}] {{ $k->nama }}
@@ -36,12 +37,12 @@
                                 <th>Deskripsi</th>
                                 <th>Severity</th>
                                 <th>Status</th>
-                                <th style="width:180px">Aksi</th>
+                                <th style="width:230px">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="rows">
                             @forelse ($rows as $i => $r)
-                                <tr data-id="{{ $r->id }}" data-rules='@json($r->rules)'>
+                                <tr data-id="{{ $r->id }}" data-rules='@json($r->rules)' data-kategori-id="{{ $r->kategoris->first()?->id ?? '' }}">
                                     <td>{{ $rows->firstItem() + $i }}</td>
                                     <td class="td-kode">{{ $r->kode }}</td>
                                     <td class="td-judul">{{ $r->judul }}</td>
@@ -55,6 +56,7 @@
                                     </td>
                                     <td class="actions">
                                         <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" onclick="openDetail({{ $r->id }})">Detail</button>
                                             <button class="btn btn-outline-secondary" onclick="openEdit({{ $r->id }})">Edit</button>
                                             <button class="btn btn-outline-danger" onclick="doDelete({{ $r->id }})">Hapus</button>
                                         </div>
@@ -90,10 +92,11 @@
                         <div class="row g-3 mb-1">
                             <div class="col-md-6">
                                 <label class="form-label">Kategori</label>
-                                <select id="m-kategori" class="form-select" required onchange="onKategoriChange()">
+                                <input type="text" id="m-kategori-search" class="form-control mb-2" placeholder="Cari kategori..." onkeyup="filterKategori()">
+                                <select id="m-kategori" class="form-select" required onchange="onKategoriChange()" size="5" style="height:auto">
                                     <option value="">— Pilih Kategori —</option>
                                     @foreach ($kategoris as $k)
-                                        <option value="{{ $k->id }}" data-kode="{{ $k->kode }}" {{ optional($selectedKategori)->id === $k->id ? 'selected' : '' }}>
+                                        <option value="{{ $k->id }}" data-kode="{{ $k->kode }}" data-nama="[{{ $k->kode }}] {{ $k->nama }}" {{ optional($selectedKategori)->id === $k->id ? 'selected' : '' }}>
                                             [{{ $k->kode }}] {{ $k->nama }}
                                         </option>
                                     @endforeach
@@ -125,16 +128,6 @@
                                     <option value="high">high</option>
                                 </select>
                             </div>
-                            <div class="col-md-4 d-flex align-items-end">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="m-active" checked>
-                                    <label class="form-check-label" for="m-active">Aktif</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <hr>
-                        <div class="row g-3">
                             <div class="col-md-4">
                                 <label class="form-label">Tingkat Keparahan</label>
                                 <input type="range" min="-1.00" max="0.00" step="0.01" id="m-min_score" class="form-range" oninput="updateMinScoreLabel()">
@@ -148,10 +141,11 @@
                                     <div class="mt-1">Semakin mendekati -1.00, kondisinya makin berat.</div>
                                 </div>
                             </div>
-                            <div class="col-md-8">
-                                <label class="form-label">Kata kunci dalam input</label>
-                                <input id="m-any_keywords" class="form-control" placeholder="pisahkan dengan koma, mis: tugas, ujian, nilai">
-                                <div class="form-text">Jika salah satu kata kunci muncul pada teks input, rekomendasi ini lebih relevan.</div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="m-active" checked>
+                                    <label class="form-check-label" for="m-active">Aktif</label>
+                                </div>
                             </div>
                         </div>
 
@@ -165,6 +159,26 @@
             </div>
         </div>
     </div>
+
+    {{-- Detail Modal --}}
+    <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Detail Rekomendasi</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="detailContent">
+                        <div class="text-muted">Memuat…</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -173,10 +187,12 @@
         const base = '/admin/rekomendasi';
     const kategoriIdFilter = {{ optional($selectedKategori)->id ?? 'null' }};
         const modalEl = document.getElementById('modal');
-        let bsModal;
+        const detailModalEl = document.getElementById('detailModal');
+        let bsModal, bsDetailModal;
 
         document.addEventListener('DOMContentLoaded', () => {
             bsModal = new bootstrap.Modal(modalEl, { backdrop: 'static' });
+            bsDetailModal = new bootstrap.Modal(detailModalEl, { backdrop: 'static' });
 
             document.querySelectorAll('.toggle-active').forEach(el => {
                 el.addEventListener('change', async (e) => {
@@ -206,7 +222,7 @@
             // default suggestion from severity
             document.getElementById('m-min_score').value = sevToScore(document.getElementById('m-severity').value);
             updateMinScoreLabel();
-            document.getElementById('m-any_keywords').value = '';
+            // no keywords in rekomendasi
             document.getElementById('m-error').innerText = '';
             // Preselect kategori by filter if available
             if (kategoriIdFilter) {
@@ -232,7 +248,12 @@
             const current = (typeof rules.min_neg_score === 'number') ? rules.min_neg_score : null;
             document.getElementById('m-min_score').value = (current !== null ? current : sevToScore(document.getElementById('m-severity').value));
             updateMinScoreLabel();
-            document.getElementById('m-any_keywords').value = Array.isArray(rules.any_keywords) ? rules.any_keywords.join(', ') : '';
+            // Load kategori if available
+            const kategoriId = tr.dataset.kategoriId;
+            if (kategoriId) {
+                document.getElementById('m-kategori').value = kategoriId;
+            }
+            // no keywords in rekomendasi
             document.getElementById('m-error').innerText = '';
             bsModal.show();
         }
@@ -259,9 +280,10 @@
                 severity: document.getElementById('m-severity').value,
                 is_active: document.getElementById('m-active').checked ? 1 : 0,
                 min_neg_score: parseFloat(document.getElementById('m-min_score').value),
-                any_keywords: document.getElementById('m-any_keywords').value.trim(),
+                kategori_id: parseInt(kid), // Include kategori_id in payload for update
+                // no keywords in rekomendasi
             };
-            const url = id ? `${base}/${id}?kategori_id=${kid}` : `${base}?kategori_id=${kid}`;
+            const url = id ? `${base}/${id}` : `${base}?kategori_id=${kid}`;
             const res = await fetch(url, {
                 method: id ? 'PUT' : 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'Accept': 'application/json' },
@@ -301,6 +323,68 @@
         function updateMinScoreLabel(){
             const val = parseFloat(document.getElementById('m-min_score').value);
             document.getElementById('m-min_value').textContent = isNaN(val) ? '-' : val.toFixed(2);
+        }
+
+        function filterKategori() {
+            const search = document.getElementById('m-kategori-search').value.toLowerCase();
+            const select = document.getElementById('m-kategori');
+            const options = select.querySelectorAll('option');
+            options.forEach(opt => {
+                if (opt.value === '') {
+                    opt.style.display = '';
+                    return;
+                }
+                const text = opt.getAttribute('data-nama') || opt.textContent;
+                opt.style.display = text.toLowerCase().includes(search) ? '' : 'none';
+            });
+        }
+
+        async function openDetail(id) {
+            const content = document.getElementById('detailContent');
+            content.innerHTML = '<div class="text-muted">Memuat…</div>';
+            bsDetailModal.show();
+            
+            try {
+                const res = await fetch(`${base}/${id}/detail`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (!data.ok) throw new Error('Gagal memuat');
+                
+                const rek = data.rekomendasi;
+                const severity = rek.severity || 'low';
+                const minScore = (typeof rek.rules?.min_neg_score === 'number') ? rek.rules.min_neg_score.toFixed(2) : '-';
+                
+                // Build kategori list
+                const kategoriList = (rek.kategoris || []).map(k => {
+                    const topikBesar = k.topik_besar?.length ? k.topik_besar.map(tb => `<span class="badge bg-light text-dark border me-1">${tb.nama}</span>`).join('') : '<span class="text-muted">—</span>';
+                    return `<li><code>[${k.kode}]</code> ${k.nama} <br><small class="text-muted">Topik Besar: ${topikBesar}</small></li>`;
+                }).join('') || '<li class="text-muted">(Tidak terkait kategori)</li>';
+                
+                content.innerHTML = `
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <h6 class="mb-2">Informasi Dasar</h6>
+                            <div><strong>Kode:</strong> <code>${rek.kode}</code></div>
+                            <div><strong>Judul:</strong> ${rek.judul}</div>
+                            <div><strong>Severity:</strong> <span class="badge bg-${severity === 'high' ? 'danger' : severity === 'medium' ? 'warning' : 'info'}">${severity}</span></div>
+                            <div><strong>Status:</strong> <span class="badge ${rek.is_active ? 'bg-success' : 'bg-secondary'}">${rek.is_active ? 'Aktif' : 'Nonaktif'}</span></div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="mb-2">Rules</h6>
+                            <div><strong>Min Neg Score:</strong> ${minScore}</div>
+                            <h6 class="mb-2 mt-3">Deskripsi</h6>
+                            <p class="mb-0">${rek.deskripsi || '<em class="text-muted">Tidak ada deskripsi</em>'}</p>
+                        </div>
+                        <div class="col-12">
+                            <h6 class="mb-2">Kategori Terkait</h6>
+                            <ul class="mb-0">${kategoriList}</ul>
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                content.innerHTML = '<div class="text-danger">Gagal memuat detail.</div>';
+            }
         }
     </script>
 @endpush

@@ -155,11 +155,12 @@ Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
 
     // Rekomendasi Tindakan (Master Rekomendasi)
     Route::get('/rekomendasi', [RekomendasiWebController::class, 'index'])->name('admin.rekomendasi.index');
+    Route::get('/rekomendasi/suggest-kode', [RekomendasiWebController::class, 'suggestKode'])->name('admin.rekomendasi.suggest_kode');
+    Route::get('/rekomendasi/{rekomendasi}/detail', [RekomendasiWebController::class, 'detail'])->name('admin.rekomendasi.detail');
     Route::post('/rekomendasi', [RekomendasiWebController::class, 'store'])->name('admin.rekomendasi.store');
     Route::put('/rekomendasi/{rekomendasi}', [RekomendasiWebController::class, 'update'])->name('admin.rekomendasi.update');
     Route::delete('/rekomendasi/{rekomendasi}', [RekomendasiWebController::class, 'destroy'])->name('admin.rekomendasi.destroy');
     Route::patch('/rekomendasi/{rekomendasi}/active', [RekomendasiWebController::class, 'toggleActive'])->name('admin.rekomendasi.toggle');
-    Route::get('/rekomendasi/suggest-kode', [RekomendasiWebController::class, 'suggestKode'])->name('admin.rekomendasi.suggest_kode');
 
     // Manajemen User (gabungan Guru & Siswa)
     Route::get('/users', [AdminUserManagementController::class, 'index'])->name('admin.users.index');

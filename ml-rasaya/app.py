@@ -606,21 +606,35 @@ def build_topic_index_and_categories_map():
     Returns (topic_index, categories_map) where topic_index keys are UPPER(topic_name).
     categories_map has the same keys mapping to a flat list of keywords aggregated from
     topic-level keywords and all of its subtopics' keywords.
+    
+    NEW: Supports flat structure from DB sync:
+    - topics[]: kategori kecil dengan keywords[], bucket, name, id (kode)
+    - buckets[]: kategori besar dengan keywords[] (optional)
     """
     topic_index = {}
     categories_map = {}
+    
+    # Process topics (kategori kecil)
     for tp in _TAX.get("topics", []):
         topic_id = tp.get("id") or "TOPIC"
         topic_name = tp.get("name") or topic_id
         bucket = tp.get("bucket") or ""
         key = str(topic_name).upper()
+        
+        # Collect keywords from topic level
         kw = set([str(w).lower() for w in (tp.get("keywords") or []) if w])
+        
+        # Legacy support: subtopics (if exists)
         for st in tp.get("subtopics", []) or []:
             for w in st.get("keywords", []) or []:
                 if w:
                     kw.add(str(w).lower())
+        
         topic_index[key] = {"id": topic_id, "name": topic_name, "bucket": bucket}
         categories_map[key] = sorted(list(kw))
+    
+    # Buckets (kategori besar) do not carry keywords; rely on topics only
+    
     return topic_index, categories_map
 
 def extract_keyphrases(texts, lang="id"):

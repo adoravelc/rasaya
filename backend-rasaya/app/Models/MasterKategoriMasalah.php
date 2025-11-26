@@ -15,7 +15,13 @@ class MasterKategoriMasalah extends Model
         'kode',
         'nama',
         'deskripsi',
+        'kata_kunci',
         'is_active',
+    ];
+
+    protected $casts = [
+        'kata_kunci' => 'array',
+        'is_active' => 'boolean',
     ];
 
     public function scopeAktif($q){ return $q->where('is_active', true); }
