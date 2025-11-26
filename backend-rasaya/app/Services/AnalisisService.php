@@ -88,6 +88,7 @@ class AnalisisService
 
         // 2) panggil ML API
         $res = $this->ml->analyze($payload);
+        $mlResponse = $res; // Store for later use in rekomendasi generation
 
         // Ambil daftar item untuk perhitungan rata-rata sentimen.
         // Versi ML terbaru mengembalikan "items" dengan struktur
@@ -311,7 +312,7 @@ class AnalisisService
             }
         }
 
-        return DB::transaction(function () use ($siswaKelasId, $from, $to, $avg, $keywords, $createdByUserId, $usedItems, $joinedText, $summary, $clusters, $categoriesOverview, $autoSummary) {
+        return DB::transaction(function () use ($siswaKelasId, $from, $to, $avg, $keywords, $createdByUserId, $usedItems, $joinedText, $summary, $clusters, $categoriesOverview, $autoSummary, $mlResponse) {
             // 3) simpan analisis entry
             $avgMood = \App\Models\PemantauanEmosiSiswa::query()
                 ->where('siswa_kelas_id', $siswaKelasId)
@@ -336,34 +337,59 @@ class AnalisisService
                 'tanggal_akhir_proses' => $to . ' 23:59:59',
             ]);
 
-            // 4) auto-generate rekomendasi dari master
-            $masters = MasterRekomendasi::query()->where('is_active', true)->get();
+            // 4) auto-generate rekomendasi dari master (KATEGORI KECIL BASED)
+            // Extract kategori kodes from ML response recommendations
+            $detectedKategoriKodes = [];
+            if (isset($mlResponse['global_recommendations'])) {
+                foreach ($mlResponse['global_recommendations'] as $rec) {
+                    if (!empty($rec['kategori_kode'])) {
+                        $detectedKategoriKodes[] = $rec['kategori_kode'];
+                    }
+                }
+            }
+            
+            // Get master rekomendasi yang terkait dengan kategori yang terdeteksi
+            $masters = MasterRekomendasi::query()
+                ->where('is_active', true)
+                ->with('kategoris')
+                ->get();
+            
             foreach ($masters as $m) {
                 $rules = $m->rules ?? [];
                 $ok = true;
 
+                // Rule 1: Check sentiment threshold
                 if (isset($rules['min_neg_score'])) {
                     $ok = $ok && ($entry->skor_sentimen <= (float) $rules['min_neg_score']);
                 }
-                if ($ok && !empty($rules['any_keywords'])) {
-                    $found = false;
-                    foreach ($rules['any_keywords'] as $kw) {
-                        if (str_contains($joinedText, mb_strtolower($kw))) {
-                            $found = true;
-                            break;
-                        }
-                    }
-                    $ok = $found;
+
+                // Rule 2: Check kategori match (NEW - Per Kategori Kecil)
+                if ($ok && !empty($detectedKategoriKodes)) {
+                    // Check if master rekomendasi is linked to any detected kategori
+                    $masterKategoriKodes = $m->kategoris->pluck('kode')->toArray();
+                    $hasMatchingKategori = !empty(array_intersect($detectedKategoriKodes, $masterKategoriKodes));
+                    
+                    // Only suggest if kategori matches
+                    $ok = $ok && $hasMatchingKategori;
                 }
 
                 if ($ok) {
+                    // Calculate match score based on kategori confidence
+                    $matchScore = 1.0;
+                    foreach ($mlResponse['global_recommendations'] ?? [] as $rec) {
+                        $kategoriKode = $rec['kategori_kode'] ?? null;
+                        if ($kategoriKode && in_array($kategoriKode, $m->kategoris->pluck('kode')->toArray())) {
+                            $matchScore = max($matchScore, $rec['score'] ?? 1.0);
+                        }
+                    }
+                    
                     AnalisisRekomendasi::create([
                         'analisis_entry_id' => $entry->id,
                         'master_rekomendasi_id' => $m->id,
                         'judul' => $m->judul,
                         'deskripsi' => $m->deskripsi,
                         'severity' => $m->severity,
-                        'match_score' => 1.0,
+                        'match_score' => round($matchScore, 4),
                         'status' => 'suggested',
                     ]);
                 }

@@ -14,6 +14,7 @@ use App\Services\AnalisisService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
 
 class AnalisisEntryController extends Controller
 {
@@ -70,17 +71,35 @@ class AnalisisEntryController extends Controller
         // Termasuk semua catatan guru (BK dan WK) dalam analisis untuk siswa tsb
         $includeAllGuruNotes = true;
 
-        $entry = $this->svc->analisisRentang(
-            (int) $data['siswa_kelas_id'],
-            $data['from'],
-            $data['to'],
-            (int) $r->user()->id,
-            $includeAllGuruNotes,
-        );
+        try {
+            $entry = $this->svc->analisisRentang(
+                (int) $data['siswa_kelas_id'],
+                $data['from'],
+                $data['to'],
+                (int) $r->user()->id,
+                $includeAllGuruNotes,
+            );
 
-        return redirect()
-            ->route('guru.analisis.show', $entry->id)
-            ->with('ok', 'Analisis selesai.');
+            return redirect()
+                ->route('guru.analisis.show', $entry->id)
+                ->with('ok', 'Analisis selesai.');
+        } catch (\RuntimeException $e) {
+            // User-friendly error dari MlClient
+            return back()
+                ->withInput()
+                ->with('error', $e->getMessage());
+        } catch (\Exception $e) {
+            // Unexpected error
+            Log::error('Analisis error: ' . $e->getMessage(), [
+                'siswa_kelas_id' => $data['siswa_kelas_id'],
+                'from' => $data['from'],
+                'to' => $data['to'],
+            ]);
+            
+            return back()
+                ->withInput()
+                ->with('error', 'Terjadi kesalahan saat memproses analisis. Silakan coba lagi atau hubungi Admin jika masalah berlanjut.');
+        }
     }
 
     public function show(AnalisisEntry $analisis)

@@ -408,7 +408,8 @@
                 "rumah neraka",
                 "benci rumah",
                 "kabur dari rumah",
-                "KDRT"
+                "KDRT",
+                "berkelahi"
             ],
             "deskripsi": "Konflik rumah tangga, perceraian, atau kekerasan verbal yang memicu distress siswa."
         },
@@ -620,7 +621,7 @@
         }
     ],
     "meta": {
-        "last_synced": "2025-11-26T15:54:40+08:00",
+        "last_synced": "2025-11-26T20:32:26+08:00",
         "version": "2.0",
         "source": "database"
     }

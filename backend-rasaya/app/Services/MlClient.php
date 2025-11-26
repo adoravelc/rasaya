@@ -37,14 +37,27 @@ class MlClient
 
     public function analyze(array $items): array
     {
-        // Build proper JSON body: { request_id, items: [...] }
-        $body = [
-            'request_id' => (string) \Illuminate\Support\Str::uuid(),
-            'items' => array_values($items),
-        ];
-        $res = $this->http()->post('/analyze', $body);
-        $res->throw();
-        return $res->json();
+        try {
+            // Build proper JSON body: { request_id, items: [...] }
+            $body = [
+                'request_id' => (string) \Illuminate\Support\Str::uuid(),
+                'items' => array_values($items),
+            ];
+            $res = $this->http()->post('/analyze', $body);
+            $res->throw();
+            return $res->json();
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            // Connection failed - ML service is down
+            throw new \RuntimeException('Server Machine Learning RASAYA sedang tidak aktif. Mohon menghubungi Admin untuk mengaktifkan service ML.', 503, $e);
+        } catch (\Illuminate\Http\Client\RequestException $e) {
+            // HTTP error (4xx, 5xx)
+            $status = $e->response->status();
+            if ($status >= 500) {
+                throw new \RuntimeException('Server Machine Learning RASAYA mengalami gangguan internal. Mohon menghubungi Admin.', $status, $e);
+            }
+            // Re-throw other errors (4xx client errors)
+            throw $e;
+        }
     }
 
     /**

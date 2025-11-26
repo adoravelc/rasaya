@@ -602,40 +602,57 @@ def _taxonomy_keywords():
 BUCKET_KW, SUBTOPICS = _taxonomy_keywords()
 
 def build_topic_index_and_categories_map():
-    """Builds an index of taxonomy topics and a categories_map for quick keyword scoring.
-    Returns (topic_index, categories_map) where topic_index keys are UPPER(topic_name).
-    categories_map has the same keys mapping to a flat list of keywords aggregated from
-    topic-level keywords and all of its subtopics' keywords.
+    """HYBRID APPROACH (OLD METHOD + NEW DATA):
+    Builds multi-level keyword matching dengan data dari database.
     
-    NEW: Supports flat structure from DB sync:
-    - topics[]: kategori kecil dengan keywords[], bucket, name, id (kode)
-    - buckets[]: kategori besar dengan keywords[] (optional)
+    Returns: (topic_index, categories_map, bucket_map)
+    - topic_index: metadata per kategori kecil {UPPER(name): {id, name, bucket, kode}}
+    - categories_map: keywords per kategori kecil {UPPER(name): [keywords]}
+    - bucket_map: keywords per kategori besar {UPPER(bucket): [aggregated keywords]}
+    
+    WHY THIS IS BETTER:
+    - Multi-level matching: Check keywords di kategori kecil DAN kategori besar
+    - Redundancy: Jika miss di kategori kecil, bisa match di bucket agregat
+    - Better coverage: Keywords dari semua kategori kecil teragregasi ke bucket
     """
     topic_index = {}
     categories_map = {}
+    bucket_map = defaultdict(set)  # Agregasi keywords per bucket
     
-    # Process topics (kategori kecil)
+    # Process topics (kategori kecil) dari database
     for tp in _TAX.get("topics", []):
-        topic_id = tp.get("id") or "TOPIC"
+        topic_id = tp.get("id") or tp.get("code") or "TOPIC"
         topic_name = tp.get("name") or topic_id
         bucket = tp.get("bucket") or ""
         key = str(topic_name).upper()
         
-        # Collect keywords from topic level
-        kw = set([str(w).lower() for w in (tp.get("keywords") or []) if w])
+        # Collect keywords from topic level (kategori kecil)
+        kw = set([str(w).lower().strip() for w in (tp.get("keywords") or []) if w])
         
-        # Legacy support: subtopics (if exists)
+        # Legacy support: subtopics (backward compatibility)
         for st in tp.get("subtopics", []) or []:
             for w in st.get("keywords", []) or []:
                 if w:
-                    kw.add(str(w).lower())
+                    kw.add(str(w).lower().strip())
         
-        topic_index[key] = {"id": topic_id, "name": topic_name, "bucket": bucket}
+        # Store kategori kecil metadata & keywords
+        topic_index[key] = {
+            "id": topic_id, 
+            "name": topic_name, 
+            "bucket": bucket,
+            "kode": topic_id  # Match dengan kategori_masalahs.kode
+        }
         categories_map[key] = sorted(list(kw))
+        
+        # AGGREGATE keywords ke bucket (kategori besar)
+        # Ini yang bikin metode lama lebih akurat!
+        if bucket:
+            bucket_map[bucket.upper()].update(kw)
     
-    # Buckets (kategori besar) do not carry keywords; rely on topics only
+    # Convert bucket_map sets to sorted lists
+    bucket_keywords = {k: sorted(list(v)) for k, v in bucket_map.items()}
     
-    return topic_index, categories_map
+    return topic_index, categories_map, bucket_keywords
 
 def extract_keyphrases(texts, lang="id"):
     # RAKE pakai stopwords bhs Inggris default; untuk id sederhana kita kasih stopwords id juga
@@ -789,11 +806,13 @@ def analyze():
     if not isinstance(items, list) or not items:
         return jsonify({"error": "items required"}), 422
 
-    # Setup Taxonomy & Feedback
+    # Setup Taxonomy & Feedback (HYBRID APPROACH)
     categories_override = data.get("categories")
-    TOPIC_INDEX, TAXONOMY_CATEGORIES = build_topic_index_and_categories_map()
+    TOPIC_INDEX, TAXONOMY_CATEGORIES, BUCKET_KEYWORDS = build_topic_index_and_categories_map()
     
     categories_map = {}
+    bucket_map = {}
+    
     if isinstance(categories_override, dict) and categories_override:
         for k, v in categories_override.items():
             if isinstance(v, list):
@@ -801,7 +820,8 @@ def analyze():
     
     if not categories_map:
         categories_map = TAXONOMY_CATEGORIES
-
+        bucket_map = BUCKET_KEYWORDS
+    
     feedback = load_feedback_weights()
 
     # Setup Variables
@@ -863,25 +883,58 @@ def analyze():
             neg_flag = True
             severity = max(severity, 0.6) # Sarkasme biasanya sakit
 
-        # 5. Category Scoring
-        cat_scores, reasons = score_categories_for_text(clean, categories_map, feedback)
-        best_cat = max(cat_scores, key=cat_scores.get) if cat_scores else None
-
-        # 6. Cluster Labeling
+        # 5. Category Scoring (ONLY FOR NEGATIVE CONTENT)
+        # Skip kategorisasi jika semua input positif (aggregate > 0 dan tidak ada sarkasme)
+        cat_scores = {}
+        reasons = {}
+        bucket_scores = defaultdict(float)
+        best_cat = None
+        best_bucket = None
         cluster = None
-        if best_cat:
-            tp_meta = TOPIC_INDEX.get(str(best_cat).upper())
-            if tp_meta:
+        
+        if neg_flag or aggregate <= 0:
+            # HYBRID: Kategori Kecil + Bucket Agregat (ONLY FOR NEGATIVE)
+            cat_scores, reasons = score_categories_for_text(clean, categories_map, feedback)
+            
+            # BOOST: Aggregate bucket scores dari kategori kecil
+            for cat, score in cat_scores.items():
+                tp_meta = TOPIC_INDEX.get(str(cat).upper())
+                if tp_meta and tp_meta.get("bucket"):
+                    bucket_scores[tp_meta["bucket"]] += score * 0.8  # Slightly dampen aggregated
+            
+            # Also score directly against bucket keywords (OLD METHOD)
+            if bucket_map:
+                bucket_direct, _ = score_categories_for_text(clean, bucket_map, feedback)
+                for bucket, score in bucket_direct.items():
+                    bucket_scores[bucket] += score * 1.2  # Boost direct matches
+            
+            # Find best kategori kecil
+            best_cat = max(cat_scores, key=cat_scores.get) if cat_scores else None
+            best_bucket = max(bucket_scores, key=bucket_scores.get) if bucket_scores else None
+
+            # 6. Cluster Labeling (Prioritize Kategori Kecil, fallback to Bucket)
+            if best_cat:
+                tp_meta = TOPIC_INDEX.get(str(best_cat).upper())
+                if tp_meta:
+                    cluster = {
+                        "id": tp_meta.get("kode"),  # Match dengan kategori_masalahs.kode
+                        "label": tp_meta.get("name"),
+                        "bucket": tp_meta.get("bucket"),
+                        "topic_id": tp_meta.get("kode"),
+                        "topic_name": tp_meta.get("name"),
+                        "confidence": round(cat_scores[best_cat], 3)
+                    }
+            elif best_bucket:
+                # Fallback: Use bucket if no specific kategori kecil matched
                 cluster = {
-                    "id": tp_meta.get("id"),
-                    "label": tp_meta.get("name"),
-                    "bucket": tp_meta.get("bucket"),
-                    "topic_id": tp_meta.get("id"),
-                    "topic_name": tp_meta.get("name"),
-                    "confidence": 0.5
+                    "id": best_bucket,
+                    "label": best_bucket,
+                    "bucket": best_bucket,
+                    "topic_id": None,
+                    "topic_name": None,
+                    "confidence": round(bucket_scores[best_bucket], 3)
                 }
-            else:
-                cluster = {"id": best_cat, "label": best_cat, "bucket": str(best_cat).upper(), "confidence": 0.4}
+        # Else: Skip kategorisasi untuk input positif
 
         # 7. Keywords Extraction
         try:
@@ -897,10 +950,13 @@ def analyze():
         # 8. Summary Text
         if is_sarcasm:
             summary_text = f"Terdeteksi sarkasme/sindiran. Inti keluhan: {', '.join(phrases[:3])}."
-        elif cluster:
+        elif neg_flag and cluster:
             summary_text = f"Masalah utama: {cluster['label']}. Gejala: {', '.join(phrases[:3])}."
-        else:
+        elif neg_flag:
             summary_text = f"Inti keluhan: {', '.join(phrases[:3])}."
+        else:
+            # Positive input - no categorization needed
+            summary_text = f"Ekspresi positif. Kata kunci: {', '.join(phrases[:3]) if phrases else 'tidak ada keluhan'}."
 
         results.append({
             "id": item_id,
@@ -976,16 +1032,23 @@ def analyze():
                 "examples": ex
             })
 
-    # Overview Weighted by Severity & Sarcasm
+    # Overview Weighted by Severity & Sarcasm (KATEGORI KECIL - NEGATIVE ONLY)
     cat_counter = Counter()
     for r in results:
+        # ONLY count negative items for categorization
+        if not r.get("negative_flag"):
+            continue
+            
         sev = r.get("severity", 0.0)
-        weight = 0.5
-        if r.get("negative_flag"): 
-            weight = 1.0 + sev
+        weight = 1.0 + sev
         
-        for cat, sc in (r.get("cat_scores") or {}).items():
-            if sc > 0: cat_counter[cat] += sc * weight
+        # Aggregate by kategori kecil (topic)
+        cluster = r.get("cluster") or {}
+        topic_name = cluster.get("topic_name") or cluster.get("label")
+        if topic_name:
+            # Use cluster confidence as base score
+            score = cluster.get("confidence", 0.5)
+            cat_counter[topic_name] += score * weight
 
     categories_overview = [
         {"category": cat, "score": round(val, 4)} for cat, val in cat_counter.most_common()
@@ -998,32 +1061,69 @@ def analyze():
         "negative_ratio": round(sum(1 for x in per_legacy if x["label"]=="negatif")/len(per_legacy), 3) if per_legacy else 0.0
     }
 
-    # Recommendations Generation
-    def recommend_rules(bucket: str, severity_val: float, negative: bool, sarcasm: bool):
-        recs = []
-        if not bucket: return recs
+    # NEW: Recommendations Generation PER KATEGORI KECIL (Granular)
+    # Laravel akan filter lebih lanjut berdasarkan master_rekomendasis.rules
+    def recommend_by_topic(topic_id: str, topic_name: str, bucket: str, severity_val: float, negative: bool, sarcasm: bool):
+        """Generate recommendations based on kategori kecil (topic).
+        Returns structured data yang bisa di-match dengan master_rekomendasis di Laravel.
         
-        # Prioritize Sarcasm/High Severity
+        Format return:
+        {
+            "kategori_kode": topic_id,  # Match dengan kategori_masalahs.kode
+            "kategori_nama": topic_name,
+            "bucket": bucket,
+            "severity": severity_val,
+            "negative": negative,
+            "sarcasm": sarcasm,
+            "suggested_actions": [...]  # Heuristic suggestions (optional)
+        }
+        """
+        rec = {
+            "kategori_kode": topic_id,
+            "kategori_nama": topic_name,
+            "bucket": bucket,
+            "severity": severity_val,
+            "negative": negative,
+            "sarcasm": sarcasm,
+            "suggested_actions": []
+        }
+        
+        # Heuristic suggestions (Laravel akan filter sesuai master_rekomendasis)
         if (negative or sarcasm) and severity_val >= 0.6:
-            recs.append({"tag": "KONSELING_INDIVIDU", "title": "Sesi konseling individu", "priority": 1, "rationale": "Indikasi masalah mendalam/sarkasme"})
+            rec["suggested_actions"].append({
+                "type": "URGENT",
+                "reason": "Severity tinggi atau terdeteksi sarkasme"
+            })
+        elif negative and severity_val >= 0.4:
+            rec["suggested_actions"].append({
+                "type": "MODERATE",
+                "reason": "Indikasi masalah perlu perhatian"
+            })
         
-        if bucket in ("SOSIAL", "DISIPLIN") and negative:
-            recs.append({"tag": "MEDIASI_WALI", "title": "Mediasi dengan wali kelas", "priority": 2})
-        if bucket == "AKADEMIK":
-            recs.append({"tag": "RAPAT_JADWAL", "title": "Evaluasi jadwal belajar", "priority": 3})
-        if bucket == "EMOSI":
-            recs.append({"tag": "REGULASI_EMOSI", "title": "Latihan regulasi emosi", "priority": 3})
-            
-        return recs
+        return rec
 
-    # Assign Recs per item
+    # Assign Recs per item (GRANULAR: Per Kategori Kecil)
     for r in results:
-        bucket = (r.get("cluster") or {}).get("bucket")
-        r["recommendations"] = recommend_rules(
-            bucket, r.get("severity", 0), r.get("negative_flag", False), r.get("is_sarcasm", False)
-        )
+        cluster = r.get("cluster") or {}
+        topic_id = cluster.get("topic_id") or cluster.get("id")
+        topic_name = cluster.get("topic_name") or cluster.get("label")
+        bucket = cluster.get("bucket", "")
+        
+        if topic_id:
+            # Return kategori kecil info untuk Laravel matching
+            r["recommendations"] = [recommend_by_topic(
+                topic_id, 
+                topic_name,
+                bucket,
+                r.get("severity", 0), 
+                r.get("negative_flag", False), 
+                r.get("is_sarcasm", False)
+            )]
+        else:
+            # Fallback: No specific kategori detected
+            r["recommendations"] = []
 
-    # Global Recs
+    # Global Recs (PER KATEGORI KECIL - Granular)
     abs_sent = abs(avg)
     global_recommendations = []
     valid_cats = [c for c in categories_overview if c["score"] >= 0.05]
@@ -1032,13 +1132,24 @@ def analyze():
     for cat in valid_cats:
         cname = cat["category"]
         meta = TOPIC_INDEX.get(cname.upper()) or {}
+        topic_id = meta.get("kode") or meta.get("id")
+        topic_name = meta.get("name", cname)
         bucket = meta.get("bucket", "")
-        recs = recommend_rules(bucket, max(0.3, abs_sent), is_neg_avg, False)
-        if recs:
+        
+        if topic_id:
+            rec_data = recommend_by_topic(
+                topic_id, 
+                topic_name,
+                bucket,
+                max(0.3, abs_sent), 
+                is_neg_avg, 
+                False  # No global sarcasm flag
+            )
             global_recommendations.append({
                 "category": cname,
+                "kategori_kode": topic_id,
                 "score": cat["score"],
-                "recommendations": recs
+                "recommendation": rec_data
             })
 
     return jsonify({

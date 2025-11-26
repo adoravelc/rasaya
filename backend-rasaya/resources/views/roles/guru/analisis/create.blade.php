@@ -4,6 +4,15 @@
 @section('content')
     <div class="container py-4">
         <h4 class="mb-3">Buat Analisis Baru</h4>
+        
+        @if(session('error'))
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>Error:</strong> {{ session('error') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
+        
         <form method="post" action="{{ route('guru.analisis.store') }}" class="card p-3">
             @csrf
             <div class="row g-3">

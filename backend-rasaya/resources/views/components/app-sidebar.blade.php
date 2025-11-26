@@ -4,123 +4,148 @@
     $guruJenis = optional(auth()->user()->guru)->jenis; // 'bk' | 'wali_kelas' | null
 @endphp
 
-<aside class="col-12 col-md-3 col-lg-2 p-0 sidebar">
-    <div class="p-4">
+<aside class="col-12 col-md-3 col-lg-2 p-0 sidebar bg-light border-end" style="min-height: 100vh;">
+    <div class="p-3">
         {{-- Logo RASAYA - Centered and Large --}}
-        <div class="text-center mb-4 pb-4 border-bottom" style="border-color: rgba(148, 163, 184, 0.2) !important;">
+        <div class="text-center mb-4 pb-3 border-bottom">
             @if($role === 'admin')
-                <div class="display-6 fw-bold mb-2" style="color: #1e3a8a; letter-spacing: 2px;">
+                <div class="display-6 fw-bold mb-1" style="color: #1e3a8a; letter-spacing: 2px;">
                     RASAYA
                 </div>
-                <small class="d-block" style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Admin Portal</small>
+                <small class="d-block text-uppercase text-muted" style="font-size: 0.7rem; letter-spacing: 1px;">Admin Portal</small>
             @else
-                <div class="display-6 fw-bold mb-2" style="color: #ec4899; letter-spacing: 2px;">
+                <div class="display-6 fw-bold mb-1" style="color: #ec4899; letter-spacing: 2px;">
                     RASAYA
                 </div>
-                <small class="d-block" style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Guru Portal</small>
+                <small class="d-block text-uppercase text-muted" style="font-size: 0.7rem; letter-spacing: 1px;">Guru Portal</small>
             @endif
         </div>
-
-        <div class="text-uppercase fw-semibold small mb-2" style="opacity: 0.7;">Menu</div>
 
         @switch($role)
             {{-- ================= ADMIN ================= --}}
             @case('admin')
-                <nav class="nav nav-pills flex-column gap-1">
-                    <a class="nav-link {{ request()->routeIs('admin.dashboard') && !request()->routeIs('admin.dashboard.*') ? 'active' : '' }}" href="{{ route('admin.dashboard') }}">
-                        <i class="bi bi-speedometer2"></i> Dashboard
-                    </a>
-                    
-                    <div class="text-uppercase text-muted fw-semibold small mb-1 mt-3">Analytics & Monitoring</div>
-                    <a class="nav-link {{ $is('admin.dashboard.login-history') }}" href="{{ route('admin.dashboard.login-history') }}">
-                        <i class="bi bi-clock-history"></i> Login History
-                    </a>
-                    <a class="nav-link {{ $is('admin.dashboard.refleksi-history') }}" href="{{ route('admin.dashboard.refleksi-history') }}">
-                        <i class="bi bi-journal-check"></i> History Refleksi
-                    </a>
-                    <a class="nav-link {{ $is('admin.dashboard.mood-history') }}" href="{{ route('admin.dashboard.mood-history') }}">
-                        <i class="bi bi-emoji-smile"></i> History Mood
-                    </a>
-                    <a class="nav-link {{ $is('admin.dashboard.audit-logs') }}" href="{{ route('admin.dashboard.audit-logs') }}">
-                        <i class="bi bi-journal-text"></i> Audit Logs
-                    </a>
-                    <a class="nav-link {{ $is('admin.backup.index') }}" href="{{ route('admin.backup.index') }}">
-                        <i class="bi bi-cloud-download"></i> Backup & Recovery
-                    </a>
-                    <a class="nav-link {{ $is('admin.rollover.*') }}" href="{{ route('admin.rollover.create') }}">
-                        <i class="bi bi-arrow-repeat"></i> Rollover Tahun Ajaran
-                    </a>
-                    
-                    <div class="text-uppercase text-muted fw-semibold small mb-1 mt-3">Manajemen Data</div>
-                    <a class="nav-link {{ $is('admin.users.index') }}" href="{{ route('admin.users.index') }}">
-                        <i class="bi bi-people-fill"></i> Manajemen User
-                    </a>
-                    <a class="nav-link {{ $is('admin.guru.index') }}" href="{{ route('admin.guru.index') }}">
-                        <i class="bi bi-person-badge"></i> Manajemen Guru
-                    </a>
-                    <a class="nav-link {{ $is('admin.siswa.index') }}" href="{{ route('admin.siswa.index') }}">
-                        <i class="bi bi-people"></i> Manajemen Siswa
-                    </a>
-                    <a class="nav-link {{ $is('admin.kelas.index') }}" href="{{ route('admin.kelas.index') }}">
-                        <i class="bi bi-door-closed"></i> Manajemen Kelas
-                    </a>
-                    <a class="nav-link {{ $is('admin.kategori.index') }}" href="{{ route('admin.kategori.index') }}">
-                        <i class="bi bi-tags"></i> Manajemen Kategori
-                    </a>
-                    <a class="nav-link {{ $is('admin.rekomendasi.index') }}" href="{{ route('admin.rekomendasi.index') }}">
-                        <i class="bi bi-list-check"></i> Manajemen Rekomendasi
-                    </a>
-                    <a class="nav-link {{ $is('admin.roster.*') }}" href="{{ route('admin.roster.index') }}">
-                        <i class="bi bi-upload"></i> Import Roster
-                    </a>
-                    
-                </nav>
+                <div class="mb-3">
+                    <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Utama</div>
+                    <nav class="nav nav-pills flex-column gap-1">
+                        <a class="nav-link {{ request()->routeIs('admin.dashboard') && !request()->routeIs('admin.dashboard.*') ? 'active' : '' }}" href="{{ route('admin.dashboard') }}">
+                            <i class="bi bi-speedometer2 me-2"></i> Dashboard
+                        </a>
+                    </nav>
+                </div>
+
+                <div class="mb-3">
+                    <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Analytics & Logs</div>
+                    <nav class="nav nav-pills flex-column gap-1">
+                        <a class="nav-link {{ $is('admin.dashboard.login-history') }}" href="{{ route('admin.dashboard.login-history') }}">
+                            <i class="bi bi-clock-history me-2"></i> Login History
+                        </a>
+                        <a class="nav-link {{ $is('admin.dashboard.refleksi-history') }}" href="{{ route('admin.dashboard.refleksi-history') }}">
+                            <i class="bi bi-journal-check me-2"></i> History Refleksi
+                        </a>
+                        <a class="nav-link {{ $is('admin.dashboard.mood-history') }}" href="{{ route('admin.dashboard.mood-history') }}">
+                            <i class="bi bi-emoji-smile me-2"></i> History Mood
+                        </a>
+                        <a class="nav-link {{ $is('admin.dashboard.audit-logs') }}" href="{{ route('admin.dashboard.audit-logs') }}">
+                            <i class="bi bi-journal-text me-2"></i> Audit Logs
+                        </a>
+                    </nav>
+                </div>
+
+                <div class="mb-3">
+                    <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Data Master</div>
+                    <nav class="nav nav-pills flex-column gap-1">
+                        <a class="nav-link {{ $is('admin.users.index') }}" href="{{ route('admin.users.index') }}">
+                            <i class="bi bi-people-fill me-2"></i> User
+                        </a>
+                        <a class="nav-link {{ $is('admin.guru.index') }}" href="{{ route('admin.guru.index') }}">
+                            <i class="bi bi-person-badge me-2"></i> Guru
+                        </a>
+                        <a class="nav-link {{ $is('admin.siswa.index') }}" href="{{ route('admin.siswa.index') }}">
+                            <i class="bi bi-people me-2"></i> Siswa
+                        </a>
+                        <a class="nav-link {{ $is('admin.kelas.index') }}" href="{{ route('admin.kelas.index') }}">
+                            <i class="bi bi-door-closed me-2"></i> Kelas
+                        </a>
+                        <a class="nav-link {{ $is('admin.kategori.index') }}" href="{{ route('admin.kategori.index') }}">
+                            <i class="bi bi-tags me-2"></i> Kategori Masalah
+                        </a>
+                        <a class="nav-link {{ $is('admin.rekomendasi.index') }}" href="{{ route('admin.rekomendasi.index') }}">
+                            <i class="bi bi-list-check me-2"></i> Rekomendasi
+                        </a>
+                    </nav>
+                </div>
+
+                <div class="mb-3">
+                    <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">System</div>
+                    <nav class="nav nav-pills flex-column gap-1">
+                        <a class="nav-link {{ $is('admin.roster.*') }}" href="{{ route('admin.roster.index') }}">
+                            <i class="bi bi-upload me-2"></i> Import Roster
+                        </a>
+                        <a class="nav-link {{ $is('admin.backup.index') }}" href="{{ route('admin.backup.index') }}">
+                            <i class="bi bi-cloud-download me-2"></i> Backup & Restore
+                        </a>
+                        <a class="nav-link {{ $is('admin.rollover.*') }}" href="{{ route('admin.rollover.create') }}">
+                            <i class="bi bi-arrow-repeat me-2"></i> Rollover Tahun
+                        </a>
+                    </nav>
+                </div>
             @break
 
             {{-- ================= GURU (BK & WALI KELAS) ================= --}}
             @case('guru')
-                <nav class="nav nav-pills flex-column gap-1">
-                    <a class="nav-link {{ $is('guru.bk.dashboard') }} {{ $is('guru.wk.dashboard') }}"
-                        href="{{ url('/guru') }}">Dashboard</a>
+                <div class="mb-3">
+                    <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Utama</div>
+                    <nav class="nav nav-pills flex-column gap-1">
+                        <a class="nav-link {{ $is('guru.bk.dashboard') }} {{ $is('guru.wk.dashboard') }}" href="{{ url('/guru') }}">
+                            <i class="bi bi-grid me-2"></i> Dashboard
+                        </a>
+                        <a class="nav-link {{ $is('guru.profile.*') }}" href="{{ route('guru.profile.index') }}">
+                            <i class="bi bi-person-circle me-2"></i> Profil Saya
+                        </a>
+                    </nav>
+                </div>
 
-                    {{-- Observasi / Input Guru --}}
-                    <a class="nav-link {{ $is('guru.observasi.*') }}" href="{{ route('guru.observasi.index') }}">Input Guru
-                        (Observasi)</a>
+                <div class="mb-3">
+                    <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Monitoring Siswa</div>
+                    <nav class="nav nav-pills flex-column gap-1">
+                        <a class="nav-link {{ $is('guru.tren_emosi.*') }}" href="{{ route('guru.tren_emosi.index') }}">
+                            <i class="bi bi-graph-up me-2"></i> Tren Emosi
+                        </a>
+                        <a class="nav-link {{ $is('guru.analisis.*') }} {{ $is('guru.bk.analisis.*') }}" href="{{ route('guru.analisis.index') }}">
+                            <i class="bi bi-search me-2"></i> Analisis Masalah
+                        </a>
+                        <a class="nav-link {{ $is('guru.refleksi.*') }}" href="{{ route('guru.refleksi.index') }}">
+                            <i class="bi bi-journal-text me-2"></i> Refleksi Siswa
+                        </a>
+                    </nav>
+                </div>
 
-                    {{-- Analisis Input (untuk semua guru; wali kelas otomatis dibatasi siswanya sendiri) --}}
-                    <a class="nav-link {{ $is('guru.analisis.*') }} {{ $is('guru.bk.analisis.*') }}" href="{{ route('guru.analisis.index') }}">Analisis Input</a>
+                <div class="mb-3">
+                    <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Input Data</div>
+                    <nav class="nav nav-pills flex-column gap-1">
+                        <a class="nav-link {{ $is('guru.observasi.*') }}" href="{{ route('guru.observasi.index') }}">
+                            <i class="bi bi-pencil-square me-2"></i> Observasi Guru
+                        </a>
+                    </nav>
+                </div>
 
-                    {{-- Tren Emosi Siswa --}}
-                    <a class="nav-link {{ $is('guru.tren_emosi.*') }}" href="{{ route('guru.tren_emosi.index') }}">Tren Emosi Siswa</a>
-                    {{-- Refleksi Siswa (baru) --}}
-                    <a class="nav-link {{ $is('guru.refleksi.*') }}" href="{{ route('guru.refleksi.index') }}">Refleksi Siswa</a>
-
-                    {{-- === BARU: Slot Konseling (hanya untuk Guru BK) === --}}
-                    @if ($guruJenis === 'bk')
-                        <a class="nav-link {{ $is('guru.bk.slots.view') }} {{ $is('guru.guru_bk.slots.*') }}"
-                            href="{{ route('guru.guru_bk.slots.view') }}">Slot Konseling (BK)</a>
-                        <a class="nav-link {{ $is('guru.bk.refleksi-history') }}" href="{{ route('guru.bk.refleksi-history') }}">History Refleksi</a>
-                    @endif
-
-                    <div class="text-uppercase text-muted fw-semibold small mb-1 mt-3">Akun</div>
-                    <a class="nav-link {{ $is('guru.profile.*') }}" href="{{ route('guru.profile.index') }}">
-                        <i class="bi bi-person-circle"></i> Profil Saya
-                    </a>
-                </nav>
-            @break
-
-            {{-- ================= WALI KELAS (opsional bila role terpisah) ================= --}}
-            @case('wali_kelas')
-                <nav class="nav nav-pills flex-column gap-1">
-                    <a class="nav-link" href="{{ url('/guru/wk') }}">Dashboard</a>
-                    <a class="nav-link {{ $is('guru.observasi.*') }}" href="{{ route('guru.observasi.index') }}">Input Guru
-                        (Observasi)</a>
-                </nav>
+                @if ($guruJenis === 'bk')
+                    <div class="mb-3">
+                        <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Konseling (BK)</div>
+                        <nav class="nav nav-pills flex-column gap-1">
+                            <a class="nav-link {{ $is('guru.bk.slots.view') }} {{ $is('guru.guru_bk.slots.*') }}" href="{{ route('guru.guru_bk.slots.view') }}">
+                                <i class="bi bi-calendar-check me-2"></i> Slot Konseling
+                            </a>
+                        </nav>
+                    </div>
+                @endif
             @break
 
             @default
                 <nav class="nav nav-pills flex-column gap-1">
-                    <a class="nav-link" href="{{ url('/') }}">Home</a>
+                    <a class="nav-link" href="{{ url('/') }}">
+                        <i class="bi bi-house me-2"></i> Home
+                    </a>
                 </nav>
         @endswitch
     </div>
