@@ -129,7 +129,17 @@
                     </nav>
                 </div>
 
+                {{-- Riwayat Data (Hanya BK) --}}
                 @if ($guruJenis === 'bk')
+                    <div class="mb-3">
+                        <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Riwayat Data</div>
+                        <nav class="nav nav-pills flex-column gap-1">
+                            <a class="nav-link {{ $is('guru.bk.refleksi-history') }}" href="{{ route('guru.bk.refleksi-history') }}">
+                                <i class="bi bi-clock-history me-2"></i> History Refleksi
+                            </a>
+                        </nav>
+                    </div>
+
                     <div class="mb-3">
                         <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Konseling (BK)</div>
                         <nav class="nav nav-pills flex-column gap-1">

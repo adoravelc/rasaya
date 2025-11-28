@@ -15,31 +15,64 @@ class GuruRefleksiController extends Controller
         $user = $r->user();
         $guruJenis = optional($user->guru)->jenis; // 'bk' | 'wali_kelas'
 
+        // 1. Base Query
         $q = InputSiswa::with([
             'siswaKelas.siswa.user',
             'siswaKelas.kelas.jurusan',
             'siswaDilaporKelas.siswa.user',
             'siswaDilaporKelas.kelas.jurusan'
-        ])->latest();
+        ]);
 
-        // Restrict for Wali Kelas: hanya kelas wali ini (tahun ajaran terbaru)
+        // Variabel untuk menyimpan ID kelas yang sedang aktif (untuk keperluan filter siswa)
+        $activeKelasId = null;
+
+        // 2. Logic Wali Kelas: Kunci ke kelas sendiri
         if ($guruJenis === 'wali_kelas') {
-            $wkKelasId = Kelas::where('wali_guru_id', $user->id)->latest('tahun_ajaran_id')->value('id');
+            $wkKelasId = Kelas::where('wali_guru_id', $user->id)
+                ->latest('tahun_ajaran_id') // Asumsi mengambil tahun ajaran terakhir
+                ->value('id');
+
             if ($wkKelasId) {
                 $q->whereHas('siswaKelas', fn($qq) => $qq->where('kelas_id', $wkKelasId));
+                $activeKelasId = $wkKelasId;
             } else {
-                // jika belum punya kelas aktif, kembalikan kosong
+                // Jika tidak punya kelas, result kosong
                 $q->whereRaw('1=0');
             }
         }
 
-        // Filter kelas (hanya BK yang boleh memilih lintas kelas)
+        // 3. Logic Guru BK: Filter Kelas
         $kelasFilter = (int) $r->input('kelas_id', 0);
-        if ($kelasFilter && $guruJenis === 'bk') {
-            $q->whereHas('siswaKelas', fn($qq) => $qq->where('kelas_id', $kelasFilter));
+        if ($guruJenis === 'bk') {
+            if ($kelasFilter) {
+                $q->whereHas('siswaKelas', fn($qq) => $qq->where('kelas_id', $kelasFilter));
+                $activeKelasId = $kelasFilter;
+            }
         }
 
-        // Filter jenis refleksi
+        // 4. Logic Filter Siswa (Hanya aktif jika ada activeKelasId)
+        $siswaFilter = (int) $r->input('siswa_id', 0);
+        $siswaOptions = collect();
+
+        if ($activeKelasId) {
+            // Ambil daftar siswa di kelas tersebut untuk dropdown
+            $siswaOptions = SiswaKelas::with('siswa.user')
+                ->where('kelas_id', $activeKelasId)
+                ->where('is_active', true) // Asumsi hanya siswa aktif
+                ->get()
+                ->sortBy('siswa.user.name')
+                ->map(fn($sk) => [
+                    'id' => $sk->siswa_id, // Kita filter by ID Siswa (profile), bukan ID SiswaKelas agar lebih konsisten
+                    'label' => optional(optional($sk->siswa)->user)->name ?? '-'
+                ]);
+            
+            // Terapkan filter siswa jika dipilih
+            if ($siswaFilter) {
+                $q->whereHas('siswaKelas', fn($qq) => $qq->where('siswa_id', $siswaFilter));
+            }
+        }
+
+        // 5. Filter Jenis (Pribadi / Teman)
         $jenis = $r->input('jenis', ''); // 'pribadi' | 'teman'
         if ($jenis === 'pribadi') {
             $q->where('is_friend', false);
@@ -47,7 +80,7 @@ class GuruRefleksiController extends Controller
             $q->where('is_friend', true);
         }
 
-        // Pencarian: nama siswa, identifier, atau teks refleksi
+        // 6. Pencarian (Nama / Identifier / Konten)
         if ($r->filled('q')) {
             $term = trim((string)$r->input('q'));
             $like = '%'.$term.'%';
@@ -58,9 +91,14 @@ class GuruRefleksiController extends Controller
             });
         }
 
+        // 7. Sorting (REQUEST USER: Tanggal Terbaru -> Inputan Terbaru)
+        $q->orderBy('tanggal', 'desc')
+          ->orderBy('created_at', 'desc');
+
+        // 8. Execute
         $rows = $q->paginate(25)->withQueryString();
 
-        // Kelas options (hanya untuk BK)
+        // 9. Data Tambahan untuk View
         $kelasOptions = collect();
         if ($guruJenis === 'bk') {
             $kelasOptions = Kelas::with('tahunAjaran')
@@ -72,11 +110,12 @@ class GuruRefleksiController extends Controller
         }
 
         $filters = [
-            'q' => (string)$r->input('q',''),
+            'q'        => (string)$r->input('q',''),
             'kelas_id' => $kelasFilter ? (string)$kelasFilter : '',
-            'jenis' => (string)$jenis,
+            'siswa_id' => $siswaFilter ? (string)$siswaFilter : '',
+            'jenis'    => (string)$jenis,
         ];
 
-        return view('roles.guru.refleksi.index', compact('rows','filters','kelasOptions','guruJenis'));
+        return view('roles.guru.refleksi.index', compact('rows','filters','kelasOptions','guruJenis','siswaOptions'));
     }
 }

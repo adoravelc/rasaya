@@ -247,7 +247,7 @@
                                     <span class="badge rounded-pill" style="background: var(--guru-navy);">Riwayat</span>
                                 </div>
                                 <div class="text-muted small mb-1">History Data</div>
-                                <div class="fs-6 fw-semibold mb-3">History Refleksi</div>
+                                <div class="fs-6 fw-semibold mb-3">History Refleksi (Lintas Tahun)</div>
                                 <a href="{{ route('guru.bk.refleksi-history') }}"
                                    class="btn btn-sm w-100 stretched-link" style="background: var(--guru-pink-dark); color: white;">Lihat</a>
                             </div>
