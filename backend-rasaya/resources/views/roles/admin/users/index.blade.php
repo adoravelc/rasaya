@@ -51,7 +51,7 @@
                             @if ($u->jenis_kelamin === 'L')
                                 <span class="badge bg-primary">Laki-laki</span>
                             @elseif($u->jenis_kelamin === 'P')
-                                <span class="badge bg-secondary">Perempuan</span>
+                                <span class="badge" style="background-color:#ec4899;">Perempuan</span>
                             @else
                                 <span class="text-muted small">-</span>
                             @endif

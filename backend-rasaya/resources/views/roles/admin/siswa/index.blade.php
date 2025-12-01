@@ -42,7 +42,7 @@
               @if($jk === 'L')
                 <span class="badge bg-primary">Laki-laki</span>
               @elseif($jk === 'P')
-                <span class="badge bg-secondary">Perempuan</span>
+                <span class="badge" style="background-color:#ec4899;">Perempuan</span>
               @else
                 <span class="text-muted small">-</span>
               @endif
@@ -66,6 +66,14 @@
                 <button class="btn btn-sm btn-warning me-1" {{ $canReset ? '' : 'disabled' }}>Reset Password</button>
               </form>
               <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditSiswa" data-user="{{ json_encode(['id'=>$s->user->id,'identifier'=>$s->user->identifier,'name'=>$s->user->name,'email'=>$s->user->email,'jenis_kelamin'=>$s->user->jenis_kelamin,'reset_requested_at'=>$s->user->reset_requested_at], JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_HEX_AMP) }}">Edit</button>
+              @if(($s->is_active ?? true))
+                <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#modalDeactivate-{{ $s->user->id }}">Nonaktifkan</button>
+              @else
+                <form action="{{ route('admin.siswa.activate', $s->user->id) }}" method="post" class="d-inline">
+                    @csrf
+                    <button type="submit" class="btn btn-sm btn-success">Aktifkan</button>
+                </form>
+              @endif
                     <form action="{{ route('admin.siswa.destroy', $s->user->id) }}" method="post" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus user ini?')">
                         @csrf @method('DELETE')
                       <button class="btn btn-sm btn-outline-danger">Hapus</button>
@@ -83,14 +91,19 @@
 <!-- Modal Tambah Siswa -->
 <div class="modal fade" id="modalAddSiswa" tabindex="-1">
   <div class="modal-dialog">
-    <form class="modal-content" method="post" action="{{ route('admin.siswa.store') }}">
+    <form id="formAddSiswa" class="modal-content" method="post" action="{{ route('admin.siswa.store') }}">
       @csrf
       <div class="modal-header"><h5 class="modal-title">Tambah Siswa</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body">
         <div class="mb-2"><label class="form-label">Identifier (NISN)</label><input name="identifier" class="form-control" required></div>
         <div class="mb-2"><label class="form-label">Nama</label><input name="name" class="form-control" required></div>
         <div class="mb-2"><label class="form-label">Email</label><input name="email" type="email" class="form-control" required autocomplete="off"></div>
-        <div class="mb-2"><label class="form-label">Password</label><input name="password" type="password" class="form-control" autocomplete="new-password"><div class="form-text">Berikan password ini kepada user yang meminta reset.</div></div>
+        <div class="mb-2">
+          <label class="form-label">Password</label>
+          <input name="password" id="addPassword" type="password" class="form-control" autocomplete="new-password" minlength="8" placeholder="Minimal 8 karakter">
+          <div id="addPasswordError" class="text-danger small mt-1" style="display:none">Password minimal 8 karakter.</div>
+          <div class="form-text">Berikan password ini kepada user yang meminta reset.</div>
+        </div>
         <div class="mb-2"><label class="form-label">Jenis Kelamin</label>
             <select name="jenis_kelamin" class="form-select" required>
                 <option value="L">Laki-laki</option>
@@ -102,6 +115,31 @@
     </form>
   </div>
   </div>
+
+@foreach($siswas as $i => $s)
+  @if(($s->is_active ?? true))
+  <div class="modal fade" id="modalDeactivate-{{ $s->user->id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form method="post" action="{{ route('admin.siswa.deactivate', $s->user->id) }}" class="modal-content">
+        @csrf
+        <div class="modal-header">
+          <h5 class="modal-title">Nonaktifkan Siswa</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">Alasan menonaktifkan <strong>{{ $s->user->name }}</strong>:</p>
+          <input type="text" name="reason" class="form-control" required minlength="5" maxlength="255" placeholder="Contoh: keluar sekolah / pindah / dikeluarkan / lulus">
+          <div class="form-text mt-1">Siswa akan dihapus dari kelas aktif (status keanggotaan nonaktif).</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-danger">Nonaktifkan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  @endif
+@endforeach
 
 <!-- Modal Edit Siswa -->
 <div class="modal fade" id="modalEditSiswa" tabindex="-1">
@@ -115,7 +153,8 @@
         <div class="mb-2"><label class="form-label">Email</label><input name="email" type="email" class="form-control" required autocomplete="off"></div>
         <div id="groupPassword" class="mb-2 d-none">
           <label class="form-label">Password</label>
-          <input name="password" type="password" class="form-control" autocomplete="new-password">
+          <input name="password" id="editPassword" type="password" class="form-control" autocomplete="new-password" minlength="8" placeholder="Minimal 8 karakter">
+          <div id="editPasswordError" class="text-danger small mt-1" style="display:none">Password minimal 8 karakter.</div>
           <div class="form-text">Berikan password ini kepada user yang meminta reset.</div>
         </div>
         <div class="mb-2"><label class="form-label">Jenis Kelamin</label>
@@ -132,6 +171,19 @@
 
 @push('scripts')
 <script>
+// Client-side validation: keep modal open and show inline errors
+document.getElementById('formAddSiswa')?.addEventListener('submit', (e)=>{
+  const pwd = document.getElementById('addPassword');
+  const err = document.getElementById('addPasswordError');
+  if (pwd && pwd.value && pwd.value.length < 8) {
+    e.preventDefault();
+    err.style.display = 'block';
+    pwd.focus();
+  } else if (err) {
+    err.style.display = 'none';
+  }
+});
+
 document.getElementById('modalEditSiswa')?.addEventListener('show.bs.modal', (ev)=>{
   const btn = ev.relatedTarget || window.rasayaLastModalTrigger;
   if (!btn) return;
@@ -157,13 +209,29 @@ document.getElementById('modalEditSiswa')?.addEventListener('show.bs.modal', (ev
       pwdInput.removeAttribute('name');
     }
   }
+  // reset error state
+  const editErr = document.getElementById('editPasswordError');
+  if (editErr) editErr.style.display = 'none';
 });
 
 // Remove empty password field before submit
 document.getElementById('formEditSiswa')?.addEventListener('submit', (e)=>{
   const passwordInput = e.target.querySelector('[name=password]');
-  if (passwordInput && passwordInput.value.trim() === '') {
-    passwordInput.removeAttribute('name'); // Don't send empty password
+  const err = document.getElementById('editPasswordError');
+  if (passwordInput) {
+    const val = passwordInput.value.trim();
+    if (val === '') {
+      // Don't send empty password
+      passwordInput.removeAttribute('name');
+      if (err) err.style.display = 'none';
+    } else if (val.length < 8) {
+      // Show inline error and keep modal open
+      e.preventDefault();
+      if (err) err.style.display = 'block';
+      passwordInput.focus();
+    } else if (err) {
+      err.style.display = 'none';
+    }
   }
 });
 </script>

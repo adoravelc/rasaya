@@ -1,0 +1,579 @@
+{
+  "bella": {
+    "AKADEMIK": -0.1425,
+    "EMOSI": -0.1425,
+    "SOSIAL": -0.3562,
+    "DISIPLIN": -0.1425
+  },
+  "melewatkan": {
+    "AKADEMIK": -0.1425,
+    "EMOSI": -0.1425,
+    "SOSIAL": -0.3562,
+    "DISIPLIN": -0.1425
+  },
+  "quality": {
+    "AKADEMIK": -0.1425,
+    "EMOSI": -0.1425,
+    "SOSIAL": -0.3562,
+    "DISIPLIN": -0.1425
+  },
+  "time": {
+    "AKADEMIK": -0.1425,
+    "EMOSI": -0.1425,
+    "SOSIAL": -0.3562,
+    "DISIPLIN": -0.1425
+  },
+  "bella kek sedih ya": {
+    "AKADEMIK": -0.1425,
+    "EMOSI": -0.1425,
+    "SOSIAL": -0.3562,
+    "DISIPLIN": -0.1425
+  },
+  "terlambat 15 menit": {
+    "AKADEMIK": -0.1425,
+    "EMOSI": -0.0712,
+    "SOSIAL": -0.1425,
+    "DISIPLIN": -0.0712
+  },
+  "mengidap depresi": {
+    "AKADEMIK": -0.1425,
+    "EMOSI": -0.0712,
+    "SOSIAL": -0.1425,
+    "DISIPLIN": -0.0712
+  },
+  "bellatrix keliatan": {
+    "AKADEMIK": -0.1425,
+    "EMOSI": -0.0712,
+    "SOSIAL": -0.1425,
+    "DISIPLIN": -0.0712
+  },
+  "wali kelas": {
+    "AKADEMIK": -0.1425,
+    "EMOSI": -0.1425,
+    "SOSIAL": -0.3562,
+    "DISIPLIN": -0.1425
+  },
+  "bolos": {
+    "DISIPLIN": -0.57,
+    "SOSIAL": -0.1425
+  },
+  "mata": {
+    "DISIPLIN": -0.57,
+    "SOSIAL": -0.1425
+  },
+  "pelajaran": {
+    "DISIPLIN": -0.57,
+    "SOSIAL": -0.1425
+  },
+  "setelahnya": {
+    "DISIPLIN": -0.57,
+    "SOSIAL": -0.1425
+  },
+  "3x terlambat": {
+    "DISIPLIN": -0.57,
+    "SOSIAL": -0.1425
+  },
+  "glen telat": {
+    "DISIPLIN": -0.57,
+    "SOSIAL": -0.1425
+  },
+  "telat": {
+    "DISIPLIN": -0.57,
+    "SOSIAL": -0.1425
+  },
+  "glen": {
+    "DISIPLIN": -0.57,
+    "SOSIAL": -0.1425
+  },
+  "echan": {
+    "AKADEMIK": -0.285,
+    "KESEHATAN MENTAL & EMOSI": -0.0712,
+    "SOSIAL & PERGAULAN": -0.1425,
+    "DISIPLIN & TATA TERTIB": -0.0712
+  },
+  "murung": {
+    "AKADEMIK": -0.285,
+    "KESEHATAN MENTAL & EMOSI": -0.0712,
+    "SOSIAL & PERGAULAN": -0.1425,
+    "DISIPLIN & TATA TERTIB": -0.0712
+  },
+  "bet": {
+    "AKADEMIK": -0.285,
+    "KESEHATAN MENTAL & EMOSI": -0.0712,
+    "SOSIAL & PERGAULAN": -0.1425,
+    "DISIPLIN & TATA TERTIB": -0.0712
+  },
+  "damn": {
+    "AKADEMIK": -0.285,
+    "KESEHATAN MENTAL & EMOSI": -0.0712,
+    "SOSIAL & PERGAULAN": -0.1425,
+    "DISIPLIN & TATA TERTIB": -0.0712
+  },
+  "habis kelas langsung": {
+    "AKADEMIK": -0.285,
+    "KESEHATAN MENTAL & EMOSI": -0.0712,
+    "SOSIAL & PERGAULAN": -0.1425,
+    "DISIPLIN & TATA TERTIB": -0.0712
+  },
+  "echan keliatan": {
+    "AKADEMIK": -0.285,
+    "KESEHATAN MENTAL & EMOSI": -0.0712,
+    "SOSIAL & PERGAULAN": -0.1425,
+    "DISIPLIN & TATA TERTIB": -0.0712
+  },
+  "makanan gratis": {
+    "AKADEMIK": -0.285,
+    "KESEHATAN MENTAL & EMOSI": -0.0712,
+    "SOSIAL & PERGAULAN": -0.1425,
+    "DISIPLIN & TATA TERTIB": -0.0712
+  },
+  "kerjain tugas": {
+    "AKADEMIK": -0.285,
+    "KESEHATAN MENTAL & EMOSI": -0.0712,
+    "SOSIAL & PERGAULAN": -0.1425,
+    "DISIPLIN & TATA TERTIB": -0.0712
+  },
+  "capek banget": {
+    "AKADEMIK": -0.285,
+    "KESEHATAN MENTAL & EMOSI": -0.0712,
+    "SOSIAL & PERGAULAN": -0.1425,
+    "DISIPLIN & TATA TERTIB": -0.0712
+  },
+  "pung": {
+    "PUTUS & KEHILANGAN": -0.19,
+    "DEPRESI RINGAN": 0.2375,
+    "STRES AKADEMIK": -0.1425
+  },
+  "nilai": {
+    "PUTUS & KEHILANGAN": -0.19,
+    "DEPRESI RINGAN": 0.2375,
+    "STRES AKADEMIK": -0.1425
+  },
+  "jelek": {
+    "PUTUS & KEHILANGAN": -0.095,
+    "DEPRESI RINGAN": 0.19,
+    "STRES AKADEMIK": -0.1425
+  },
+  "naykilla keliatan sedih": {
+    "PUTUS & KEHILANGAN": -0.095,
+    "DEPRESI RINGAN": 0.1187,
+    "STRES AKADEMIK": -0.0712
+  },
+  "nilai naykilla": {
+    "PUTUS & KEHILANGAN": -0.095,
+    "DEPRESI RINGAN": 0.1187,
+    "STRES AKADEMIK": -0.0712
+  },
+  "penerimaan rapor": {
+    "PUTUS & KEHILANGAN": -0.095,
+    "DEPRESI RINGAN": 0.1187,
+    "STRES AKADEMIK": -0.0712
+  },
+  "keliatan murung": {
+    "PUTUS & KEHILANGAN": -0.095,
+    "DEPRESI RINGAN": 0.1187,
+    "STRES AKADEMIK": -0.0712
+  },
+  "lulus sonde": {
+    "PUTUS & KEHILANGAN": -0.095,
+    "DEPRESI RINGAN": 0.19
+  },
+  "sendirian": {
+    "STRES AKADEMIK": -0.2375,
+    "KESEPIAN / ISOLASI": 0.475,
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.19,
+    "GANGGUAN TIDUR": -0.19,
+    "DEPRESI RINGAN": 0.475
+  },
+  "teman": {
+    "STRES AKADEMIK": -0.2375,
+    "KESEPIAN / ISOLASI": 0.475
+  },
+  "doa": {
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "POLA TIDUR & GIZI BURUK": -0.39,
+    "HAMBATAN EKONOMI": -0.39,
+    "DEPRESI RINGAN": -0.39,
+    "MOTIVASI BELAJAR RENDAH": -0.5325,
+    "KESEPIAN / ISOLASI": 1.26
+  },
+  "buru": {
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "POLA TIDUR & GIZI BURUK": -0.39,
+    "HAMBATAN EKONOMI": -0.39,
+    "DEPRESI RINGAN": -0.39,
+    "MOTIVASI BELAJAR RENDAH": -0.5325,
+    "KESEPIAN / ISOLASI": 1.26
+  },
+  "pengen cepat pulang": {
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "POLA TIDUR & GIZI BURUK": -0.19,
+    "HAMBATAN EKONOMI": -0.19,
+    "DEPRESI RINGAN": -0.19,
+    "MOTIVASI BELAJAR RENDAH": -0.3325,
+    "KESEPIAN / ISOLASI": 0.76
+  },
+  "mood stabil aja": {
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "POLA TIDUR & GIZI BURUK": -0.19,
+    "HAMBATAN EKONOMI": -0.19,
+    "DEPRESI RINGAN": -0.19,
+    "MOTIVASI BELAJAR RENDAH": -0.3325,
+    "KESEPIAN / ISOLASI": 0.76
+  },
+  "diem banget": {
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "POLA TIDUR & GIZI BURUK": -0.19,
+    "HAMBATAN EKONOMI": -0.19,
+    "DEPRESI RINGAN": -0.19,
+    "MOTIVASI BELAJAR RENDAH": -0.3325,
+    "KESEPIAN / ISOLASI": 0.76
+  },
+  "siswa pendiam": {
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "POLA TIDUR & GIZI BURUK": -0.19,
+    "HAMBATAN EKONOMI": -0.19,
+    "DEPRESI RINGAN": -0.19,
+    "MOTIVASI BELAJAR RENDAH": -0.3325,
+    "KESEPIAN / ISOLASI": 0.76
+  },
+  "partisipasi minim": {
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "POLA TIDUR & GIZI BURUK": -0.19,
+    "HAMBATAN EKONOMI": -0.19,
+    "DEPRESI RINGAN": -0.19,
+    "MOTIVASI BELAJAR RENDAH": -0.3325,
+    "KESEPIAN / ISOLASI": 0.76
+  },
+  "kerja kelompok": {
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "POLA TIDUR & GIZI BURUK": -0.19,
+    "HAMBATAN EKONOMI": -0.19,
+    "DEPRESI RINGAN": -0.19,
+    "MOTIVASI BELAJAR RENDAH": -0.3325,
+    "KESEPIAN / ISOLASI": 0.76
+  },
+  "keliatan capek": {
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "POLA TIDUR & GIZI BURUK": -0.19,
+    "HAMBATAN EKONOMI": -0.19,
+    "DEPRESI RINGAN": -0.19,
+    "MOTIVASI BELAJAR RENDAH": -0.3325,
+    "KESEPIAN / ISOLASI": 0.76
+  },
+  "stabil": {
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "POLA TIDUR & GIZI BURUK": -0.39,
+    "HAMBATAN EKONOMI": -0.39,
+    "DEPRESI RINGAN": -0.39,
+    "MOTIVASI BELAJAR RENDAH": -0.39,
+    "KESEPIAN / ISOLASI": 0.975
+  },
+  "tidur": {
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "POLA TIDUR & GIZI BURUK": -0.39,
+    "HAMBATAN EKONOMI": -0.39,
+    "DEPRESI RINGAN": -0.39,
+    "MOTIVASI BELAJAR RENDAH": -0.39,
+    "KESEPIAN / ISOLASI": 0.975
+  },
+  "rame": {
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "POLA TIDUR & GIZI BURUK": -0.19,
+    "HAMBATAN EKONOMI": -0.19,
+    "DEPRESI RINGAN": -0.19,
+    "MOTIVASI BELAJAR RENDAH": -0.19,
+    "KESEPIAN / ISOLASI": 0.475
+  },
+  "kayaknya": {
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "POLA TIDUR & GIZI BURUK": -0.19,
+    "HAMBATAN EKONOMI": -0.19,
+    "DEPRESI RINGAN": -0.19,
+    "MOTIVASI BELAJAR RENDAH": -0.19,
+    "KESEPIAN / ISOLASI": 0.475
+  },
+  "sulit": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "memahami": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "instruksi": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "sederhana": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "overthinking": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "proses": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "belajar": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "takut": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "salah": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "langkah": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "turun": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "parah": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "sore": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "lumayan": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "pagi": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "kacau": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "worry": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "mood": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 0.94,
+    "KONFLIK PERCINTAAN": -0.38,
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "khawatir": {
+    "KETIDAKHADIRAN / BOLOS": -0.76,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.76,
+    "GANGGUAN TIDUR": -0.38,
+    "DEPRESI RINGAN": 1.14,
+    "KONFLIK PERCINTAAN": -0.38
+  },
+  "naik": {
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.19,
+    "KONFLIK PERCINTAAN": -0.19,
+    "DEPRESI RINGAN": 0.475
+  },
+  "overthink": {
+    "KETIDAKHADIRAN / BOLOS": -0.38,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.38,
+    "KONFLIK PERCINTAAN": -0.19,
+    "DEPRESI RINGAN": 0.95,
+    "GANGGUAN TIDUR": -0.19
+  },
+  "kecewa": {
+    "KETIDAKHADIRAN / BOLOS": -0.19,
+    "KEBINGUNGAN JURUSAN / KARIER": -0.19,
+    "GANGGUAN TIDUR": -0.19,
+    "DEPRESI RINGAN": 0.475
+  },
+  "masuk": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "kelas": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "banget": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "pengen": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "cepat": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "pulang": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "aja": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "kerja": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "kelompok": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "diem": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "siswa": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "pendiam": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "partisipasi": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "minim": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "keliatan": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "capek": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "sensitif": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  },
+  "biasa": {
+    "HAMBATAN EKONOMI": -0.2,
+    "MOTIVASI BELAJAR RENDAH": -0.2,
+    "DEPRESI RINGAN": -0.2,
+    "POLA TIDUR & GIZI BURUK": -0.2,
+    "KESEPIAN / ISOLASI": 0.5
+  }
+}

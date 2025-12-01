@@ -58,7 +58,7 @@ class GuruWkDashboardController extends Controller
                   ->where('start_at', '>=', now())
                   ->where('start_at', '<=', now()->addDays(7));
             })
-            ->whereIn('status', ['booked', 'held'])
+            ->where('status', 'booked')
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();

@@ -250,4 +250,62 @@ class NotificationHelper
                 'read_at' => now(),
             ]);
     }
+
+    /**
+     * Notifikasi ke siswa saat booking konseling dibatalkan oleh Guru BK
+     */
+    public static function notifyBookingCanceled(SlotBooking $booking, $cancelReason)
+    {
+        $siswaUser = $booking->siswaKelas->siswa->user ?? null;
+        if (!$siswaUser) return;
+
+        $guruName = optional($booking->slot->guru->user)->name ?? 'Guru BK';
+        $slotDate = $booking->slot->start_at->locale('id')->isoFormat('dddd, D MMMM YYYY');
+        $slotTime = $booking->slot->start_at->format('H:i') . ' - ' . $booking->slot->end_at->format('H:i');
+
+        Notification::create([
+            'user_id' => $siswaUser->id,
+            'type' => 'booking_canceled',
+            'title' => 'Konseling Dibatalkan',
+            'message' => "Konseling dengan {$guruName} pada {$slotDate} pukul {$slotTime} telah dibatalkan.\nAlasan: {$cancelReason}",
+            'data' => [
+                'booking_id' => $booking->id,
+                'slot_id' => $booking->slot_id,
+                'cancel_reason' => $cancelReason,
+                'guru_name' => $guruName,
+            ],
+            'link' => null, // atau bisa link ke halaman private session siswa
+        ]);
+    }
+
+    /**
+     * Notifikasi ke Guru BK saat siswa membatalkan booking konseling
+     */
+    public static function notifyGuruBkBookingCanceledBySiswa(SlotBooking $booking, $cancelReason)
+    {
+        $guruUser = $booking->slot->guru->user ?? null;
+        if (!$guruUser) return;
+
+        $siswaName = optional($booking->siswaKelas->siswa->user)->name ?? 'Siswa';
+        $siswaIdentifier = optional($booking->siswaKelas->siswa->user)->identifier ?? '';
+        $kelasLabel = optional($booking->siswaKelas->kelas)->label ?? '';
+        $slotDate = $booking->slot->start_at->locale('id')->isoFormat('dddd, D MMMM YYYY');
+        $slotTime = $booking->slot->start_at->format('H:i') . ' - ' . $booking->slot->end_at->format('H:i');
+
+        Notification::create([
+            'user_id' => $guruUser->id,
+            'type' => 'booking_canceled_by_siswa',
+            'title' => 'Siswa Membatalkan Booking Konseling',
+            'message' => "{$siswaName} ({$siswaIdentifier}) dari kelas {$kelasLabel} membatalkan booking konseling pada {$slotDate} pukul {$slotTime}.\nAlasan: {$cancelReason}",
+            'data' => [
+                'booking_id' => $booking->id,
+                'slot_id' => $booking->slot_id,
+                'siswa_name' => $siswaName,
+                'siswa_identifier' => $siswaIdentifier,
+                'kelas_label' => $kelasLabel,
+                'cancel_reason' => $cancelReason,
+            ],
+            'link' => route('guru.bk.dashboard'),
+        ]);
+    }
 }

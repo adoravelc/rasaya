@@ -1,10 +1,10 @@
-@extends('layouts.admin')
+﻿@extends('layouts.admin')
 
-@section('title', 'Audit Logs')
+@section('title', 'Log Audit')
 
 @section('page-header')
 <div class="d-flex align-items-center justify-content-between">
-    <h1 class="h4 m-0">📝 Audit Logs - Perubahan Data (Read-Only)</h1>
+    <h1 class="h4 m-0">📝 Log Audit - Perubahan Data (Read-Only)</h1>
     <a href="{{ route('admin.dashboard.index') }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left"></i> Kembali ke Dashboard
     </a>
@@ -55,7 +55,7 @@
     </div>
 </div>
 
-{{-- Audit Logs Table --}}
+{{-- Log Audit Table --}}
 <div class="card">
     <div class="card-header">
         <h5 class="mb-0">📜 Log Perubahan Data ({{ count($logs) }} total records)</h5>

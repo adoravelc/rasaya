@@ -1,10 +1,10 @@
-@extends('layouts.admin')
+﻿@extends('layouts.admin')
 
-@section('title','Preview Import Roster')
+@section('title','Preview Impor Roster')
 
 @section('page-header')
 <div>
-  <h3 class="mb-1">Preview Import Roster</h3>
+  <h3 class="mb-1">Preview Impor Roster</h3>
   <div class="text-muted">Tahun: {{ $year->nama ?? ($year->tahun_mulai.'/'.$year->tahun_selesai) }} — Mode: {{ strtoupper($mode) }} — Auto-create: {{ $autoCreate ? 'Ya' : 'Tidak' }}</div>
 </div>
 @endsection

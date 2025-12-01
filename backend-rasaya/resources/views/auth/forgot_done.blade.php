@@ -15,7 +15,7 @@
             <h1 class="h5 mb-3">Permohonan reset password diterima</h1>
             <p class="text-muted">Permintaanmu sudah diteruskan ke admin. Admin akan memverifikasi dan menghubungi kamu untuk memberikan token password baru. Jika dalam beberapa jam belum ada kabar, silakan hubungi admin sekolah.</p>
             <div class="d-grid gap-2 mt-3">
-              <a class="btn btn-primary" href="{{ url('/login') }}">Kembali ke Login</a>
+              <a class="btn btn-primary" href="{{ url('/login') }}">Kembali ke Masuk</a>
             </div>
           </div>
         </div>

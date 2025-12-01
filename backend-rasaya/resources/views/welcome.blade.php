@@ -190,10 +190,10 @@
                         @auth
                             <a class="btn btn-primary" href="{{ route('dashboard') }}">Buka Dashboard</a>
                             <form method="POST" action="{{ route('logout') }}">@csrf
-                                <button class="btn btn-ghost" type="submit">Logout</button>
+                                <button class="btn btn-ghost" type="submit">Keluar</button>
                             </form>
                         @else
-                            <a class="btn btn-primary" href="{{ route('login') }}">Login</a>
+                            <a class="btn btn-primary" href="{{ route('login') }}">Masuk</a>
                         @endauth
                     </div>
 

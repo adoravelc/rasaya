@@ -107,6 +107,18 @@ class BookingKonselingController extends Controller
         $slotId = (int) $data['slot_id'];
         $rosterId = $this->getActiveRosterId($r);
 
+        // Cek apakah siswa pernah cancel booking di slot yang sama
+        $previouslyCanceled = SlotBooking::where('siswa_kelas_id', $rosterId)
+            ->where('slot_id', $slotId)
+            ->where('status', 'canceled')
+            ->exists();
+        
+        if ($previouslyCanceled) {
+            return response()->json([
+                'message' => 'Kamu sudah melakukan cancel untuk slot ini, mohon memilih slot pada waktu yang lain.'
+            ], 422);
+        }
+
         // Cegah double-book overlap untuk siswa pada waktu yang sama (opsional kuat)
         // Bisa ditingkatkan: cek overlap terhadap slot->start_at/end_at.
         $already = SlotBooking::where('siswa_kelas_id', $rosterId)
@@ -117,7 +129,7 @@ class BookingKonselingController extends Controller
                         ->where('status', 'published');
                 }
             })
-            ->whereIn('status', ['booked', 'held'])
+            ->where('status', 'booked')
             ->exists();
         abort_if($already, 422, 'Anda sudah memiliki booking pada waktu yang berdekatan.');
 
@@ -162,12 +174,13 @@ class BookingKonselingController extends Controller
     /**
      * GET /api/bookings/me
      * Daftar booking milik siswa (upcoming duluan).
+     * Include canceled bookings untuk ditampilkan di app.
      */
     public function myBookings(Request $r)
     {
         $rosterId = $this->getActiveRosterId($r);
 
-        $rows = SlotBooking::with(['slot.guru'])
+        $rows = SlotBooking::with(['slot.guru.user', 'siswaKelas.siswa.user', 'canceledBy'])
             ->where('siswa_kelas_id', $rosterId)
             ->orderByDesc('created_at')
             ->paginate($r->integer('per_page', 20));
@@ -187,13 +200,16 @@ class BookingKonselingController extends Controller
         $booking = SlotBooking::with('slot')->where('id', $id)
             ->where('siswa_kelas_id', $rosterId)->firstOrFail();
 
-        abort_if(!in_array($booking->status, ['booked', 'held']), 422, 'Booking tidak bisa dibatalkan.');
+        abort_if($booking->status !== 'booked', 422, 'Booking tidak bisa dibatalkan.');
         abort_if($booking->slot->start_at->isPast(), 422, 'Slot sudah berlalu.');
 
         DB::transaction(function () use ($booking, $r) {
+            $cancelReason = $r->string('reason') ?: 'Tidak ada alasan';
+            
             $booking->update([
                 'status' => 'canceled',
-                'cancel_reason' => $r->string('reason') ?: null,
+                'cancel_reason' => $cancelReason,
+                'canceled_by_user_id' => $r->user()->id, // Track siapa yang cancel
             ]);
 
             // kembalikan kuota jika sebelumnya booked
@@ -203,6 +219,9 @@ class BookingKonselingController extends Controller
                     $slot->decrement('booked_count');
                 }
             }
+
+            // Kirim notifikasi ke Guru BK
+            \App\Helpers\NotificationHelper::notifyGuruBkBookingCanceledBySiswa($booking, $cancelReason);
         });
 
         return response()->json(['ok' => true]);

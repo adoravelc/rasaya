@@ -1,4 +1,4 @@
-@extends('layouts.guru')
+﻿@extends('layouts.guru')
 
 @section('title', 'Dashboard Guru BK')
 
@@ -45,6 +45,7 @@
                                         <th style="color: var(--guru-navy);">Siswa</th>
                                         <th style="color: var(--guru-navy);">Kelas</th>
                                         <th style="color: var(--guru-navy);">Status</th>
+                                        <th style="color: var(--guru-navy);">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -71,10 +72,25 @@
                                         </td>
                                         <td>
                                             @if($booking->status === 'booked')
-                                                <span class="badge bg-success">Booked</span>
-                                            @elseif($booking->status === 'held')
-                                                <span class="badge bg-warning">On Hold</span>
+                                                <span class="badge bg-success">Terpesan</span>
+                                            @elseif($booking->status === 'completed')
+                                                <span class="badge bg-primary">Selesai</span>
+                                            @elseif($booking->status === 'canceled')
+                                                <span class="badge bg-danger">Dibatalkan</span>
+                                            @elseif($booking->status === 'no_show')
+                                                <span class="badge bg-secondary">Tidak Hadir</span>
                                             @endif
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#updateStatusModal"
+                                                    data-booking-id="{{ $booking->id }}"
+                                                    data-booking-status="{{ $booking->status }}"
+                                                    data-siswa-name="{{ $booking->siswaKelas->siswa->user->name }}"
+                                                    data-slot-start="{{ $booking->slot->start_at->toIso8601String() }}">
+                                                <i class="bi bi-pencil-square"></i> Ubah
+                                            </button>
                                         </td>
                                     </tr>
                                     @endforeach
@@ -216,7 +232,7 @@
                                     <span class="fs-2">📊</span>
                                     <span class="badge rounded-pill" style="background: var(--guru-navy);">Monitoring</span>
                                 </div>
-                                <div class="text-muted small mb-1">Mood Tracker</div>
+                                <div class="text-muted small mb-1">Pelacak Suasana Hati</div>
                                 <div class="fs-6 fw-semibold mb-3">Tren Emosi</div>
                                 <a href="{{ route('guru.tren_emosi.index') }}"
                                    class="btn btn-sm w-100 stretched-link" style="background: var(--guru-pink-dark); color: white;">Lihat Data</a>
@@ -231,7 +247,7 @@
                                     <span class="fs-2">💭</span>
                                     <span class="badge rounded-pill" style="background: var(--guru-pink-dark);">Jurnal</span>
                                 </div>
-                                <div class="text-muted small mb-1">Self-Report</div>
+                                <div class="text-muted small mb-1">Laporan Diri</div>
                                 <div class="fs-6 fw-semibold mb-3">Refleksi Siswa</div>
                                 <a href="{{ route('guru.refleksi.index') }}"
                                     class="btn btn-sm w-100 stretched-link" style="background: var(--guru-navy); color: white;">Baca</a>
@@ -246,7 +262,7 @@
                                     <span class="fs-2">📚</span>
                                     <span class="badge rounded-pill" style="background: var(--guru-navy);">Riwayat</span>
                                 </div>
-                                <div class="text-muted small mb-1">History Data</div>
+                                <div class="text-muted small mb-1">Riwayat Data</div>
                                 <div class="fs-6 fw-semibold mb-3">History Refleksi (Lintas Tahun)</div>
                                 <a href="{{ route('guru.bk.refleksi-history') }}"
                                    class="btn btn-sm w-100 stretched-link" style="background: var(--guru-pink-dark); color: white;">Lihat</a>
@@ -426,5 +442,109 @@
             sel?.addEventListener('change', load);
             load();
         })();
+    </script>
+
+    {{-- Modal Update Status Booking --}}
+    <div class="modal fade" id="updateStatusModal" tabindex="-1" aria-labelledby="updateStatusModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="updateStatusForm" method="POST" action="">
+                    @csrf
+                    @method('PATCH')
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="updateStatusModalLabel">Ubah Status Booking</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-3">
+                            <strong>Siswa:</strong> <span id="modalSiswaName"></span>
+                        </p>
+                        <div class="mb-3">
+                            <label for="statusSelect" class="form-label">Status Baru</label>
+                            <select class="form-select" id="statusSelect" name="status" required>
+                                <option value="">-- Pilih Status --</option>
+                                <option value="completed">Completed</option>
+                                <option value="canceled">Canceled</option>
+                                <option value="no_show">No Show</option>
+                            </select>
+                            <div class="form-text" id="noShowHintDashboard" style="display: none;">
+                                <i class="bi bi-info-circle"></i> "No Show" hanya bisa dipilih setelah waktu konseling dimulai
+                            </div>
+                        </div>
+                        <div class="mb-3" id="cancelReasonGroup" style="display: none;">
+                            <label for="cancelReasonInput" class="form-label">Alasan Pembatalan <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="cancelReasonInput" name="cancel_reason" rows="3" placeholder="Wajib diisi jika membatalkan konseling"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Script untuk modal update status
+        document.addEventListener('DOMContentLoaded', function() {
+            const updateStatusModal = document.getElementById('updateStatusModal');
+            const updateStatusForm = document.getElementById('updateStatusForm');
+            const statusSelect = document.getElementById('statusSelect');
+            const cancelReasonGroup = document.getElementById('cancelReasonGroup');
+            const noShowHintDashboard = document.getElementById('noShowHintDashboard');
+            const modalSiswaName = document.getElementById('modalSiswaName');
+
+            // Show/hide cancel reason field and no_show hint
+            statusSelect.addEventListener('change', function() {
+                if (this.value === 'canceled') {
+                    cancelReasonGroup.style.display = 'block';
+                    noShowHintDashboard.style.display = 'none';
+                } else if (this.value === 'no_show') {
+                    cancelReasonGroup.style.display = 'none';
+                    noShowHintDashboard.style.display = 'block';
+                } else {
+                    cancelReasonGroup.style.display = 'none';
+                    noShowHintDashboard.style.display = 'none';
+                }
+            });
+
+            // Populate modal with booking data
+            updateStatusModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const bookingId = button.getAttribute('data-booking-id');
+                const bookingStatus = button.getAttribute('data-booking-status');
+                const siswaName = button.getAttribute('data-siswa-name');
+                const slotStartAt = button.getAttribute('data-slot-start');
+
+                // Set form action
+                updateStatusForm.action = `/guru/bk/bookings/${bookingId}/status`;
+
+                // Reset form
+                statusSelect.value = '';
+                document.getElementById('cancelReasonInput').value = '';
+                cancelReasonGroup.style.display = 'none';
+                noShowHintDashboard.style.display = 'none';
+
+                // Set siswa name
+                modalSiswaName.textContent = siswaName;
+
+                // Check if no_show is allowed (only after start time)
+                if (slotStartAt) {
+                    // Get current time in WITA timezone
+                    const nowWita = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
+                    const startAt = new Date(slotStartAt);
+                    const noShowOption = statusSelect.querySelector('option[value="no_show"]');
+                    
+                    if (startAt > nowWita) {
+                        noShowOption.disabled = true;
+                        noShowOption.textContent = 'No Show (Belum bisa dipilih)';
+                    } else {
+                        noShowOption.disabled = false;
+                        noShowOption.textContent = 'No Show';
+                    }
+                }
+            });
+        });
     </script>
 @endpush

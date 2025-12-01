@@ -248,17 +248,9 @@
 
             let chart;
             const scoreEmoji = (y) => {
-                const s = Math.round(y);
-                if (s >= 10) return '🤩';
-                if (s >= 9) return '😍';
-                if (s >= 8) return '😎';
-                if (s >= 7) return '😊';
-                if (s >= 6) return '😴';
-                if (s >= 5) return '😐';
-                if (s >= 4) return '😟';
-                if (s >= 3) return '😔';
-                if (s >= 2) return '😭';
-                return '😓';
+                const emojis = ['😞', '😟', '🙁', '😕', '😐', '🙂', '😊', '😃', '😄', '🤩'];
+                const s = Math.round(Math.max(1, Math.min(10, y)));
+                return emojis[s - 1];
             };
             const lerp = (a, b, t) => a + (b - a) * t;
             const scoreToColor = (s) => {
@@ -299,11 +291,12 @@
                             }
                         },
                         y: {
-                            suggestedMin: 1,
-                            suggestedMax: 10,
+                            min: 1,
+                            max: 10,
+                            beginAtZero: false,
                             ticks: {
                                 stepSize: 1,
-                                callback: (v) => scoreEmoji(v)
+                                callback: (v) => (v >= 1 && v <= 10) ? scoreEmoji(v) : ''
                             }
                         }
                     },
@@ -321,11 +314,12 @@
                     indexAxis: 'y',
                     scales: {
                         x: {
-                            suggestedMin: 1,
-                            suggestedMax: 10,
+                            min: 1,
+                            max: 10,
+                            beginAtZero: false,
                             ticks: {
                                 stepSize: 1,
-                                callback: (v) => scoreEmoji(v)
+                                callback: (v) => (v >= 1 && v <= 10) ? scoreEmoji(v) : ''
                             }
                         },
                         y: {

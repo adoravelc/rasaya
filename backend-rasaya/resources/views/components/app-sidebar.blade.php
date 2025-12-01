@@ -12,12 +12,12 @@
                 <div class="display-6 fw-bold mb-1" style="color: #1e3a8a; letter-spacing: 2px;">
                     RASAYA
                 </div>
-                <small class="d-block text-uppercase text-muted" style="font-size: 0.7rem; letter-spacing: 1px;">Admin Portal</small>
+                <small class="d-block text-uppercase text-muted" style="font-size: 0.7rem; letter-spacing: 1px;">Portal Admin</small>
             @else
                 <div class="display-6 fw-bold mb-1" style="color: #ec4899; letter-spacing: 2px;">
                     RASAYA
                 </div>
-                <small class="d-block text-uppercase text-muted" style="font-size: 0.7rem; letter-spacing: 1px;">Guru Portal</small>
+                <small class="d-block text-uppercase text-muted" style="font-size: 0.7rem; letter-spacing: 1px;">Portal Guru</small>
             @endif
         </div>
 
@@ -34,19 +34,19 @@
                 </div>
 
                 <div class="mb-3">
-                    <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Analytics & Logs</div>
+                    <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Analitik & Log</div>
                     <nav class="nav nav-pills flex-column gap-1">
                         <a class="nav-link {{ $is('admin.dashboard.login-history') }}" href="{{ route('admin.dashboard.login-history') }}">
-                            <i class="bi bi-clock-history me-2"></i> Login History
+                            <i class="bi bi-clock-history me-2"></i> Riwayat Masuk
                         </a>
                         <a class="nav-link {{ $is('admin.dashboard.refleksi-history') }}" href="{{ route('admin.dashboard.refleksi-history') }}">
-                            <i class="bi bi-journal-check me-2"></i> History Refleksi
+                            <i class="bi bi-journal-check me-2"></i> Riwayat Refleksi
                         </a>
                         <a class="nav-link {{ $is('admin.dashboard.mood-history') }}" href="{{ route('admin.dashboard.mood-history') }}">
-                            <i class="bi bi-emoji-smile me-2"></i> History Mood
+                            <i class="bi bi-emoji-smile me-2"></i> Riwayat Mood
                         </a>
                         <a class="nav-link {{ $is('admin.dashboard.audit-logs') }}" href="{{ route('admin.dashboard.audit-logs') }}">
-                            <i class="bi bi-journal-text me-2"></i> Audit Logs
+                            <i class="bi bi-journal-text me-2"></i> Log Audit
                         </a>
                     </nav>
                 </div>
@@ -55,7 +55,7 @@
                     <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Data Master</div>
                     <nav class="nav nav-pills flex-column gap-1">
                         <a class="nav-link {{ $is('admin.users.index') }}" href="{{ route('admin.users.index') }}">
-                            <i class="bi bi-people-fill me-2"></i> User
+                            <i class="bi bi-people-fill me-2"></i> Pengguna
                         </a>
                         <a class="nav-link {{ $is('admin.guru.index') }}" href="{{ route('admin.guru.index') }}">
                             <i class="bi bi-person-badge me-2"></i> Guru
@@ -76,13 +76,13 @@
                 </div>
 
                 <div class="mb-3">
-                    <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">System</div>
+                    <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Sistem</div>
                     <nav class="nav nav-pills flex-column gap-1">
                         <a class="nav-link {{ $is('admin.roster.*') }}" href="{{ route('admin.roster.index') }}">
-                            <i class="bi bi-upload me-2"></i> Import Roster
+                            <i class="bi bi-upload me-2"></i> Impor Roster
                         </a>
                         <a class="nav-link {{ $is('admin.backup.index') }}" href="{{ route('admin.backup.index') }}">
-                            <i class="bi bi-cloud-download me-2"></i> Backup & Restore
+                            <i class="bi bi-cloud-download me-2"></i> Cadangkan & Pulihkan
                         </a>
                         <a class="nav-link {{ $is('admin.rollover.*') }}" href="{{ route('admin.rollover.create') }}">
                             <i class="bi bi-arrow-repeat me-2"></i> Rollover Tahun
@@ -135,7 +135,7 @@
                         <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Riwayat Data</div>
                         <nav class="nav nav-pills flex-column gap-1">
                             <a class="nav-link {{ $is('guru.bk.refleksi-history') }}" href="{{ route('guru.bk.refleksi-history') }}">
-                                <i class="bi bi-clock-history me-2"></i> History Refleksi
+                                <i class="bi bi-clock-history me-2"></i> Riwayat Refleksi
                             </a>
                         </nav>
                     </div>
@@ -154,7 +154,7 @@
             @default
                 <nav class="nav nav-pills flex-column gap-1">
                     <a class="nav-link" href="{{ url('/') }}">
-                        <i class="bi bi-house me-2"></i> Home
+                        <i class="bi bi-house me-2"></i> Beranda
                     </a>
                 </nav>
         @endswitch

@@ -253,6 +253,11 @@ class AnalisisEntryController extends Controller
         if ($co->isEmpty())
             $mlWarnings[] = 'Kategori otomatis belum tersedia.';
 
+        // Kategori options untuk form revisi
+        $kategoriOptions = \App\Models\KategoriMasalah::where('is_active', true)
+            ->orderBy('nama')
+            ->get();
+
         return view('roles.guru.analisis.show', [
             'analisis' => $analisis,
             'refleksisSelf' => $refleksisSelf,
@@ -262,6 +267,7 @@ class AnalisisEntryController extends Controller
             'topEmojis' => $topEmojis,
             'avgMood' => $avgMood,
             'kategoris' => $kategoris,
+            'kategoriOptions' => $kategoriOptions,
             'sentimenDesc' => $sentimenDesc,
             'moodDesc' => $moodDesc,
             'sentimenScaleInfo' => $sentimenScaleInfo,
@@ -289,12 +295,50 @@ class AnalisisEntryController extends Controller
                 'rejected_kategori_id' => null,
                 'selected_master_rekomendasi_id' => null,
             ]);
+            
+            // POSITIVE FEEDBACK: Reinforce correct categorization
+            try {
+                // Extract CLEAN keywords - split phrases into individual words
+                $rawKeywords = collect($analisis->kata_kunci ?? [])->pluck('term')->take(10);
+                $keywords = collect([]);
+                foreach ($rawKeywords as $phrase) {
+                    $words = collect(explode(' ', strtolower($phrase)))
+                        ->filter(fn($w) => strlen($w) >= 3)
+                        ->values();
+                    $keywords = $keywords->merge($words);
+                }
+                $keywords = $keywords->unique()->take(15)->values()->all();
+                
+                $kategori = $rec->master?->kategoris?->first()?->nama ?? null;
+                
+                if (!empty($keywords) && $kategori) {
+                    // Accept = feedback positif (reinforce)
+                    app(\App\Services\MlClient::class)->feedback(
+                        keywords: $keywords,
+                        from: null,  // No correction needed
+                        to: $kategori,  // Reinforce this category
+                        delta: 0.15  // Smaller boost untuk acceptance
+                    );
+                    
+                    Log::info('ML Feedback Sent', [
+                        'analisis_id' => $analisis->id,
+                        'rekomendasi_id' => $rec->id,
+                        'kategori' => $kategori,
+                        'keywords' => $keywords,
+                        'action' => 'accept'
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('ML Feedback Failed', ['error' => $e->getMessage()]);
+            }
+            
             // flag needs attention if severity high
             if (($rec->severity ?? 'low') === 'high') {
                 $analisis->needs_attention = true;
                 $analisis->save();
             }
-            return back()->with('ok', 'Rekomendasi diterima.');
+            
+            return back()->with('ok', 'Rekomendasi diterima. Sistem ML terus belajar dari keputusan Anda.');
         }
 
         // action = reject → require kategori + selected alternative
@@ -319,14 +363,49 @@ class AnalisisEntryController extends Controller
             'rejected_kategori_id' => $kategori->id,
             'selected_master_rekomendasi_id' => $alt->id,
         ]);
-        // Send feedback to ML using top keywords
+        
+        // IMPROVED: Send feedback to ML dengan tracking lebih detail
         try {
-            $keywords = collect($analisis->kata_kunci ?? [])->pluck('term')->take(8)->values()->all();
-            app(\App\Services\MlClient::class)->feedback($keywords, from: $rec->master?->kategoris?->first()?->nama, to: $kategori->nama);
+            // Extract CLEAN keywords - split phrases into individual words
+            $rawKeywords = collect($analisis->kata_kunci ?? [])->pluck('term')->take(10);
+            $keywords = collect([]);
+            foreach ($rawKeywords as $phrase) {
+                $words = collect(explode(' ', strtolower($phrase)))
+                    ->filter(fn($w) => strlen($w) >= 3)
+                    ->values();
+                $keywords = $keywords->merge($words);
+            }
+            $keywords = $keywords->unique()->take(15)->values()->all();
+            
+            // Get kategori from & to
+            $fromKategori = $rec->master?->kategoris?->first()?->nama ?? null;
+            $toKategori = $kategori->nama;
+            
+            // Kirim feedback ke ML dengan delta lebih besar untuk rejection (lebih kuat impact)
+            if (!empty($keywords) && $fromKategori && $toKategori) {
+                app(\App\Services\MlClient::class)->feedback(
+                    keywords: $keywords,
+                    from: $fromKategori,
+                    to: $toKategori,
+                    delta: 0.3  // Rejection = feedback kuat
+                );
+                
+                // Log feedback untuk tracking
+                Log::info('ML Feedback Sent', [
+                    'analisis_id' => $analisis->id,
+                    'rekomendasi_id' => $rec->id,
+                    'from' => $fromKategori,
+                    'to' => $toKategori,
+                    'keywords' => $keywords,
+                    'action' => 'reject'
+                ]);
+            }
         } catch (\Throwable $e) {
-            // ignore ML feedback failure
+            // ignore ML feedback failure but log it
+            Log::warning('ML Feedback Failed', ['error' => $e->getMessage()]);
         }
-        return back()->with('ok', 'Penolakan disimpan beserta rekomendasi alternatif.');
+        
+        return back()->with('ok', 'Penolakan disimpan beserta rekomendasi alternatif. Sistem ML telah mempelajari koreksi Anda.');
     }
 
     // Return up to 5 alternative master recommendations for a given kategori
@@ -360,7 +439,16 @@ class AnalisisEntryController extends Controller
             try {
                 $fromCat = optional($rec->master?->kategoris?->first())->nama;
                 if ($fromCat) {
-                    $keywords = collect($analisis->kata_kunci ?? [])->pluck('term')->take(6)->values()->all();
+                    // Extract CLEAN keywords - split phrases into individual words
+                    $rawKeywords = collect($analisis->kata_kunci ?? [])->pluck('term')->take(6);
+                    $keywords = collect([]);
+                    foreach ($rawKeywords as $phrase) {
+                        $words = collect(explode(' ', strtolower($phrase)))
+                            ->filter(fn($w) => strlen($w) >= 3)
+                            ->values();
+                        $keywords = $keywords->merge($words);
+                    }
+                    $keywords = $keywords->unique()->take(10)->values()->all();
                     app(\App\Services\MlClient::class)->feedback($keywords, from: $fromCat, to: null, delta: 0.15);
                 }
             } catch (\Throwable $e) {
@@ -428,6 +516,152 @@ class AnalisisEntryController extends Controller
             return response()->json(['ok' => true, 'handling_status' => $analisis->handling_status]);
         }
         return back()->with('ok', 'Status penanganan diperbarui.');
+    }
+
+    /**
+     * Guru dapat merevisi kategori keseluruhan analisis jika sistem ML salah mengklasifikasikan
+     * Ini akan memberikan feedback yang lebih kuat ke ML untuk kasus serupa di masa depan
+     */
+    public function reviseCategory(Request $r, AnalisisEntry $analisis)
+    {
+        $validated = $r->validate([
+            'new_kategori_id' => ['required', 'integer', 'exists:kategori_masalahs,id'],
+            'revision_reason' => ['required', 'string', 'max:1000'],
+        ]);
+
+        // Authorization
+        $guru = optional($r->user())->guru;
+        if (!$guru) {
+            abort(403);
+        }
+        if ($guru->jenis === 'wali_kelas') {
+            $allow = optional($analisis->siswaKelas?->kelas)->wali_guru_id === $r->user()->id;
+            abort_if(!$allow, 403);
+        }
+
+        $newKategori = KategoriMasalah::aktif()->findOrFail($validated['new_kategori_id']);
+        
+        // Track old categories untuk feedback
+        $oldCategories = collect($analisis->categories_overview ?? [])
+            ->pluck('category')
+            ->toArray();
+
+        // Update analisis metadata
+        $analisis->update([
+            'revised_kategori_id' => $newKategori->id,
+            'revision_reason' => $validated['revision_reason'] ?? null,
+            'revised_by' => $r->user()->id,
+            'revised_at' => now(),
+        ]);
+
+        // STRONG FEEDBACK to ML: Category revision = sistem salah total
+        try {
+            // Extract keywords from ML analysis (keep as-is, don't split)
+            $rawKeywords = collect($analisis->kata_kunci ?? [])->pluck('term')->take(15);
+            $keywords = $rawKeywords->map(fn($k) => strtolower(trim($k)))->filter();
+            
+            // ADD extra keywords dari form - JANGAN PISAH PER KATA, simpan utuh sebagai phrase
+            $extraWords = collect();
+            if (!empty($validated['revision_reason'])) {
+                // Split by semicolon, comma, or newline (these are keyword separators)
+                // But DO NOT split by space - allow multi-word keywords like "tidak tertarik", "sering bolos"
+                $extraWords = collect(preg_split('/[;\n,]+/', $validated['revision_reason']))
+                    ->map(fn($w) => strtolower(trim($w)))
+                    ->filter(fn($w) => strlen($w) >= 3) // Min 3 chars for entire phrase
+                    ->values();
+                $keywords = $keywords->merge($extraWords);
+            }
+            
+            $keywords = $keywords->unique()->take(25)->values()->all();
+            
+            if (!empty($keywords)) {
+                // Penalize semua kategori lama (jika ada)
+                foreach ($oldCategories as $oldCat) {
+                    if ($oldCat && $oldCat !== $newKategori->nama) {
+                        app(\App\Services\MlClient::class)->feedback(
+                            keywords: $keywords,
+                            from: $oldCat,
+                            to: null,
+                            delta: 0.4  // Strong penalty
+                        );
+                    }
+                }
+                
+                // Pisahkan kata kunci yang sudah ada vs baru
+                $existingKeywords = collect($newKategori->kata_kunci ?? [])
+                    ->map(fn($w) => strtolower(trim((string)$w)))
+                    ->filter();
+                
+                $existingWords = collect();
+                $newWords = collect();
+                
+                foreach ($extraWords as $word) {
+                    if ($existingKeywords->contains($word)) {
+                        $existingWords->push($word);
+                    } else {
+                        $newWords->push($word);
+                    }
+                }
+                
+                // Reward kata kunci yang SUDAH ADA dengan boost lebih besar (reinforcement)
+                if ($existingWords->isNotEmpty()) {
+                    app(\App\Services\MlClient::class)->feedback(
+                        keywords: $existingWords->all(),
+                        from: null,
+                        to: $newKategori->nama,
+                        delta: 0.7  // Stronger boost for existing keywords (reinforcement)
+                    );
+                }
+                
+                // Reward kata kunci BARU dengan boost normal
+                if ($newWords->isNotEmpty()) {
+                    app(\App\Services\MlClient::class)->feedback(
+                        keywords: $newWords->all(),
+                        from: null,
+                        to: $newKategori->nama,
+                        delta: 0.5  // Normal boost for new keywords
+                    );
+                }
+                
+                // Reward kata kunci ML-generated (bukan dari form) dengan boost normal
+                $mlOnlyKeywords = collect($keywords)->diff($extraWords)->values();
+                if ($mlOnlyKeywords->isNotEmpty()) {
+                    app(\App\Services\MlClient::class)->feedback(
+                        keywords: $mlOnlyKeywords->all(),
+                        from: null,
+                        to: $newKategori->nama,
+                        delta: 0.5  // Normal boost
+                    );
+                }
+                
+                // Persist HANYA kata kunci BARU ke kategori_masalahs (hindari duplikat)
+                try {
+                    if ($newWords->isNotEmpty()) {
+                        $merged = $existingKeywords->merge($newWords)
+                            ->filter(fn($w) => strlen($w) >= 3)
+                            ->unique()
+                            ->take(400)
+                            ->values();
+                        $newKategori->kata_kunci = $merged->all();
+                        $newKategori->save();
+                    }
+                } catch (\Throwable $ex) {
+                    // Ignore DB update error for keywords persistence
+                }
+                
+                Log::info('ML Category Revision Feedback', [
+                    'analisis_id' => $analisis->id,
+                    'from_categories' => $oldCategories,
+                    'to_category' => $newKategori->nama,
+                    'keywords' => $keywords,
+                    'reason' => $validated['revision_reason'] ?? null
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('ML Revision Feedback Failed', ['error' => $e->getMessage()]);
+        }
+
+        return back()->with('ok', 'Revisi kategori berhasil disimpan. ML akan belajar dari koreksi ini untuk meningkatkan akurasi di masa depan.');
     }
 
     // Detail rekomendasi untuk modal (judul tampil saja di list; isi diambil via AJAX)

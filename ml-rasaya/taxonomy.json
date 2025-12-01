@@ -317,7 +317,13 @@
                 "malas hidup",
                 "diam",
                 "menyendiri",
-                "sensitif"
+                "sensitif",
+                "overthink",
+                "overthinking",
+                "kecewa",
+                "khawatir",
+                "kacau",
+                "takut"
             ],
             "deskripsi": "Perasaan sedih\/kehilangan minat berkepanjangan, energi rendah, dan menarik diri."
         },
@@ -540,7 +546,12 @@
                 "makan sendiri",
                 "gaada teman",
                 "sepi",
-                "tersisih"
+                "tersisih",
+                "pendiam",
+                "sendiri",
+                "awkward",
+                "biasa aja",
+                "partisipasi minim"
             ],
             "deskripsi": "Perasaan tidak punya teman dekat\/dukungan sosial di sekolah."
         },
@@ -621,7 +632,7 @@
         }
     ],
     "meta": {
-        "last_synced": "2025-11-26T20:32:26+08:00",
+        "last_synced": "2025-12-01T21:49:39+08:00",
         "version": "2.0",
         "source": "database"
     }

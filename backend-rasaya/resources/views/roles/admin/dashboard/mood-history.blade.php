@@ -1,10 +1,10 @@
-@extends('layouts.admin')
+﻿@extends('layouts.admin')
 
-@section('title', 'History Mood')
+@section('title', 'Riwayat Mood')
 
 @section('page-header')
 <div class="d-flex align-items-center justify-content-between">
-    <h1 class="h4 m-0">😊 History Mood Tracking</h1>
+    <h1 class="h4 m-0">😊 Riwayat Mood Tracking</h1>
     <a href="{{ route('admin.dashboard.index') }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left"></i> Kembali ke Dashboard
     </a>

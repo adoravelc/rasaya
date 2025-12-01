@@ -1,4 +1,4 @@
-@extends('layouts.guru')
+﻿@extends('layouts.guru')
 
 @section('title', 'Dashboard Wali Kelas')
 
@@ -101,7 +101,7 @@
 								<span class="fs-2">📊</span>
 								<span class="badge rounded-pill" style="background: var(--guru-pink-dark);">Monitoring</span>
 							</div>
-							<div class="text-muted small mb-1">Mood Tracker</div>
+							<div class="text-muted small mb-1">Pelacak Suasana Hati</div>
 							<div class="fs-6 fw-semibold mb-3">Tren Emosi</div>
 							<a href="{{ route('guru.tren_emosi.index') }}" class="btn btn-sm w-100 stretched-link" style="background: var(--guru-navy); color: white;">Lihat Data</a>
 						</div>
@@ -115,7 +115,7 @@
 								<span class="fs-2">💭</span>
 								<span class="badge rounded-pill" style="background: var(--guru-navy);">Jurnal</span>
 							</div>
-							<div class="text-muted small mb-1">Self-Report Siswa</div>
+							<div class="text-muted small mb-1">Laporan Diri Siswa</div>
 							<div class="fs-6 fw-semibold mb-3">Refleksi Siswa</div>
 							<a href="{{ route('guru.refleksi.index') }}" class="btn btn-sm w-100 stretched-link" style="background: var(--guru-pink-dark); color: white;">Baca</a>
 						</div>
@@ -236,8 +236,6 @@
 									<td>
 										@if($booking->status === 'booked')
 											<span class="badge bg-success">Booked</span>
-										@elseif($booking->status === 'held')
-											<span class="badge bg-warning">On Hold</span>
 										@endif
 									</td>
 								</tr>

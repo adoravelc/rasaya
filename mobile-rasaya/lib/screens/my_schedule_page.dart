@@ -138,7 +138,7 @@ class _MySchedulePageState extends ConsumerState<MySchedulePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Filter hanya jadwal yang belum berlalu (end_at > sekarang WITA) dan status 'booked'
+    // Filter untuk jadwal aktif (booked) yang belum berlalu
     final upcoming = _items.where((m) {
       final status = (m['status'] ?? '').toString();
       final endIso = (m['slot']?['end_at'] ?? m['end_at'] ?? '').toString();
@@ -165,6 +165,24 @@ class _MySchedulePageState extends ConsumerState<MySchedulePage> {
         }
       });
 
+    // Filter untuk riwayat booking (canceled, completed, no_show)
+    final history = _items.where((m) {
+      final status = (m['status'] ?? '').toString();
+      return ['canceled', 'completed', 'no_show'].contains(status);
+    }).toList()
+      ..sort((a, b) {
+        // Sort by created_at descending (terbaru dulu)
+        final aCreated = (a['created_at'] ?? '').toString();
+        final bCreated = (b['created_at'] ?? '').toString();
+        try {
+          final ad = DateTime.parse(aCreated);
+          final bd = DateTime.parse(bCreated);
+          return bd.compareTo(ad); // descending
+        } catch (_) {
+          return 0;
+        }
+      });
+
     final nowLabel = DateFormat('HH.mm', 'id_ID').format(_nowWita);
 
     return AppScaffold(
@@ -173,7 +191,7 @@ class _MySchedulePageState extends ConsumerState<MySchedulePage> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
-              child: upcoming.isEmpty
+              child: upcoming.isEmpty && history.isEmpty
                   ? ListView(
                       padding: const EdgeInsets.all(12),
                       children: [
@@ -222,9 +240,16 @@ class _MySchedulePageState extends ConsumerState<MySchedulePage> {
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.all(12),
-                      itemCount: upcoming.length + 1,
+                      itemCount: 1 + // header waktu
+                          (upcoming.isNotEmpty
+                              ? upcoming.length + 1
+                              : 0) + // upcoming + section header
+                          (history.isNotEmpty
+                              ? history.length + 1
+                              : 0), // history + section header
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (_, i) {
+                        // Index 0: Current time display
                         if (i == 0) {
                           return Padding(
                             padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
@@ -240,87 +265,220 @@ class _MySchedulePageState extends ConsumerState<MySchedulePage> {
                           );
                         }
 
-                        final m = upcoming[i - 1];
-                        final mulaiIso =
-                            (m['slot']?['start_at'] ?? m['start_at'] ?? '')
-                                .toString();
-                        final selesaiIso =
-                            (m['slot']?['end_at'] ?? m['end_at'] ?? '')
-                                .toString();
-                        DateTime? startWita;
-                        try {
-                          startWita = DateTime.parse(mulaiIso)
-                              .toUtc()
-                              .add(const Duration(hours: 8));
-                        } catch (_) {}
-                        final tglLabel = startWita != null
-                            ? _fmtTanggalIndo(startWita)
-                            : '-';
-                        final lokasi =
-                            (m['slot']?['lokasi'] ?? m['lokasi'] ?? '')
-                                .toString();
-                        final notes = (m['slot']?['notes'] ?? m['notes'] ?? '')
-                            .toString();
-                        final guru = (m['slot']?['guru']?['nama'] ??
-                                m['guru']?['nama'] ??
-                                m['guru_nama'] ??
-                                'Guru BK')
-                            .toString();
-                        final status = (m['status'] ?? '').toString();
-                        final id = (m['id'] as num?)?.toInt();
-                        final jam =
-                            '${_fmtWita(mulaiIso)} - ${_fmtWita(selesaiIso)} WITA';
+                        int idx = i - 1;
 
-                        return Card(
-                          child: ListTile(
-                            leading: const Icon(Icons.event_available),
-                            title: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(tglLabel,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600)),
-                                const SizedBox(height: 2),
-                                Text('Waktu: $jam'),
-                              ],
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(guru),
-                                if (lokasi.isNotEmpty)
-                                  Text('Lokasi: $lokasi',
-                                      style: TextStyle(
-                                          color: Colors.grey.shade700)),
-                                if (notes.isNotEmpty)
-                                  Text('Catatan: $notes',
-                                      style: TextStyle(
-                                          color: Colors.grey.shade700)),
-                              ],
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (status.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 8.0),
-                                    child: Chip(
-                                        label: Text(status),
-                                        visualDensity: VisualDensity.compact),
-                                  ),
-                                if (id != null && status == 'booked')
-                                  IconButton(
-                                    tooltip: 'Batalkan',
-                                    onPressed: () => _cancel(id),
-                                    icon: const Icon(Icons.close),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
+                        // Upcoming bookings section
+                        if (upcoming.isNotEmpty) {
+                          if (idx == 0) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 8),
+                              child: Text(
+                                '📅 Jadwal Mendatang',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue.shade800,
+                                ),
+                              ),
+                            );
+                          }
+                          if (idx <= upcoming.length) {
+                            final m = upcoming[idx - 1];
+                            return _buildBookingCard(context, m,
+                                isUpcoming: true);
+                          }
+                          idx -= (upcoming.length + 1);
+                        }
+
+                        // History section
+                        if (history.isNotEmpty) {
+                          if (idx == 0) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 8),
+                              child: Text(
+                                '📋 Riwayat Booking',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                            );
+                          }
+                          if (idx <= history.length) {
+                            final m = history[idx - 1];
+                            return _buildBookingCard(context, m,
+                                isUpcoming: false);
+                          }
+                        }
+
+                        return const SizedBox.shrink();
                       },
                     ),
             ),
+    );
+  }
+
+  Widget _buildBookingCard(BuildContext context, Map<String, dynamic> m,
+      {required bool isUpcoming}) {
+    final mulaiIso = (m['slot']?['start_at'] ?? m['start_at'] ?? '').toString();
+    final selesaiIso = (m['slot']?['end_at'] ?? m['end_at'] ?? '').toString();
+    DateTime? startWita;
+    try {
+      startWita =
+          DateTime.parse(mulaiIso).toUtc().add(const Duration(hours: 8));
+    } catch (_) {}
+    final tglLabel = startWita != null ? _fmtTanggalIndo(startWita) : '-';
+    final lokasi = (m['slot']?['lokasi'] ?? m['lokasi'] ?? '').toString();
+    final notes = (m['slot']?['notes'] ?? m['notes'] ?? '').toString();
+    final guru = (m['slot']?['guru']?['user']?['name'] ??
+            m['slot']?['guru']?['nama'] ??
+            m['guru']?['nama'] ??
+            m['guru_nama'] ??
+            'Guru BK')
+        .toString();
+    final status = (m['status'] ?? '').toString();
+    final id = (m['id'] as num?)?.toInt();
+    final jam = '${_fmtWita(mulaiIso)} - ${_fmtWita(selesaiIso)} WITA';
+    final cancelReason = (m['cancel_reason'] ?? '').toString();
+
+    // Determine who canceled
+    String? canceledBy;
+    if (status == 'canceled') {
+      final canceledByData = m['canceled_by'];
+      if (canceledByData != null && canceledByData is Map) {
+        // Dibatalkan oleh user tertentu (biasanya Guru BK)
+        final canceledByName = (canceledByData['name'] ?? 'Guru BK').toString();
+        canceledBy = canceledByName;
+      } else {
+        // Dibatalkan oleh siswa sendiri
+        canceledBy = 'Anda';
+      }
+    }
+
+    // Status badge color
+    Color statusColor;
+    IconData statusIcon;
+    switch (status) {
+      case 'booked':
+        statusColor = Colors.green;
+        statusIcon = Icons.check_circle;
+        break;
+      case 'canceled':
+        statusColor = Colors.red;
+        statusIcon = Icons.cancel;
+        break;
+      case 'completed':
+        statusColor = Colors.blue;
+        statusIcon = Icons.check_circle_outline;
+        break;
+      case 'no_show':
+        statusColor = Colors.grey;
+        statusIcon = Icons.event_busy;
+        break;
+      default:
+        statusColor = Colors.grey;
+        statusIcon = Icons.info;
+    }
+
+    return Card(
+      color: status == 'canceled' ? Colors.red.shade50 : null,
+      child: ListTile(
+        leading: Icon(
+          isUpcoming ? Icons.event_available : statusIcon,
+          color: isUpcoming ? null : statusColor,
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(tglLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 2),
+            Text('Waktu: $jam'),
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(guru),
+            if (lokasi.isNotEmpty)
+              Text('Lokasi: $lokasi',
+                  style: TextStyle(color: Colors.grey.shade700)),
+            if (notes.isNotEmpty)
+              Text('Catatan: $notes',
+                  style: TextStyle(color: Colors.grey.shade700)),
+            if (status == 'canceled') ...[
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade100,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.red.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline,
+                            size: 16, color: Colors.red.shade800),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Dibatalkan oleh: ${canceledBy ?? "Unknown"}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red.shade800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (cancelReason.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Alasan: $cancelReason',
+                        style: TextStyle(color: Colors.red.shade900),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (status.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Chip(
+                  label: Text(
+                    status == 'booked'
+                        ? 'Booked'
+                        : status == 'canceled'
+                            ? 'Canceled'
+                            : status == 'completed'
+                                ? 'Completed'
+                                : status == 'no_show'
+                                    ? 'No Show'
+                                    : status,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                  backgroundColor: statusColor,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            if (id != null && status == 'booked')
+              IconButton(
+                tooltip: 'Batalkan',
+                onPressed: () => _cancel(id),
+                icon: const Icon(Icons.close),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

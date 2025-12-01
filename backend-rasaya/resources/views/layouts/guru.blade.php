@@ -94,9 +94,9 @@
             
             {{-- Date & Greeting --}}
             <div class="d-none d-md-block me-4">
-                <div class="small" style="color: #94a3b8; font-size: 0.75rem;" id="current-datetime">Loading...</div>
+                <div class="small" style="color: #94a3b8; font-size: 0.75rem;" id="current-datetime">Memuat...</div>
                 <div>
-                    <span style="color: #64748b;">Hello, </span>
+                    <span style="color: #64748b;">Halo, </span>
                     <strong style="color: #1e293b;">{{ auth()->user()->name }}</strong>
                     <span class="ms-1" style="color: #94a3b8;">👋</span>
                 </div>
@@ -108,7 +108,7 @@
                     <span class="input-group-text bg-white border-end-0" style="border-color: #e2e8f0;">
                         <i class="bi bi-search" style="color: #94a3b8;"></i>
                     </span>
-                    <input type="text" class="form-control border-start-0" placeholder="Search anything" style="border-color: #e2e8f0;" readonly>
+                    <input type="text" class="form-control border-start-0" placeholder="Cari apa saja" style="border-color: #e2e8f0;" readonly>
                 </div>
             </div>
 
@@ -116,10 +116,10 @@
             <ul class="navbar-nav ms-auto align-items-center">
                 {{-- Notifications --}}
                 <li class="nav-item dropdown me-3">
-                    <a class="nav-link position-relative" href="#" role="button" data-bs-toggle="dropdown" style="color: #64748b;">
-                        <i class="bi bi-bell" style="font-size: 1.2rem;"></i>
+                    <a class="nav-link position-relative p-2" href="#" role="button" data-bs-toggle="dropdown" style="color: #64748b; transition: all 0.2s;" onmouseover="this.style.color='#ec4899'" onmouseout="this.style.color='#64748b'">
+                        <i class="bi bi-bell-fill" style="font-size: 1.3rem;"></i>
                         @if(isset($unreadCount) && $unreadCount > 0)
-                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem;">{{ $unreadCount > 99 ? '99+' : $unreadCount }}</span>
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem; border: 2px solid white;">{{ $unreadCount > 99 ? '99+' : $unreadCount }}</span>
                         @endif
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width: 320px; max-height: 400px; overflow-y: auto;">
@@ -231,12 +231,16 @@
                 const d = new Date();
                 const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
                 const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-                const day = days[d.getDay()];
-                const date = d.getDate();
-                const month = months[d.getMonth()];
-                const year = d.getFullYear();
-                const hours = String(d.getHours()).padStart(2, '0');
-                const minutes = String(d.getMinutes()).padStart(2, '0');
+                
+                // Convert to WITA timezone (Asia/Makassar)
+                const witaDate = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
+                
+                const day = days[witaDate.getDay()];
+                const date = witaDate.getDate();
+                const month = months[witaDate.getMonth()];
+                const year = witaDate.getFullYear();
+                const hours = String(witaDate.getHours()).padStart(2, '0');
+                const minutes = String(witaDate.getMinutes()).padStart(2, '0');
                 el.textContent = `${day}, ${date} ${month} ${year} ${hours}.${minutes} WITA`;
             };
             tick();

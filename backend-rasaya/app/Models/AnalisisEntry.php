@@ -33,6 +33,10 @@ class AnalisisEntry extends Model
         'tanggal_akhir_proses',
         'needs_attention',
         'handling_status',        // null|'handled'|'resolved' - status penanganan masalah
+        'revised_kategori_id',    // kategori koreksi manual dari guru
+        'revision_reason',        // alasan revisi
+        'revised_by',             // user_id guru yang melakukan revisi
+        'revised_at',             // timestamp revisi
     ];
 
     protected $casts = [
@@ -45,6 +49,7 @@ class AnalisisEntry extends Model
         'used_items' => 'array',
         'tanggal_awal_proses' => 'datetime',
         'tanggal_akhir_proses' => 'datetime',
+        'revised_at' => 'datetime',
         'needs_attention' => 'boolean',
     ];
 
@@ -67,6 +72,17 @@ class AnalisisEntry extends Model
     public function rekomendasis()
     {
         return $this->hasMany(AnalisisRekomendasi::class, 'analisis_entry_id');
+    }
+
+    // Kategori yang direvisi oleh guru (jika ML salah klasifikasi)
+    public function revisedKategori()
+    {
+        return $this->belongsTo(KategoriMasalah::class, 'revised_kategori_id');
+    }
+
+    public function revisedBy()
+    {
+        return $this->belongsTo(User::class, 'revised_by');
     }
 
     /* ===========================

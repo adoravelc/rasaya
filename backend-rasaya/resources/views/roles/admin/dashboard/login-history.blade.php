@@ -1,10 +1,10 @@
-@extends('layouts.admin')
+﻿@extends('layouts.admin')
 
-@section('title', 'Login History')
+@section('title', 'Riwayat Masuk')
 
 @section('page-header')
 <div class="d-flex align-items-center justify-content-between">
-    <h1 class="h4 m-0">🕒 Login History - Aktivitas User</h1>
+    <h1 class="h4 m-0">🕒 Riwayat Masuk - Aktivitas User</h1>
     <a href="{{ route('admin.dashboard.index') }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left"></i> Kembali ke Dashboard
     </a>
@@ -77,7 +77,7 @@
     </div>
 </div>
 
-{{-- Login History Table --}}
+{{-- Riwayat Masuk Table --}}
 <div class="card">
     <div class="card-header">
         <h5 class="mb-0">📜 Riwayat Login ({{ $histories->total() }} records)</h5>

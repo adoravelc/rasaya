@@ -113,4 +113,42 @@ class AdminSiswaController extends Controller
         $user->forceDelete();
         return redirect()->route('admin.siswa.trashed')->with('success', 'Siswa dihapus permanen.');
     }
+
+    // Nonaktifkan siswa + nonaktifkan status kelas di tahun ajaran aktif
+    public function deactivate(Request $r, int $userId)
+    {
+        $r->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:255'],
+        ]);
+
+        $siswa = Siswa::where('user_id', $userId)->firstOrFail();
+        // Siswa model PK = user_id, gunakan forceFill agar kolom non-fillable bisa terisi
+        $siswa->forceFill([
+            'is_active' => false,
+            'inactive_reason' => $r->input('reason'),
+            'inactive_at' => now(),
+        ])->save();
+
+        // Nonaktifkan keanggotaan kelas pada tahun ajaran aktif
+        if ($ta = TahunAjaran::aktif()->first()) {
+            \App\Models\SiswaKelas::where('siswa_id', $siswa->user_id)
+                ->where('tahun_ajaran_id', $ta->id)
+                ->update(['is_active' => false, 'left_at' => now()]);
+        }
+
+        return back()->with('ok', 'Siswa dinonaktifkan.');
+    }
+
+    // Aktifkan kembali siswa (opsional: tidak otomatis mengembalikan ke kelas)
+    public function activate(Request $r, int $userId)
+    {
+        $siswa = Siswa::where('user_id', $userId)->firstOrFail();
+        $siswa->forceFill([
+            'is_active' => true,
+            'inactive_reason' => null,
+            'inactive_at' => null,
+        ])->save();
+
+        return back()->with('ok', 'Siswa diaktifkan kembali.');
+    }
 }

@@ -1,10 +1,10 @@
-@extends('layouts.admin')
+﻿@extends('layouts.admin')
 
-@section('title','Import Roster Kelas')
+@section('title','Impor Roster Kelas')
 
 @section('page-header')
 <div>
-  <h3 class="mb-1">Import Roster Kelas</h3>
+  <h3 class="mb-1">Impor Roster Kelas</h3>
   <div class="text-muted">Unggah CSV roster untuk membuat/memperbarui penempatan siswa per kelas.</div>
 </div>
 <div class="d-flex gap-2 align-items-center">

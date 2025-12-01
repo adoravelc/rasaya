@@ -7,7 +7,7 @@
     <div class="container py-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h4 class="mb-0">Slot Konseling — BK</h4>
-            <button class="btn btn-primary" id="btnPublish">+ Generate Slot</button>
+            <button class="btn btn-primary" id="btnPublish">+ Buat Slot</button>
         </div>
 
         {{-- Filter --}}
@@ -25,13 +25,13 @@
                     <label class="form-label">Ketersediaan</label>
                     <select id="fStatus" class="form-select">
                         <option value="">(Semua)</option>
-                        <option value="available">available</option>
-                        <option value="booked">booked</option>
+                        <option value="available">tersedia</option>
+                        <option value="booked">terpesan</option>
                     </select>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label d-block">&nbsp;</label>
-                    <button class="btn btn-outline-secondary me-2" id="btnClear">Reset</button>
+                    <button class="btn btn-outline-secondary me-2" id="btnClear">Atur Ulang</button>
                     <button id="btn-filter" class="btn btn-success">Filter</button>
                 </div>
             </div>
@@ -45,7 +45,7 @@
                         <tr>
                             <th>Tanggal</th>
                             <th>Waktu</th>
-                            <th>Booked</th>
+                            <th>Terpesan</th>
                             <th>Lokasi</th>
                             <th>Status</th>
                             <th class="text-end">Aksi</th>
@@ -61,8 +61,8 @@
             <div class="card-footer d-flex justify-content-between align-items-center">
                 <div id="meta" class="small text-muted">—</div>
                 <div class="btn-group">
-                    <button class="btn btn-sm btn-outline-secondary" id="prev">Prev</button>
-                    <button class="btn btn-sm btn-outline-secondary" id="next">Next</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="prev">Sebelumnya</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="next">Berikutnya</button>
                 </div>
             </div>
         </div>
@@ -73,7 +73,7 @@
         <div class="modal-dialog modal-lg">
             <form class="modal-content" id="publishForm">
                 <div class="modal-header">
-                    <h5 class="modal-title">Generate Slot Massal</h5>
+                    <h5 class="modal-title">Buat Slot Massal</h5>
                     <button class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -138,7 +138,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Batal</button>
-                    <button class="btn btn-primary" type="submit">Generate</button>
+                    <button class="btn btn-primary" type="submit">Buat</button>
                 </div>
             </form>
         </div>
@@ -162,6 +162,47 @@
                 <div class="modal-footer">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Modal Update Status Booking (di Slot Konseling) --}}
+    <div class="modal fade" id="updateStatusModalSlot" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="updateStatusFormSlot" method="POST" action="">
+                    @csrf
+                    @method('PATCH')
+                    <div class="modal-header">
+                        <h5 class="modal-title">Ubah Status Booking</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-3">
+                            <strong>Siswa:</strong> <span id="modalSlotSiswaName"></span>
+                        </p>
+                        <div class="mb-3">
+                            <label for="statusSelectSlot" class="form-label">Status Baru</label>
+                            <select class="form-select" id="statusSelectSlot" name="status" required>
+                                <option value="">-- Pilih Status --</option>
+                                <option value="completed">Selesai</option>
+                                <option value="canceled">Dibatalkan</option>
+                                <option value="no_show">Tidak Hadir</option>
+                            </select>
+                            <div class="form-text" id="noShowHint" style="display: none;">
+                                <i class="bi bi-info-circle"></i> "No Show" hanya bisa dipilih setelah waktu konseling dimulai
+                            </div>
+                        </div>
+                        <div class="mb-3" id="cancelReasonGroupSlot" style="display: none;">
+                            <label for="cancelReasonInputSlot" class="form-label">Alasan Pembatalan <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="cancelReasonInputSlot" name="cancel_reason" rows="3" placeholder="Wajib diisi jika membatalkan konseling"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -380,6 +421,18 @@
                         const status = isAvailable ? 'available' : 'booked';
 
                         const bookings = Array.isArray(s.bookings) ? s.bookings : [];
+                        
+                        // Get badge color based on status
+                        const getStatusBadge = (statusB) => {
+                            const badges = {
+                                'booked': 'bg-success',
+                                'completed': 'bg-primary',
+                                'canceled': 'bg-danger',
+                                'no_show': 'bg-secondary'
+                            };
+                            return badges[statusB] || 'bg-secondary';
+                        };
+                        
                         // who booked: list booked entries (status maybe booked/held/etc.)
             const bookedItems = bookings
                 .map(b => {
@@ -393,12 +446,24 @@
                 const ta = sk?.tahun_ajaran?.nama || sk?.tahun_ajaran?.tahun || '';
                 const kelasFull = ta ? `${kelasLabel} (${ta})` : kelasLabel;
                 const statusB = b.status || '-';
+                const statusBadgeClass = getStatusBadge(statusB);
+                const cancelReason = b.cancel_reason ? `<div class="small text-danger mt-1">Alasan: ${b.cancel_reason}</div>` : '';
+                
+                // Tampilkan tombol ubah status jika booking masih aktif
+                const updateBtn = (statusB === 'booked') ? 
+                    `<button class="btn btn-sm btn-outline-primary mt-2" 
+                            onclick="openUpdateStatusModal(${b.id}, '${statusB}', '${siswaNama}', '${s.start_at}')">
+                        <i class="bi bi-pencil-square"></i> Ubah Status
+                    </button>` : '';
+                
                 return `<li class="list-group-item d-flex justify-content-between align-items-start">
-                    <div>
+                    <div class="flex-grow-1">
                         <div class="fw-semibold">${siswaNama}</div>
                         <div class="small text-muted">Kelas: ${kelasFull}</div>
+                        ${cancelReason}
+                        ${updateBtn}
                     </div>
-                    <span class="badge bg-secondary">${statusB}</span>
+                    <span class="badge ${statusBadgeClass}">${statusB}</span>
                 </li>`;
                 })
                 .join('');
@@ -508,6 +573,68 @@
             });
             if (res.ok) load();
             else alert('Gagal menghapus.');
+        }
+
+        // Global function untuk open modal update status dari detail modal
+        let updateStatusModalSlot;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStatusModalSlot = new bootstrap.Modal(document.getElementById('updateStatusModalSlot'));
+            const updateStatusFormSlot = document.getElementById('updateStatusFormSlot');
+            const statusSelectSlot = document.getElementById('statusSelectSlot');
+            const cancelReasonGroupSlot = document.getElementById('cancelReasonGroupSlot');
+            const noShowHint = document.getElementById('noShowHint');
+
+            // Show/hide cancel reason field and no_show hint
+            statusSelectSlot.addEventListener('change', function() {
+                if (this.value === 'canceled') {
+                    cancelReasonGroupSlot.style.display = 'block';
+                    noShowHint.style.display = 'none';
+                } else if (this.value === 'no_show') {
+                    cancelReasonGroupSlot.style.display = 'none';
+                    noShowHint.style.display = 'block';
+                } else {
+                    cancelReasonGroupSlot.style.display = 'none';
+                    noShowHint.style.display = 'none';
+                }
+            });
+        });
+
+        function openUpdateStatusModal(bookingId, currentStatus, siswaName, slotStartAt) {
+            const updateStatusFormSlot = document.getElementById('updateStatusFormSlot');
+            const statusSelectSlot = document.getElementById('statusSelectSlot');
+            const modalSlotSiswaName = document.getElementById('modalSlotSiswaName');
+            const cancelReasonGroupSlot = document.getElementById('cancelReasonGroupSlot');
+            const noShowHint = document.getElementById('noShowHint');
+
+            // Set form action
+            updateStatusFormSlot.action = `/guru/bk/bookings/${bookingId}/status`;
+
+            // Set siswa name
+            modalSlotSiswaName.textContent = siswaName;
+
+            // Reset form
+            statusSelectSlot.value = '';
+            document.getElementById('cancelReasonInputSlot').value = '';
+            cancelReasonGroupSlot.style.display = 'none';
+            noShowHint.style.display = 'none';
+
+            // Check if no_show is allowed (only after start time)
+            // Get current time in WITA timezone
+            const nowWita = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
+            const startAt = new Date(slotStartAt);
+            const noShowOption = statusSelectSlot.querySelector('option[value="no_show"]');
+            
+            if (startAt > nowWita) {
+                noShowOption.disabled = true;
+                noShowOption.textContent = 'No Show (Belum bisa dipilih)';
+            } else {
+                noShowOption.disabled = false;
+                noShowOption.textContent = 'No Show';
+            }
+
+            // Show modal
+            updateStatusModalSlot.show();
         }
     </script>
 @endpush

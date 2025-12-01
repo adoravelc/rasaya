@@ -23,7 +23,7 @@ class SendKonselingReminder implements ShouldQueue
         $oneHourLater = now()->addHour();
         
         $upcomingBookings = SlotBooking::with(['slot.guru.user', 'siswaKelas.siswa.user'])
-            ->whereIn('status', ['booked', 'held'])
+            ->where('status', 'booked')
             ->whereHas('slot', function($q) use ($oneHourLater) {
                 $q->where('status', 'published')
                   ->whereBetween('start_at', [

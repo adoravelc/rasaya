@@ -131,6 +131,9 @@ Route::prefix('admin')->middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/siswa/trashed', [AdminSiswaController::class, 'trashed'])->name('admin.siswa.trashed');
     Route::post('/siswa/{userId}/restore', [AdminSiswaController::class, 'restore'])->name('admin.siswa.restore');
     Route::delete('/siswa/{userId}/force', [AdminSiswaController::class, 'forceDelete'])->name('admin.siswa.force');
+    // Nonaktif/Aktifkan Siswa (gunakan AdminSiswaController di namespace Web)
+    Route::post('/admin/siswa/{userId}/deactivate', [AdminSiswaController::class, 'deactivate'])->name('admin.siswa.deactivate');
+    Route::post('/admin/siswa/{userId}/activate', [AdminSiswaController::class, 'activate'])->name('admin.siswa.activate');
 
     // Siswa-Kelas
     Route::get('/siswa-kelas', [AdminSiswaKelasController::class, 'index'])->name('admin.siswa_kelas.index');
@@ -206,6 +209,9 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
         Route::get('/slots/{id}', [SlotApi::class, 'show'])->name('guru.guru_bk.slots.show');
         Route::post('/slots/publish', [SlotApi::class, 'publish'])->name('guru.guru_bk.slots.publish');
         Route::delete('/slots/{id}', [SlotApi::class, 'destroy'])->name('guru.guru_bk.slots.destroy');
+
+        // Update status booking konseling
+        Route::patch('/bookings/{bookingId}/status', [GuruBkDashboardController::class, 'updateBookingStatus'])->name('guru.bk.bookings.update-status');
     });
 
     // Wali Kelas
@@ -234,6 +240,7 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
         Route::post('/{analisis}/attention', [AnalisisEntryController::class, 'attention'])->name('guru.analisis.attention');
         Route::post('/{analisis}/handling-status', [AnalisisEntryController::class, 'handlingStatus'])->name('guru.analisis.handling_status');
         Route::get('/{analisis}/rekomendasi/{rid}/alternatives', [AnalisisEntryController::class, 'alternatives'])->name('guru.analisis.alternatives');
+        Route::post('/{analisis}/revise-category', [AnalisisEntryController::class, 'reviseCategory'])->name('guru.analisis.revise-category');
     });
 
     /** ===================== REFERRAL & PRIVATE KONSELING ===================== */

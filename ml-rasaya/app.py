@@ -30,23 +30,47 @@ from sklearn.feature_extraction.text import TfidfVectorizer # Tetap butuh untuk 
 from nltk.corpus import stopwords
 from nltk.sentiment import SentimentIntensityAnalyzer
 from rake_nltk import Rake
+try:
+    # Optional Indonesian stemmer (improves recall)
+    from Sastrawi.Stemmer.StemmerFactory import StemmerFactory  # type: ignore
+    _sastrawi_factory = StemmerFactory()
+    _sastrawi_stemmer = _sastrawi_factory.create_stemmer()
+    def _stem_id(word: str) -> str:
+        try:
+            return _sastrawi_stemmer.stem(word)
+        except Exception:
+            return word
+except Exception:
+    _sastrawi_stemmer = None
+    def _stem_id(word: str) -> str:
+        return word
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Download NLTK resources quietly
+# Download NLTK resources safely - SKIP jika tidak perlu
+def ensure_nltk_safe():
+    """Check NLTK packages, skip download if missing (offline mode)."""
+    needed = {
+        "punkt": "tokenizers/punkt",
+        "punkt_tab": "tokenizers/punkt_tab", 
+        "stopwords": "corpora/stopwords",
+    }
+    
+    for pkg, path in needed.items():
+        try:
+            nltk.data.find(path)
+            print(f"✅ {pkg} ready")
+        except LookupError:
+            print(f"⚠️ {pkg} not found - continuing in offline mode")
+
+# Panggil tanpa download otomatis
 try:
-    nltk.data.find('tokenizers/punkt')
-    nltk.data.find('sentiment/vader_lexicon')
-    nltk.data.find('corpora/stopwords')
-    nltk.data.find('tokenizers/punkt_tab')
-except LookupError:
-    print("Downloading NLTK resources...")
-    nltk.download('punkt', quiet=True)
-    nltk.download('vader_lexicon', quiet=True)
-    nltk.download('stopwords', quiet=True)
-    nltk.download('punkt_tab', quiet=True)
+    ensure_nltk_safe()
+    print("=" * 60)
+except Exception as e:
+    print(f"⚠️ NLTK check error: {e}")
 
 app = Flask(__name__)
 
@@ -55,7 +79,14 @@ API_KEY = os.getenv("FLASK_API_KEY", "rahasia-negara-123") # Gunakan env var
 SERVICE_VERSION = "1.2.0-bert-sarcasm" # Version bump
 
 # --- GLOBAL VARIABLES ---
-sia = SentimentIntensityAnalyzer()
+# Initialize SentimentIntensityAnalyzer safely (skip jika vader_lexicon tidak ada)
+try:
+    sia = SentimentIntensityAnalyzer()
+    print("✅ VADER sentiment analyzer ready")
+except Exception as e:
+    print(f"⚠️ VADER not available, using custom lexicon only: {e}")
+    sia = None
+
 STOPWORDS_ID_CHAT = set(stopwords.words('indonesian')) | set(stopwords.words('english'))
 _CHAT_FILLERS = {
     "sih", "dong", "kok", "kan", "tuh", "deh", "lah", "yah", "ni", "tu", 
@@ -89,31 +120,13 @@ try:
 except Exception as e:
     logger.warning(f'Failed loading TALA stopwords: {e}')
 
-def ensure_nltk():
-    # pastikan paket-paket penting ada
-    needed = ["punkt", "punkt_tab", "stopwords", "vader_lexicon"]
-    for pkg in needed:
-        try:
-            # 'punkt' dan 'punkt_tab' = tokenizers; 'stopwords' = corpora
-            if pkg in ("punkt", "punkt_tab"):
-                nltk.data.find(f"tokenizers/{pkg}")
-            else:
-                nltk.data.find(f"corpora/{pkg}")
-        except LookupError:
-            nltk.download(pkg)
-
-ensure_nltk()
-
-
-sia = SentimentIntensityAnalyzer()
-
 # Lexicon sederhana untuk Indonesia/Kupang dalam range standar [-1, +1]
 ID_EXTRA = {
     # Emosi negatif umum
     "capek": -0.7, "capai": -0.5, "pusing": -0.7, "marah": -0.8, "sedih": -0.7,
     "murung": -0.7, "galau": -0.6, "bingung": -0.5, "takut": -0.7, "cemas": -0.7,
-    "kecewa": -0.7, "kesal": -0.6, "jengkel": -0.6, "frustasi": -0.8, "depresi": -0.9,
-    "stres": -0.8, "tegang": -0.6, "resah": -0.7, "gelisah": -0.7,
+    "kecewa": -0.7, "kesal": -0.6, "jengkel": -0.6, "frustasi": -0.8, "frustrasi": -0.8, "depresi": -0.9,
+    "stres": -0.8, "tegang": -0.6, "resah": -0.7, "gelisah": -0.7, "sendirian": -0.5,
     # Emosi positif umum
     "senang": 0.7, "bahagia": 0.8, "semangat": 0.7, "hepi": 0.7, "gembira": 0.8,
     "excited": 0.7, "antusias": 0.7, "optimis": 0.6, "tenang": 0.5, "damai": 0.6,
@@ -137,8 +150,9 @@ ID_EXTRA = {
     "dong": 0.0, "de": 0.0, "so": 0.0, "pe": 0.0, "pung": 0.0,
     "tanta": 0.0, "oma": 0.0, "opa": 0.0, "mama": 0.0, "papa": 0.0,
 }
-# tambahkan ke VADER
-sia.lexicon.update({k.lower(): v for k, v in ID_EXTRA.items()})
+# tambahkan ke VADER (jika available)
+if sia:
+    sia.lexicon.update({k.lower(): v for k, v in ID_EXTRA.items()})
 
 app = Flask(__name__)
 
@@ -188,38 +202,60 @@ def save_feedback_weights(weights: dict):
         pass
 
 def score_categories_for_text(txt: str, categories_map: dict, feedback: dict):
-    """Heuristik scoring kategori:
-    - Bangun indeks keyword -> list kategori yang mengandungnya.
-    - Jika sebuah keyword muncul di teks dan dipakai beberapa kategori, bobot dibagi rata (1 / n_kategori).
-    - Terapkan feedback weight per (keyword, kategori) jika ada.
-    - Normalisasi ke proporsi total agar skor relatif antar kategori.
-    Mengembalikan (scores, reasons) dengan reasons dibatasi 5 unik per kategori.
+    """Scoring kategori berbasis token & n-gram.
+    - Tokenize + optional stemming (Sastrawi) untuk generalisasi.
+    - Match unigram/bigram/trigram secara exact (bukan substring bebas).
+    - Bobot dasar dibagi oleh banyaknya kategori yang memakai keyword (1/n_cats).
+    - Boost n-gram (bi=1.4x, tri=1.6x), downweight token sangat pendek (<=3: 0.5x).
+    - Tambahkan feedback weight jika ada, lalu normalisasi ke proporsi total.
     """
-    text_low = txt.lower()
+    clean = clean_text(txt)
+    toks = _tokenize_and_stem(clean)
+    uni, bi, tri = _build_ngram_sets(toks)
+
     # Invert index: keyword -> categories
     inv = defaultdict(list)
     for cat, kws in categories_map.items():
         for kw in kws:
-            kw = (kw or '').strip()
-            if kw:
-                inv[kw.lower()].append(cat)
+            k = (kw or '').strip().lower()
+            if k:
+                inv[k].append(cat)
 
     scores = {cat: 0.0 for cat in categories_map.keys()}
     reasons = defaultdict(list)
 
-    for kw_low, cats in inv.items():
-        if kw_low in text_low:
-            base = 1.0 / max(1, len(cats))
-            for cat in cats:
-                adj = base + float(feedback.get(kw_low, {}).get(cat, 0.0))
-                scores[cat] += adj
-                reasons[cat].append(kw_low)
+    for kw, cats in inv.items():
+        parts = [p for p in kw.split() if p]
+        parts_stem = [_stem_id(p) for p in parts]
+        gram = len(parts_stem)
+        present = False
+        if gram == 1:
+            present = parts_stem[0] in uni
+        elif gram == 2:
+            present = (parts_stem[0] + ' ' + parts_stem[1]) in bi
+        else:
+            seq = ' '.join(parts_stem[:3])
+            present = seq in tri if len(parts_stem) >= 3 else False
+        if not present:
+            continue
+
+        base = 1.0 / max(1, len(cats))
+        if gram == 1 and len(parts_stem[0]) <= 3:
+            base *= 0.5
+        if gram == 2:
+            base *= 1.4
+        elif gram >= 3:
+            base *= 1.6
+
+        for cat in cats:
+            adj = base + float(feedback.get(kw, {}).get(cat, 0.0))
+            scores[cat] += adj
+            reasons[cat].append(kw)
 
     total = sum(scores.values())
     if total > 0:
         for k in scores.keys():
             scores[k] = round(scores[k] / total, 4)
-    # unique reasons, keep max 5
     return scores, {k: sorted(set(v))[:5] for k, v in reasons.items()}
 
 """
@@ -360,6 +396,21 @@ def clean_text(t: str) -> str:
     t = " ".join(toks)
     t = _RE_MULTISPACE.sub(" ", t).strip()
     return t
+
+# Tokenization + optional stemming helpers
+
+def _tokenize_and_stem(t: str) -> list[str]:
+    toks = [w for w in t.split() if w]
+    if _sastrawi_stemmer is None:
+        return toks
+    return [_stem_id(w) for w in toks]
+
+
+def _build_ngram_sets(tokens: list[str]) -> tuple[set[str], set[str], set[str]]:
+    uni = set(tokens)
+    bi = set([tokens[i] + " " + tokens[i+1] for i in range(len(tokens)-1)]) if len(tokens) >= 2 else set()
+    tri = set([tokens[i] + " " + tokens[i+1] + " " + tokens[i+2] for i in range(len(tokens)-2)]) if len(tokens) >= 3 else set()
+    return uni, bi, tri
 
 def detect_sarcasm_heuristic(text_clean, raw_text, current_sentiment):
     """
@@ -509,45 +560,56 @@ def score_with_lexicon(text: str, lex: Dict[str, float]) -> float:
     toks = clean_text(text).split()
     if not toks:
         return 0.0
-    
-    # Context-aware scoring: handle negation & intensifiers
+
+    # Context-aware scoring: handle negation (pre & post), intensifiers
     negation_words = {"tidak", "bukan", "belum", "jangan", "tanpa", "sonde", "tara", "teda", "nda", "tra"}
     intensifiers = {"banget", "sangat", "amat", "sekali", "parah", "bener", "pisan"}
-    
+
     s = 0.0
-    negated = False
+    neg_window = 0  # number of next tokens to negate
     intensify = 1.0
-    
+    # track last scored token to handle patterns like "paham ... belum"
+    last_score_val = 0.0
+    last_score_idx = -10
+
     for i, tok in enumerate(toks):
-        # Check negation (flip sign for next 3 words)
+        # Negation token: start negation window and optionally flip previous positive nearby
         if tok in negation_words:
-            negated = True
+            # If a positive word occurred recently (within 2 tokens), flip it retroactively
+            if last_score_val > 0 and (i - last_score_idx) <= 2:
+                # subtract a bit more than added to reflect negation of previous positive
+                s -= last_score_val * 1.2
+                last_score_val = 0.0
+            neg_window = 3
             continue
-        
-        # Check intensifier (boost next word by 1.5x)
+
+        # Intensifier affects next scored word only
         if tok in intensifiers:
             intensify = 1.5
             continue
-        
-        # Get sentiment score
+
+        # Base lexical score
         score = lex.get(tok, 0.0)
-        
-        # Apply negation (flip sign)
-        if negated and score != 0.0:
-            score = -score * 0.8  # Slightly dampen negated sentiment
-            negated = False  # Reset after applying
-        
+
+        # Apply active negation window
+        if neg_window > 0 and score != 0.0:
+            score = -score * 0.8
+            neg_window -= 1
+        elif neg_window > 0:
+            # consume window even if current token has no score
+            neg_window -= 1
+
         # Apply intensifier
         if intensify > 1.0 and score != 0.0:
             score = score * intensify
-            intensify = 1.0  # Reset
-        
+            intensify = 1.0
+
         s += score
-        
-        # Reset negation after 3 words
-        if negated and i > 0 and (i % 3 == 0):
-            negated = False
-    
+
+        if score != 0.0:
+            last_score_val = score
+            last_score_idx = i
+
     # Dampen by sqrt length to avoid bias for long texts
     normalized = s / max(1.0, math.sqrt(len(toks)))
     return max(-1.0, min(1.0, normalized))
@@ -831,8 +893,8 @@ def analyze():
     negatives = []
     per_entry_cats = {}
 
-    # Load IndoBERT Model
-    tok, mdl, dev = get_bert()
+    # Load IndoBERT Model (only if enabled)
+    tok, mdl, dev = get_bert() if ENABLE_BERT else (None, None, None)
 
     # --- PROCESS PER ITEM ---
     for it in items:
@@ -847,12 +909,17 @@ def analyze():
 
         # 2. Sentiment Scoring (Hybrid)
         s_lex = score_with_lexicon(clean, LEXICON_ID)
-        s_vad = sia.polarity_scores(raw_txt).get("compound", 0.0)
-        aggregate = float(0.7 * s_lex + 0.3 * s_vad)
+        s_vad = sia.polarity_scores(raw_txt).get("compound", 0.0) if sia else 0.0
+        aggregate = float(0.7 * s_lex + 0.3 * s_vad) if sia else s_lex
         
         # Fallback: keyword-based detection if aggregate is neutral (0)
         if abs(aggregate) < 0.05:
-            negative_keywords = ["berkelahi", "bertengkar", "murung", "sedih", "marah", "kabur", "masalah", "ribut", "berantem", "stress", "pusing", "takut", "cemas", "galau", "kecewa"]
+            negative_keywords = [
+                "berkelahi", "bertengkar", "murung", "sedih", "marah", "kabur",
+                "masalah", "ribut", "berantem", "stress", "stres", "pusing",
+                "takut", "cemas", "galau", "kecewa", "frustrasi", "frustasi",
+                "jelek", "drop", "sendiri", "sendirian", "tidak paham"
+            ]
             positive_keywords = ["senang", "bahagia", "gembira", "semangat", "excited", "bagus", "oke", "mantap", "suka", "hebat"]
             
             neg_count = sum(1 for kw in negative_keywords if kw in clean)
@@ -911,6 +978,12 @@ def analyze():
             # Find best kategori kecil
             best_cat = max(cat_scores, key=cat_scores.get) if cat_scores else None
             best_bucket = max(bucket_scores, key=bucket_scores.get) if bucket_scores else None
+
+            # Apply minimum confidence thresholds to reduce false positives
+            if best_cat and cat_scores.get(best_cat, 0.0) < 0.22:
+                best_cat = None
+            if best_bucket and bucket_scores.get(best_bucket, 0.0) < 0.25:
+                best_bucket = None
 
             # 6. Cluster Labeling (Prioritize Kategori Kecil, fallback to Bucket)
             if best_cat:

@@ -76,7 +76,7 @@ class AdminDashboardController extends Controller
         
         // Active konseling bookings
         $activeBookings = SlotBooking::with(['slot.guru.user', 'siswaKelas.siswa.user', 'siswaKelas.kelas'])
-            ->whereIn('status', ['booked', 'held'])
+            ->where('status', 'booked')
             ->whereHas('slot', function($q) {
                 $q->where('status', 'published')
                   ->where('start_at', '>=', now());

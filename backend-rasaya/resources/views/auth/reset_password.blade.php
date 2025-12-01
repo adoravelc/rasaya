@@ -31,8 +31,8 @@
                 <input type="password" name="password_confirmation" class="form-control" required minlength="8">
               </div>
               <div class="d-grid gap-2">
-                <button class="btn btn-primary" type="submit">Simpan Password</button>
-                <a class="btn btn-outline-secondary" href="{{ url('/login') }}">Kembali ke Login</a>
+                <button class="btn btn-primary" type="submit">Simpan Kata Sandi</button>
+                <a class="btn btn-outline-secondary" href="{{ url('/login') }}">Kembali ke Masuk</a>
               </div>
             </form>
           </div>

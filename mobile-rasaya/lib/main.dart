@@ -13,6 +13,7 @@ import 'screens/mood_page.dart';
 import 'screens/history_page.dart';
 import 'screens/booking_page.dart';
 import 'screens/my_schedule_page.dart';
+import 'screens/notifications_page.dart';
 import 'screens/profile_page.dart';
 import 'screens/change_password_page.dart';
 import 'screens/stats_page.dart';
@@ -74,6 +75,9 @@ class _AppState extends ConsumerState<App> {
         GoRoute(path: '/booking', builder: (_, __) => const BookingPage()),
         GoRoute(
             path: '/my-schedule', builder: (_, __) => const MySchedulePage()),
+        GoRoute(
+            path: '/notifications',
+            builder: (_, __) => const NotificationsPage()),
         GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
         GoRoute(
             path: '/profile/change-password',

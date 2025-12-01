@@ -39,6 +39,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // save FCM token for push notifications
     Route::post('/user/fcm-token', [AuthController::class, 'saveFcmToken']);
 
+    // Notifications
+    Route::get('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
+    Route::post('/notifications/{id}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [\App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
+
     // === endpoint untuk Flutter pilih teman (boleh siswa) ===
     Route::get('/siswa-list', [SiswaController::class, 'listSimple']);
 

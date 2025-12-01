@@ -51,7 +51,7 @@
               @if($jk === 'L')
                 <span class="badge bg-primary">Laki-laki</span>
               @elseif($jk === 'P')
-                <span class="badge bg-secondary">Perempuan</span>
+                <span class="badge" style="background-color:#ec4899;">Perempuan</span>
               @else
                 <span class="text-muted small">-</span>
               @endif
@@ -82,7 +82,7 @@
 <!-- Modal Tambah Guru -->
 <div class="modal fade" id="modalAddGuru" tabindex="-1">
   <div class="modal-dialog">
-    <form class="modal-content" method="post" action="{{ route('admin.guru.store') }}">
+    <form id="formAddGuru" class="modal-content" method="post" action="{{ route('admin.guru.store') }}">
       @csrf
       <div class="modal-header"><h5 class="modal-title">Tambah Guru</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body">
@@ -90,7 +90,11 @@
         <div class="mb-2"><label class="form-label">Identifier (NIP/NIK)</label><input name="identifier" class="form-control" required></div>
         <div class="mb-2"><label class="form-label">Nama</label><input name="name" class="form-control" required></div>
         <div class="mb-2"><label class="form-label">Email</label><input name="email" type="email" class="form-control" required autocomplete="off"></div>
-        <div class="mb-2"><label class="form-label">Password</label><input name="password" type="password" class="form-control" autocomplete="new-password"><div class="form-text">Berikan password ini kepada user yang meminta reset.</div></div>
+        <div class="mb-2"><label class="form-label">Password</label>
+          <input name="password" id="addGuruPassword" type="password" class="form-control" autocomplete="new-password" minlength="8" placeholder="Minimal 8 karakter">
+          <div id="addGuruPasswordError" class="text-danger small mt-1" style="display:none">Password minimal 8 karakter.</div>
+          <div class="form-text">Berikan password ini kepada user yang meminta reset.</div>
+        </div>
         <div class="mb-2"><label class="form-label">Jenis Kelamin</label>
           <select name="jenis_kelamin" class="form-select" required>
             <option value="L">Laki-laki</option>
@@ -121,7 +125,8 @@
         <div class="mb-2"><label class="form-label">Email</label><input name="email" type="email" class="form-control" required autocomplete="off"></div>
         <div id="groupPassword" class="mb-2 d-none">
           <label class="form-label">Password</label>
-          <input name="password" type="password" class="form-control" autocomplete="new-password">
+          <input name="password" id="editGuruPassword" type="password" class="form-control" autocomplete="new-password" minlength="8" placeholder="Minimal 8 karakter">
+          <div id="editGuruPasswordError" class="text-danger small mt-1" style="display:none">Password minimal 8 karakter.</div>
           <div class="form-text">Berikan password ini kepada user yang meminta reset.</div>
         </div>
         <div class="mb-2"><label class="form-label">Jenis Kelamin</label>
@@ -144,6 +149,18 @@
 
 @push('scripts')
 <script>
+// Client-side validation to keep modal open and show inline errors
+document.getElementById('formAddGuru')?.addEventListener('submit', (e)=>{
+  const pwd = document.getElementById('addGuruPassword');
+  const err = document.getElementById('addGuruPasswordError');
+  if (pwd && pwd.value && pwd.value.length < 8) {
+    e.preventDefault();
+    err.style.display = 'block';
+    pwd.focus();
+  } else if (err) {
+    err.style.display = 'none';
+  }
+});
 document.getElementById('modalEditGuru')?.addEventListener('show.bs.modal', (ev)=>{
   const btn = ev.relatedTarget || window.rasayaLastModalTrigger;
   if (!btn) return;
@@ -170,13 +187,26 @@ document.getElementById('modalEditGuru')?.addEventListener('show.bs.modal', (ev)
       pwdInput.removeAttribute('name');
     }
   }
+  const editErr = document.getElementById('editGuruPasswordError');
+  if (editErr) editErr.style.display = 'none';
 });
 
 // Remove empty password field before submit
 document.getElementById('formEditGuru')?.addEventListener('submit', (e)=>{
   const passwordInput = e.target.querySelector('[name=password]');
-  if (passwordInput && passwordInput.value.trim() === '') {
-    passwordInput.removeAttribute('name'); // Don't send empty password
+  const err = document.getElementById('editGuruPasswordError');
+  if (passwordInput) {
+    const val = passwordInput.value.trim();
+    if (val === '') {
+      passwordInput.removeAttribute('name'); // Don't send empty password
+      if (err) err.style.display = 'none';
+    } else if (val.length < 8) {
+      e.preventDefault();
+      if (err) err.style.display = 'block';
+      passwordInput.focus();
+    } else if (err) {
+      err.style.display = 'none';
+    }
   }
 });
 </script>

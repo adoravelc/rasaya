@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+﻿@extends('layouts.admin')
 
 @section('title', 'User Activity Detail')
 
@@ -122,7 +122,7 @@
         </div>
     </div>
 
-    {{-- Login History Sidebar --}}
+    {{-- Riwayat Masuk Sidebar --}}
     <div class="col-md-4">
         <div class="card">
             <div class="card-header">

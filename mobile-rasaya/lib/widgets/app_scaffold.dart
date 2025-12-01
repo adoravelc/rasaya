@@ -151,21 +151,14 @@ final notificationsCountProvider = FutureProvider<int>((ref) async {
   final token = ref.watch(authControllerProvider.select((s) => s.token));
   if (token == null) return 0;
   final api = ref.read(apiClientProvider);
-  // Placeholder: attempt GET /notifications if exists, else return 0
   try {
-    final res = await api.get('/notifications');
-    if (!res.ok) return 0;
-    final data = res.data;
-    if (data is Map && data['unread'] is int) return data['unread'] as int;
-    if (data is List) {
-      // assume list of notifications with is_read flag
-      final list = data.cast<dynamic>();
-      int unread = 0;
-      for (final n in list) {
-        if (n is Map && (n['is_read'] == false || n['read_at'] == null))
-          unread++;
-      }
-      return unread;
+    final res = await api.get('/notifications/unread-count');
+    if (res.ok && res.data is Map) {
+      final data = res.data as Map;
+      final count = data['count'];
+      if (count is int) return count;
+      if (count is String) return int.tryParse(count) ?? 0;
+      return 0;
     }
     return 0;
   } catch (_) {
@@ -181,35 +174,40 @@ class _NotificationBell extends ConsumerWidget {
     final badge = countAsync.maybeWhen(data: (c) => c, orElse: () => 0);
     return IconButton(
       tooltip: 'Notifikasi',
+      iconSize: 28,
       onPressed: () {
-        // Future: navigate to notifications page
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Notifikasi coming soon')),
-        );
+        context.push('/notifications');
       },
       icon: Stack(
         clipBehavior: Clip.none,
         children: [
-          const Icon(Icons.notifications_none),
+          Icon(
+            Icons.notifications_outlined,
+            size: 28,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           if (badge > 0)
             Positioned(
-              right: -2,
-              top: -2,
+              right: -4,
+              top: -4,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.redAccent,
-                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
                 ),
-                constraints: const BoxConstraints(minWidth: 18),
-                child: Text(
-                  badge > 99 ? '99+' : badge.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                child: Center(
+                  child: Text(
+                    badge > 99 ? '99+' : badge.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      height: 1.0,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
                 ),
               ),
             ),

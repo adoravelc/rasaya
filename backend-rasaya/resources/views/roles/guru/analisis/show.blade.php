@@ -227,6 +227,21 @@
                         @if ($allCats->count() > $cats->count())
                             <div class="form-text mt-1">Kategori dengan porsi di bawah 5% disembunyikan.</div>
                         @endif
+                        
+                        {{-- REVISI KATEGORI BUTTON --}}
+                        @if ($analisis->revised_kategori_id)
+                            <div class="alert alert-info mt-3 mb-0">
+                                <strong>✅ Kategori Direvisi:</strong> {{ $analisis->revisedKategori->nama ?? '-' }}
+                                @if ($analisis->revision_reason)
+                                    <br><small class="text-muted">Kata kunci tambahan: {{ $analisis->revision_reason }}</small>
+                                @endif
+                                <br><small class="text-muted">Oleh: {{ $analisis->revisedBy->name ?? '-' }} pada {{ $analisis->revised_at?->format('d M Y H:i') }}</small>
+                            </div>
+                        @else
+                            <button type="button" class="btn btn-warning btn-sm mt-3" data-bs-toggle="modal" data-bs-target="#revisiKategoriModal">
+                                <i class="bi bi-pencil-square"></i> Revisi Kategori (ML Salah Klasifikasi)
+                            </button>
+                        @endif
                     </div>
                 @endif
             </div>
@@ -800,4 +815,170 @@
 
         // (Duplicate attention toggle listener removed)
     </script>
+@endpush
+
+{{-- MODAL REVISI KATEGORI --}}
+<div class="modal fade" id="revisiKategoriModal" tabindex="-1" aria-labelledby="revisiKategoriLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ route('guru.analisis.revise-category', $analisis->id) }}">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title" id="revisiKategoriLabel">
+                        <i class="bi bi-exclamation-triangle text-warning"></i> Revisi Kategori (ML Salah Klasifikasi)
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <strong>Kategori Saat Ini (dari ML):</strong>
+                        <ul class="mb-0 mt-1">
+                            @php
+                                $currentCats = collect($analisis->categories_overview ?? [])
+                                    ->sortByDesc(fn($r) => (float)($r['score'] ?? 0))
+                                    ->take(3)
+                                    ->pluck('category')
+                                    ->join(', ');
+                            @endphp
+                            <li>{{ $currentCats ?: 'Tidak ada kategori terdeteksi' }}</li>
+                        </ul>
+                        <small class="text-muted">Jika kategori di atas TIDAK SESUAI dengan permasalahan siswa, silakan pilih kategori yang benar di bawah ini.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="new_kategori_id" class="form-label">Kategori yang Benar <span class="text-danger">*</span></label>
+                        <select name="new_kategori_id" id="new_kategori_id" class="form-select" required>
+                            <option value="">-- Pilih Kategori yang Sesuai --</option>
+                            @foreach($kategoriOptions as $kat)
+                                <option value="{{ $kat->id }}">{{ $kat->nama }}</option>
+                            @endforeach
+                        </select>
+                        <div class="form-text">Pilih kategori yang menurut Anda paling sesuai dengan permasalahan siswa ini.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Kata Kunci Tambahan <span class="text-danger">*</span></label>
+                        <div id="revision-keywords-container" class="border rounded p-2 bg-light" style="min-height:100px">
+                            <div id="revision-keywords-tags" class="d-flex flex-wrap gap-1 mb-2"></div>
+                            <input type="text" id="revision-keyword-input" class="border-0 bg-transparent w-100" placeholder="Ketik kata kunci (bisa lebih dari 1 kata) lalu tekan Enter, koma, atau titik koma..." style="outline:none">
+                        </div>
+                        <input type="hidden" name="revision_reason" id="revision_reason" required>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i> Masukkan kata kunci yang menunjukkan siswa seharusnya masuk kategori ini. 
+                            <strong>Kata kunci bisa terdiri dari beberapa kata</strong> (misal: "tidak tertarik", "sering bolos", "prestasi menurun"). 
+                            Pisahkan antar kata kunci dengan <strong>Enter</strong>, <strong>koma (,)</strong>, atau <strong>titik koma (;)</strong>
+                        </div>
+                        <div id="revision-keywords-error" class="text-danger small mt-1" style="display:none">Minimal 1 kata kunci diperlukan</div>
+                    </div>
+
+                    <div class="alert alert-warning mb-0">
+                        <i class="bi bi-robot"></i> <strong>Sistem ML Akan Belajar:</strong>
+                        <p class="mb-0 small">Setelah revisi disimpan, sistem ML akan mencatat koreksi Anda dan meningkatkan akurasi kategorisasi untuk kasus serupa di masa depan.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-check-circle"></i> Simpan Revisi & Latih ML
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+    // Revisi Kategori - Tag-based input for revision keywords
+    document.addEventListener('DOMContentLoaded', function() {
+        const tagsContainer = document.getElementById('revision-keywords-tags');
+        const input = document.getElementById('revision-keyword-input');
+        const hiddenInput = document.getElementById('revision_reason');
+        const errorDiv = document.getElementById('revision-keywords-error');
+        const form = document.querySelector('#revisiModal form');
+        
+        let keywords = [];
+
+        function renderTags() {
+            tagsContainer.innerHTML = '';
+            keywords.forEach((kw, idx) => {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-primary d-inline-flex align-items-center gap-1';
+                badge.innerHTML = `
+                    ${kw}
+                    <button type="button" class="btn-close btn-close-white" style="width:0.5em;height:0.5em;opacity:0.8" data-idx="${idx}"></button>
+                `;
+                badge.querySelector('button').addEventListener('click', function() {
+                    keywords.splice(idx, 1);
+                    renderTags();
+                    updateHidden();
+                });
+                tagsContainer.appendChild(badge);
+            });
+        }
+
+        function updateHidden() {
+            hiddenInput.value = keywords.join('; ');
+            errorDiv.style.display = keywords.length === 0 ? 'block' : 'none';
+        }
+
+        function addKeyword(text) {
+            const trimmed = text.trim();
+            if (!trimmed) return;
+            if (keywords.includes(trimmed)) {
+                // Highlight existing tag
+                const badges = tagsContainer.querySelectorAll('.badge');
+                badges.forEach((badge, idx) => {
+                    if (keywords[idx] === trimmed) {
+                        badge.classList.add('bg-warning', 'text-dark');
+                        setTimeout(() => {
+                            badge.classList.remove('bg-warning', 'text-dark');
+                        }, 800);
+                    }
+                });
+                return;
+            }
+            keywords.push(trimmed);
+            renderTags();
+            updateHidden();
+        }
+
+        // Handle Enter, comma, semicolon
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ',' || e.key === ';') {
+                e.preventDefault();
+                addKeyword(input.value);
+                input.value = '';
+            }
+        });
+
+        // Handle paste with separators
+        input.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            const parts = text.split(/[\n,;]+/).map(p => p.trim()).filter(p => p);
+            parts.forEach(addKeyword);
+            input.value = '';
+        });
+
+        // Validate on submit
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                if (keywords.length === 0) {
+                    e.preventDefault();
+                    errorDiv.style.display = 'block';
+                    input.focus();
+                }
+            });
+        }
+
+        // Initialize from existing value (for edit mode)
+        const existingValue = hiddenInput.value;
+        if (existingValue) {
+            const parts = existingValue.split(/[;\n,]+/).map(p => p.trim()).filter(p => p);
+            keywords = parts;
+            renderTags();
+        }
+    });
+</script>
 @endpush

@@ -9,8 +9,8 @@ class SlotBooking extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['slot_id', 'siswa_kelas_id', 'status', 'held_until', 'cancel_reason'];
-    protected $casts = ['held_until' => 'datetime'];
+    protected $fillable = ['slot_id', 'siswa_kelas_id', 'status', 'cancel_reason', 'canceled_by_user_id'];
+    protected $casts = [];
 
     public function slot()
     {
@@ -19,5 +19,9 @@ class SlotBooking extends Model
     public function siswaKelas()
     {
         return $this->belongsTo(SiswaKelas::class);
+    }
+    public function canceledBy()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'canceled_by_user_id');
     }
 }
