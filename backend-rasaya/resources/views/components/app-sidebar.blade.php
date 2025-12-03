@@ -4,7 +4,7 @@
     $guruJenis = optional(auth()->user()->guru)->jenis; // 'bk' | 'wali_kelas' | null
 @endphp
 
-<aside class="col-12 col-md-3 col-lg-2 p-0 sidebar bg-light border-end" style="min-height: 100vh;">
+<aside class="col-12 col-md-3 col-lg-2 p-0 sidebar bg-light border-end" style="min-height: 100vh; position: sticky; top: 0; height: 100vh; overflow-y: auto;">
     <div class="p-3">
         {{-- Logo RASAYA - Centered and Large --}}
         <div class="text-center mb-4 pb-3 border-bottom">
