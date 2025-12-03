@@ -39,37 +39,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Brand header
-                  const SizedBox(height: 12),
+                  // Brand header with logo
+                  const SizedBox(height: 16),
                   Column(
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            'RASAYA',
-                            style: TextStyle(
-                              color: cs.primary,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 24,
-                              letterSpacing: 1.0,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: cs.secondary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ],
+                      Image.asset(
+                        'assets/images/logo_horizontal.png',
+                        width: 280,
+                        fit: BoxFit.contain,
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 16),
                       Text('Masuk untuk melanjutkan',
-                          style: TextStyle(color: Colors.black54)),
+                          style:
+                              TextStyle(color: Colors.black54, fontSize: 16)),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -106,7 +88,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             TextFormField(
                               controller: _idCtrl,
                               decoration: InputDecoration(
-                                labelText: 'NIS/NUPTK',
+                                labelText: 'NIS',
                                 filled: true,
                                 fillColor: cs.primary.withOpacity(0.06),
                               ),

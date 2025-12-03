@@ -480,29 +480,6 @@ class _IdentityHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      cs.secondary.withOpacity(0.35),
-                      cs.secondary.withOpacity(0.15),
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: cs.secondary.withOpacity(0.30),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Icon(Icons.school_rounded, size: 30, color: cs.primary),
-              ),
             ],
           ),
         ],

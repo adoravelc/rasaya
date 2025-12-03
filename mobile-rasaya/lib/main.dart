@@ -18,6 +18,7 @@ import 'screens/profile_page.dart';
 import 'screens/change_password_page.dart';
 import 'screens/stats_page.dart';
 import 'screens/forgot_password_page.dart';
+import 'screens/splash_screen.dart';
 
 class RefleksiHistoryPage extends StatelessWidget {
   const RefleksiHistoryPage({super.key});
@@ -46,14 +47,15 @@ class App extends ConsumerStatefulWidget {
 
 class _AppState extends ConsumerState<App> {
   late final GoRouter _router;
+  bool _bootstrapping = true;
 
   @override
   void initState() {
     super.initState();
-    ref.read(authControllerProvider.notifier).bootstrap();
 
     _router = GoRouter(
       routes: [
+        GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
         GoRoute(path: '/', builder: (_, __) => const LoginPage()),
         GoRoute(
             path: '/forgot-password',
@@ -84,9 +86,18 @@ class _AppState extends ConsumerState<App> {
             builder: (_, __) => const ChangePasswordPage()),
       ],
       redirect: (context, state) {
+        // Show splash during bootstrap
+        if (_bootstrapping) {
+          if (state.matchedLocation == '/splash') return null;
+          return '/splash';
+        }
+
+        // After bootstrap, handle auth routing
         final st = ref.read(authControllerProvider);
         final loggedIn = st.token != null && st.me != null;
-        final atLogin = state.matchedLocation == '/';
+        final atLogin =
+            state.matchedLocation == '/' || state.matchedLocation == '/splash';
+
         if (!loggedIn && !atLogin) return '/';
         if (loggedIn && atLogin) return '/home';
         return null;
@@ -94,7 +105,23 @@ class _AppState extends ConsumerState<App> {
       refreshListenable: GoRouterRefreshStream(
         ref.read(authControllerProvider.notifier).stream,
       ),
+      initialLocation: '/splash',
     );
+
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    // Start bootstrap in parallel with minimum splash duration
+    await Future.wait([
+      ref.read(authControllerProvider.notifier).bootstrap(),
+      Future.delayed(
+          const Duration(milliseconds: 3000)), // 3 seconds for testing
+    ]);
+    if (mounted) {
+      setState(() => _bootstrapping = false);
+      _router.refresh();
+    }
   }
 
   @override

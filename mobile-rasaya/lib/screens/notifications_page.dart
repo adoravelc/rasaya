@@ -91,21 +91,24 @@ class NotificationsPage extends ConsumerWidget {
                       );
                     }
                   },
-                  icon:
-                      const Icon(Icons.done_all, size: 18, color: Colors.white),
+                  icon: const Icon(Icons.done_all,
+                      size: 18, color: Color(0xFF073763)),
                   label: const Text(
                     'Baca Semua',
-                    style: TextStyle(color: Colors.white, fontSize: 13),
+                    style: TextStyle(
+                        color: Color(0xFF073763),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600),
                   ),
                 )
               : const SizedBox.shrink(),
           orElse: () => TextButton.icon(
             onPressed: null,
             icon: const Icon(Icons.hourglass_empty,
-                size: 18, color: Colors.white),
+                size: 18, color: Color(0xFF073763)),
             label: const Text(
               'Memuat…',
-              style: TextStyle(color: Colors.white, fontSize: 13),
+              style: TextStyle(color: Color(0xFF073763), fontSize: 13),
             ),
           ),
         ),
