@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -31,10 +34,10 @@ android {
     }
 
     // Load signing credentials from key.properties (not committed)
-    val keystoreProperties = java.util.Properties()
+    val keystoreProperties = Properties()
     val keystoreFile = rootProject.file("key.properties")
     if (keystoreFile.exists()) {
-        keystoreProperties.load(java.io.FileInputStream(keystoreFile))
+        keystoreProperties.load(FileInputStream(keystoreFile))
     }
 
     signingConfigs {
