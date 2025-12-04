@@ -1,21 +1,27 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
-        // Extend enum and allow NULL for aggregated entries; make source_id nullable
-        DB::statement("ALTER TABLE `analisis_entries` MODIFY `source` ENUM('input_siswa','input_guru','gabungan') NULL");
-        DB::statement("ALTER TABLE `analisis_entries` MODIFY `source_id` BIGINT UNSIGNED NULL");
+        // Cek dulu tabel & column exist atau tidak
+        if (Schema::hasTable('analisis_entries') && Schema::hasColumn('analisis_entries', 'source')) {
+            Schema::table('analisis_entries', function (Blueprint $table) {
+                $table->string('source')->nullable()->change();
+            });
+        }
     }
 
     public function down(): void
     {
-        // Revert: disallow NULL and drop 'gabungan' from enum (set default to 'input_siswa')
-        DB::statement("UPDATE `analisis_entries` SET `source` = 'input_siswa' WHERE `source` IS NULL");
-        DB::statement("ALTER TABLE `analisis_entries` MODIFY `source` ENUM('input_siswa','input_guru') NOT NULL");
-        DB::statement("ALTER TABLE `analisis_entries` MODIFY `source_id` BIGINT UNSIGNED NOT NULL");
+        if (Schema::hasTable('analisis_entries') && Schema::hasColumn('analisis_entries', 'source')) {
+            Schema::table('analisis_entries', function (Blueprint $table) {
+                $table->string('source')->nullable(false)->change();
+            });
+        }
     }
 };
