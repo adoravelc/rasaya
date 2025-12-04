@@ -1,6 +1,27 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+
+// Session-authenticated route for flexible edit to avoid Sanctum 401 from Blade
+Route::middleware(['auth', 'role:admin,guru'])->group(function () {
+    Route::patch('/guru/analisis/{id}/edit-flex', [\App\Http\Controllers\AnalisisReviewController::class, 'flexibleEditAnalysis'])
+        ->name('guru.analisis.edit-flex');
+});
+
+// Admin: Manage recommendation addition requests
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('/admin/dashboard', [\App\Http\Controllers\AdminDashboardController::class, 'index'])->name('admin.dashboard');
+    Route::get('/admin/rekomendasi/requests', [\App\Http\Controllers\AdminRecommendationRequestController::class, 'index'])
+        ->name('admin.rekomendasi.requests');
+    Route::post('/admin/rekomendasi/requests/{id}/admit', [\App\Http\Controllers\AdminRecommendationRequestController::class, 'admit'])
+        ->name('admin.rekomendasi.requests.admit');
+    Route::post('/admin/rekomendasi/requests/{id}/reject', [\App\Http\Controllers\AdminRecommendationRequestController::class, 'reject'])
+        ->name('admin.rekomendasi.requests.reject');
+    Route::get('/admin/rekomendasi/requests/{id}/edit', [\App\Http\Controllers\AdminRecommendationRequestController::class, 'edit'])
+        ->name('admin.rekomendasi.requests.edit');
+    Route::post('/admin/rekomendasi/requests/{id}/update', [\App\Http\Controllers\AdminRecommendationRequestController::class, 'update'])
+        ->name('admin.rekomendasi.requests.update');
+});
 use App\Http\Controllers\Web\AuthWebController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Web\AdminDashboardController;

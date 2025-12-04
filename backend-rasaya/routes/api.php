@@ -94,5 +94,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/slots', [SlotKonselingController::class, 'index']);
         Route::patch('/slots/{id}/cancel', [SlotKonselingController::class, 'cancel']);
         Route::patch('/slots/{id}/archive', [SlotKonselingController::class, 'archive']);
+
+        // Review & Revise Analysis
+        Route::get('/analisis/pending-review', [\App\Http\Controllers\AnalisisReviewController::class, 'getPendingReview']);
+        Route::post('/analisis/{id}/accept', [\App\Http\Controllers\AnalisisReviewController::class, 'acceptAnalysis']);
+        Route::post('/analisis/{id}/revise', [\App\Http\Controllers\AnalisisReviewController::class, 'reviseAnalysis']);
+        Route::get('/analisis/{id}/revision-history', [\App\Http\Controllers\AnalisisReviewController::class, 'getRevisionHistory']);
+        // Flexible edit (partial updates + add keywords)
+        Route::patch('/analisis/{id}/edit-flex', [\App\Http\Controllers\AnalisisReviewController::class, 'flexibleEditAnalysis']);
+
+        // Recommendation helpers for teachers
+        Route::get('/kategori/{id}/master-rekomendasi', [\App\Http\Controllers\GuruRecommendationController::class, 'listByKategori']);
+        Route::post('/rekomendasi/request', [\App\Http\Controllers\GuruRecommendationController::class, 'submitRequest']);
     });
 });

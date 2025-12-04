@@ -37,6 +37,9 @@ class AnalisisEntry extends Model
         'revision_reason',        // alasan revisi
         'revised_by',             // user_id guru yang melakukan revisi
         'revised_at',             // timestamp revisi
+        'review_status',          // pending_review|accepted|revised
+        'reviewed_by',            // user_id guru yang review
+        'reviewed_at',            // timestamp review
     ];
 
     protected $casts = [
@@ -50,6 +53,7 @@ class AnalisisEntry extends Model
         'tanggal_awal_proses' => 'datetime',
         'tanggal_akhir_proses' => 'datetime',
         'revised_at' => 'datetime',
+        'reviewed_at' => 'datetime',
         'needs_attention' => 'boolean',
     ];
 
@@ -83,6 +87,17 @@ class AnalisisEntry extends Model
     public function revisedBy()
     {
         return $this->belongsTo(User::class, 'revised_by');
+    }
+
+    public function reviewedBy()
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    // Semua revisi yang pernah dilakukan untuk entry ini
+    public function revisions()
+    {
+        return $this->hasMany(AnalisisRevision::class, 'analisis_entry_id');
     }
 
     /* ===========================

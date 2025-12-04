@@ -18,6 +18,7 @@
                     </option>
                 @endforeach
             </select>
+            <a href="{{ route('admin.rekomendasi.requests') }}" class="btn btn-sm btn-info">📥 Request Tambah Rekomendasi</a>
             <button class="btn btn-primary" type="button" onclick="openCreate()">+ Tambah Rekomendasi</button>
         </form>
     </div>

@@ -239,7 +239,10 @@
                             </div>
                         @else
                             <button type="button" class="btn btn-warning btn-sm mt-3" data-bs-toggle="modal" data-bs-target="#revisiKategoriModal">
-                                <i class="bi bi-pencil-square"></i> Revisi Kategori (ML Salah Klasifikasi)
+                                <i class="bi bi-pencil-square"></i> Revisi Kategori
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-3 ms-2" data-bs-toggle="modal" data-bs-target="#editFleksibelModal">
+                                <i class="bi bi-pencil-square"></i> Edit Hasil Analisis
                             </button>
                         @endif
                     </div>
@@ -980,5 +983,187 @@
             renderTags();
         }
     });
+</script>
+@endpush
+
+{{-- MODAL EDIT FLEKSIBEL --}}
+<div class="modal fade" id="editFleksibelModal" tabindex="-1" aria-labelledby="editFleksibelLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editFleksibelLabel">
+                    <i class="bi bi-pencil-square"></i> Edit Analisis (Fleksibel)
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Ubah Kategori (opsional)</label>
+                        <select id="flex-kategori" class="form-select">
+                            <option value="">— Tidak diubah —</option>
+                            @foreach($kategoriOptions as $kat)
+                                <option value="{{ $kat->id }}">{{ $kat->nama }}</option>
+                            @endforeach
+                        </select>
+                        <div class="form-text">Jika ingin mengganti kategori utama.</div>
+                    </div>
+                    
+                </div>
+
+                <hr>
+
+                <label class="form-label">Ganti Daftar Rekomendasi</label>
+                <div id="flex-rekomendasi-list" class="mb-2"></div>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-rek">
+                    <i class="bi bi-plus-circle"></i> Tambah Rekomendasi
+                </button>
+                <div class="form-text">Biarkan kosong jika tidak ingin mengganti rekomendasi.</div>
+
+                <hr>
+
+                <label class="form-label">Tambah Kata Kunci</label>
+                <div id="flex-keywords" class="border rounded p-2 bg-light" style="min-height:100px">
+                    <div id="flex-keywords-tags" class="d-flex flex-wrap gap-1 mb-2"></div>
+                    <input type="text" id="flex-keyword-input" class="border-0 bg-transparent w-100" placeholder="Ketik kata kunci lalu Enter/koma/titik koma" style="outline:none">
+                </div>
+
+                
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary" id="btn-save-flex">
+                    <i class="bi bi-save"></i> Simpan Perubahan
+                </button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const analisisId = {{ $analisis->id }};
+    const baseApi = `${location.origin}/api`;
+    const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    // Rekomendasi builder
+    const list = document.getElementById('flex-rekomendasi-list');
+    document.getElementById('btn-add-rek').addEventListener('click', () => {
+        const div = document.createElement('div');
+        div.className = 'd-flex flex-column gap-2 mb-3 p-2 border rounded';
+        div.innerHTML = `
+            <div class="d-flex gap-2 align-items-center">
+                <select class="form-select form-select-sm flex-kat" style="max-width:240px">
+                    <option value="">— Pilih Kategori —</option>
+                    @foreach($kategoriOptions as $kat)
+                        <option value="{{ $kat->id }}">{{ $kat->nama }}</option>
+                    @endforeach
+                </select>
+                <button type="button" class="btn btn-sm btn-outline-danger"><i class="bi bi-x"></i></button>
+            </div>
+            <input type="text" class="form-control form-control-sm flex-rek-judul" placeholder="Judul rekomendasi">
+            <textarea class="form-control form-control-sm flex-rek-deskripsi" rows="3" placeholder="Deskripsi rekomendasi"></textarea>
+            <div class="d-flex gap-2 align-items-center">
+                <label class="form-label m-0">Severity</label>
+                <select class="form-select form-select-sm flex-rek-severity" style="max-width:160px">
+                    <option value="low">low</option>
+                    <option value="medium">medium</option>
+                    <option value="high">high</option>
+                </select>
+            </div>
+            <div class="mt-1">
+                <label class="form-label m-0">Minimal Skor Sentimen</label>
+                <div class="d-flex align-items-center gap-2">
+                    <input type="range" class="form-range flex-rek-minscore-range" min="-1" max="0" step="0.01" value="-0.05" style="max-width:280px">
+                    <input type="number" class="form-control form-control-sm flex-rek-minscore" style="max-width:120px" step="0.01" min="-1" max="0" value="-0.05">
+                </div>
+                <div class="form-text">Semakin mendekati −1.00, kondisinya makin berat.</div>
+            </div>
+        `;
+        // Sync range and number inputs
+        const range = div.querySelector('.flex-rek-minscore-range');
+        const num = div.querySelector('.flex-rek-minscore');
+        range.addEventListener('input', () => { num.value = range.value; });
+        num.addEventListener('input', () => { range.value = num.value; });
+        // Remove row
+        div.querySelector('button.btn-outline-danger').addEventListener('click', () => div.remove());
+        list.appendChild(div);
+    });
+
+    // Keyword tags
+    const tagWrap = document.getElementById('flex-keywords-tags');
+    const kwInput = document.getElementById('flex-keyword-input');
+    let kws = [];
+    const addTag = (text) => {
+        const v = (text || '').trim();
+        if (!v) return;
+        kws.push(v);
+        const span = document.createElement('span');
+        span.className = 'badge bg-secondary';
+        span.textContent = v;
+        span.style.cursor = 'pointer';
+        span.addEventListener('click', () => {
+            kws = kws.filter(x => x !== v);
+            span.remove();
+        });
+        tagWrap.appendChild(span);
+    };
+    kwInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ',' || e.key === ';') {
+            e.preventDefault();
+            addTag(kwInput.value);
+            kwInput.value = '';
+        }
+    });
+
+    // Save
+    document.getElementById('btn-save-flex').addEventListener('click', async () => {
+        const kategoriId = document.getElementById('flex-kategori').value;
+        
+
+        // Build rekomendasi array
+        const rekomendasi = [];
+        list.querySelectorAll('div').forEach(div => {
+            const katSel = div.querySelector('select.flex-kat');
+            const judul = (div.querySelector('input.flex-rek-judul')?.value || '').trim();
+            const deskripsi = (div.querySelector('textarea.flex-rek-deskripsi')?.value || '').trim();
+            const severity = (div.querySelector('select.flex-rek-severity')?.value || 'low').trim();
+            const minScoreRaw = div.querySelector('.flex-rek-minscore')?.value;
+            const minScore = (minScoreRaw !== undefined && minScoreRaw !== null && minScoreRaw !== '') ? parseFloat(minScoreRaw) : -0.05;
+            const katId = katSel ? katSel.value : '';
+            if (katId && deskripsi) {
+                const text = `${judul ? judul + ' - ' : ''}${deskripsi} [severity:${severity}][min:${isNaN(minScore) ? '-0.05' : minScore.toFixed(2)}]`;
+                rekomendasi.push({
+                    kategori_masalah_id: parseInt(katId, 10),
+                    rekomendasi_text: text
+                });
+            }
+        });
+
+        const body = {};
+        if (kategoriId) body.kategori = kategoriId;
+        if (rekomendasi.length > 0) body.rekomendasi = rekomendasi;
+        if (kws.length > 0) body.add_keywords = kws.map(t => ({ term: t }));
+        
+
+        try {
+            const resp = await fetch(`/guru/analisis/${analisisId}/edit-flex`, {
+                method: 'PATCH',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrf
+                },
+                body: JSON.stringify(body)
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Gagal menyimpan perubahan');
+            window.location.reload();
+        } catch (e) {
+            alert(e.message);
+        }
+    });
+});
 </script>
 @endpush

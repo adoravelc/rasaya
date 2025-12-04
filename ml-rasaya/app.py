@@ -1264,6 +1264,115 @@ def feedback():
     save_feedback_weights(weights)
     return jsonify({"ok": True, "updated": len(kws)})
 
+@app.route("/feedback", methods=["POST"])
+def receive_feedback():
+    """
+    Receive teacher revision feedback for continuous learning.
+    
+    Expected payload:
+    {
+        "revision_id": 123,
+        "original_text": "...",
+        "original_kategori": "AKADEMIK",
+        "original_rekomendasi": [...],
+        "revised_kategori": "DISIPLIN",
+        "revised_rekomendasi": [...],
+        "revision_notes": "..." (optional)
+    }
+    
+    This endpoint will:
+    1. Extract keywords from original text
+    2. Penalize weights for original_kategori
+    3. Reward weights for revised_kategori
+    4. Learn from the correction pattern
+    """
+    if not check_key():
+        return jsonify({"error": "unauthorized"}), 401
+
+    try:
+        data = request.get_json(force=True) or {}
+        
+        revision_id = data.get("revision_id")
+        original_text = data.get("original_text", "")
+        original_kategori = str(data.get("original_kategori", "")).upper()
+        revised_kategori = str(data.get("revised_kategori", "")).upper()
+        
+        if not original_text or not revised_kategori:
+            return jsonify({"error": "Missing required fields"}), 422
+
+        # Only learn if kategori was changed (not just rekomendasi)
+        if original_kategori == revised_kategori:
+            logger.info(f"Revision #{revision_id}: Kategori unchanged, skipping weight update")
+            return jsonify({
+                "ok": True, 
+                "message": "Kategori unchanged, no weight update needed",
+                "revision_id": revision_id
+            })
+
+        # Extract keywords from original text
+        keywords = []
+        try:
+            # Simple keyword extraction - tokenize and filter stopwords
+            tokens = nltk.word_tokenize(original_text.lower())
+            filtered_tokens = [
+                t for t in tokens 
+                if t.isalnum() and len(t) > 2 
+                and t not in STOPWORDS_ID_CHAT 
+                and t not in _CHAT_FILLERS
+            ]
+            # Get top 10 most meaningful words
+            word_counts = Counter(filtered_tokens)
+            keywords = [word for word, _ in word_counts.most_common(10)]
+            
+            logger.info(f"Revision #{revision_id}: Extracted keywords: {keywords}")
+        except Exception as e:
+            logger.warning(f"Failed to extract keywords: {e}")
+            # Fallback: split by space
+            keywords = [w for w in original_text.lower().split() if len(w) > 2][:10]
+
+        if not keywords:
+            return jsonify({
+                "ok": False, 
+                "error": "Could not extract keywords from text"
+            }), 422
+
+        # Update feedback weights
+        weights = load_feedback_weights()
+        delta = 0.3  # Learning rate
+        
+        for kw in keywords:
+            k = str(kw).lower().strip()
+            entry = weights.get(k, {})
+            
+            # Penalize original (wrong) kategori
+            if original_kategori:
+                entry[original_kategori] = float(entry.get(original_kategori, 0.0)) - (delta / 2.0)
+            
+            # Reward revised (correct) kategori
+            entry[revised_kategori] = float(entry.get(revised_kategori, 0.0)) + delta
+            
+            weights[k] = entry
+        
+        save_feedback_weights(weights)
+        
+        logger.info(f"Revision #{revision_id}: Updated weights for {len(keywords)} keywords "
+                   f"from {original_kategori} → {revised_kategori}")
+        
+        return jsonify({
+            "ok": True,
+            "message": "Feedback learned successfully",
+            "revision_id": revision_id,
+            "keywords_updated": len(keywords),
+            "correction": f"{original_kategori} → {revised_kategori}"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error processing feedback: {e}", exc_info=True)
+        return jsonify({
+            "ok": False,
+            "error": str(e)
+        }), 500
+
 if __name__ == "__main__":
     # LOCAL MODE: port 5001 biar gampang
     app.run(host="0.0.0.0", port=5001, debug=True)

@@ -41,4 +41,9 @@ class AnalisisRekomendasi extends Model
     {
         return $this->belongsTo(AnalisisEntry::class, 'analisis_entry_id');
     }
+
+    public function kategoriMasalah()
+    {
+        return $this->belongsTo(\App\Models\KategoriMasalah::class, 'kategori_masalah_id');
+    }
 }

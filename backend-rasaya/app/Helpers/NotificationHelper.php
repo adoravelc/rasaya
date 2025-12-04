@@ -308,4 +308,26 @@ class NotificationHelper
             'link' => route('guru.bk.dashboard'),
         ]);
     }
+
+    /**
+     * Notifikasi untuk Admin - Request Tambahan Rekomendasi dari Guru
+     */
+    public static function notifyAdminRecommendationRequestSubmitted(int $requestId, string $kategoriName = null, string $judul = null)
+    {
+        $admins = User::where('role', 'admin')->get();
+        foreach ($admins as $admin) {
+            Notification::create([
+                'user_id' => $admin->id,
+                'type' => 'recommendation_request_submitted',
+                'title' => 'Request Rekomendasi Tindakan Baru',
+                'message' => "Guru mengajukan rekomendasi baru" . ($kategoriName ? " untuk {$kategoriName}" : '') . ($judul ? ": {$judul}" : ''),
+                'data' => [
+                    'request_id' => $requestId,
+                    'kategori' => $kategoriName,
+                    'judul' => $judul,
+                ],
+                'link' => route('admin.rekomendasi.requests'),
+            ]);
+        }
+    }
 }
