@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_rasaya/auth/auth_controller.dart';
+import 'package:RASAYA/auth/auth_controller.dart';
 import 'package:intl/intl.dart';
 import '../widgets/app_scaffold.dart';
 

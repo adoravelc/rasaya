@@ -222,6 +222,64 @@ class ApiClient {
     return get('/mood/history', query: q);
   }
 
+  // Check if mood already exists for today/current session
+  Future<ApiResponse> getMoodForToday() {
+    return get('/mood/today');
+  }
+
+  // Update existing mood (PUT multipart for image + fields)
+  Future<ApiResponse> putMultipartFlexible(
+    String path, {
+    required Map<String, dynamic> fields,
+    XFile? xfile,
+    List<int>? bytes,
+    String? filename,
+    String fileField = 'gambar',
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(_kTokenKey);
+
+      final form = FormData.fromMap(fields);
+      if (xfile != null) {
+        if (kIsWeb) {
+          final b = await xfile.readAsBytes();
+          form.files.add(MapEntry(
+            fileField,
+            MultipartFile.fromBytes(b, filename: xfile.name),
+          ));
+        } else {
+          form.files.add(MapEntry(
+            fileField,
+            await MultipartFile.fromFile(xfile.path, filename: xfile.name),
+          ));
+        }
+      } else if (bytes != null && filename != null) {
+        form.files.add(MapEntry(
+          fileField,
+          MultipartFile.fromBytes(bytes, filename: filename),
+        ));
+      }
+
+      final res = await _dio.put(
+        path,
+        data: form,
+        options: Options(headers: {
+          if (token != null) 'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        }),
+      );
+      return ApiResponse(ok: true, data: res.data);
+    } on DioException catch (e) {
+      final msg = e.response?.data is Map
+          ? (e.response?.data['message'] ?? e.message)
+          : e.message;
+      return ApiResponse(ok: false, errorMessage: msg ?? 'Request failed');
+    } catch (e) {
+      return ApiResponse(ok: false, errorMessage: e.toString());
+    }
+  }
+
   Future<ApiResponse> get(String path, {Map<String, dynamic>? query}) async {
     try {
       final prefs = await SharedPreferences.getInstance();

@@ -95,11 +95,15 @@ class _AppState extends ConsumerState<App> {
         // After bootstrap, handle auth routing
         final st = ref.read(authControllerProvider);
         final loggedIn = st.token != null && st.me != null;
-        final atLogin =
-            state.matchedLocation == '/' || state.matchedLocation == '/splash';
+        final isAtLoginPage = state.matchedLocation == '/';
+        final isAtSplash = state.matchedLocation == '/splash';
 
-        if (!loggedIn && !atLogin) return '/';
-        if (loggedIn && atLogin) return '/home';
+        // Not logged in: redirect to login (including from splash)
+        if (!loggedIn && !isAtLoginPage) return '/';
+
+        // Logged in but at login/splash: go to home
+        if (loggedIn && (isAtLoginPage || isAtSplash)) return '/home';
+
         return null;
       },
       refreshListenable: GoRouterRefreshStream(
@@ -112,15 +116,30 @@ class _AppState extends ConsumerState<App> {
   }
 
   Future<void> _bootstrap() async {
-    // Start bootstrap in parallel with minimum splash duration
-    await Future.wait([
-      ref.read(authControllerProvider.notifier).bootstrap(),
-      Future.delayed(
-          const Duration(milliseconds: 3000)), // 3 seconds for testing
-    ]);
+    print('🚀 Bootstrap started');
+    try {
+      // Start bootstrap with a defensive timeout alongside minimum splash time
+      final authBoot =
+          ref.read(authControllerProvider.notifier).bootstrap().timeout(
+                const Duration(seconds: 3),
+                onTimeout: () => print('⏱️ Auth bootstrap timeout'),
+              );
+      await Future.wait([
+        authBoot,
+        Future.delayed(const Duration(milliseconds: 1500)),
+      ]);
+    } catch (e) {
+      print('❌ Bootstrap error: $e');
+    }
+
     if (mounted) {
+      print('✅ Bootstrap complete, setting _bootstrapping = false');
       setState(() => _bootstrapping = false);
-      _router.refresh();
+      // Force refresh after state update
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _router.refresh();
+        print('🔄 Router refreshed');
+      });
     }
   }
 

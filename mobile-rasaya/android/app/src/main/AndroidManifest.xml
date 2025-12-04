@@ -13,7 +13,7 @@
 
     <application
         android:name="${applicationName}"
-        android:label="mobile_rasaya"
+        android:label="RASAYA"
         android:icon="@mipmap/ic_launcher"
 
         android:usesCleartextTraffic="true"

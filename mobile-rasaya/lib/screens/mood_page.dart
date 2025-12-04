@@ -2,12 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mobile_rasaya/auth/auth_controller.dart';
+import '../auth/auth_controller.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../widgets/app_scaffold.dart';
 import 'package:intl/intl.dart';
+import '../api/api_client.dart';
 
 class MoodPage extends ConsumerStatefulWidget {
   const MoodPage({super.key});
@@ -66,6 +67,11 @@ class _MoodPageState extends ConsumerState<MoodPage>
   bool _loadingToday = true;
   bool _loadingHistory = true;
 
+  // Track if editing existing mood
+  int? _existingMoodId;
+  int? _existingMoodScore;
+  String? _existingMoodCatatan;
+
   // removed: old expand/collapse for extra emojis
 
   String _fmtTanggalIndo(String? raw) {
@@ -104,6 +110,83 @@ class _MoodPageState extends ConsumerState<MoodPage>
     super.initState();
     _loadToday();
     _loadHistory();
+    _checkExistingMood();
+  }
+
+  // Check if mood already exists for today's session
+  Future<void> _checkExistingMood() async {
+    final api = ref.read(apiClientProvider);
+    final res = await api.getMoodForToday();
+
+    if (res.ok && res.data is Map) {
+      final data = res.data as Map<String, dynamic>;
+      final items = (data['items'] as List?) ?? [];
+      final sesiNow = (data['sesi_now'] as String?) ?? '';
+
+      // Find if already submitted for this session
+      final existing = items.firstWhere(
+        (item) =>
+            (item as Map)['sesi']?.toString().toLowerCase() ==
+            sesiNow.toLowerCase(),
+        orElse: () => null,
+      );
+
+      if (existing != null && mounted) {
+        final existingMap = existing as Map<String, dynamic>;
+        _existingMoodId = existingMap['id'] as int?;
+        _existingMoodScore = existingMap['skor'] as int?;
+        _existingMoodCatatan = existingMap['catatan'] as String?;
+
+        // Show dialog
+        _showExistingMoodDialog();
+      }
+    }
+  }
+
+  // Dialog: "You already submitted mood for this session, want to edit?"
+  void _showExistingMoodDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Text('Mood Sudah Diisi'),
+        content: const Text(
+          'Kamu sudah mengisi Mood untuk sesi ini, apakah mau mengedit inputmu?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Cancel: go back to home
+              Future.delayed(const Duration(milliseconds: 200), () {
+                if (mounted) {
+                  GoRouter.of(context).go('/home');
+                }
+              });
+            },
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Edit: pre-populate form with existing data
+              _prepareEditMode();
+            },
+            child: const Text('Edit'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Pre-populate form with existing mood data
+  void _prepareEditMode() {
+    if (_existingMoodScore != null) {
+      setState(() {
+        _selectedScore = _existingMoodScore!;
+        _catatanCtrl.text = _existingMoodCatatan ?? '';
+      });
+    }
   }
 
   @override
@@ -168,6 +251,32 @@ class _MoodPageState extends ConsumerState<MoodPage>
     final score = _selectedScore.clamp(1, 10);
     final catatan = _catatanCtrl.text.trim();
 
+    // If editing existing mood
+    if (_existingMoodId != null) {
+      final res = await _updateExistingMood(score, catatan);
+      setState(() => _loading = false);
+
+      if (res.ok) {
+        if (!mounted) return;
+        final router = GoRouter.of(context);
+        if (router.canPop()) {
+          context.pop(true);
+        } else {
+          router.go('/');
+        }
+      } else {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Gagal'),
+            content: Text(res.errorMessage),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Create new mood
     final res = await api.postMood(
       score,
       gambarFile: _imageFile,
@@ -194,6 +303,30 @@ class _MoodPageState extends ConsumerState<MoodPage>
           content: Text(res.errorMessage),
         ),
       );
+    }
+  }
+
+  // Update existing mood via PUT endpoint
+  Future<ApiResponse> _updateExistingMood(int score, String catatan) async {
+    try {
+      final api = ref.read(apiClientProvider);
+
+      // Build form data
+      final fields = <String, dynamic>{
+        'skor': score,
+        if (catatan.isNotEmpty) 'catatan': catatan,
+      };
+
+      // Add image if new one selected
+      return await api.putMultipartFlexible(
+        '/mood/$_existingMoodId',
+        fields: fields,
+        xfile: _imageFile,
+        bytes: _webFile?.bytes,
+        filename: _webFile?.name,
+      );
+    } catch (e) {
+      return ApiResponse(ok: false, errorMessage: e.toString());
     }
   }
 

@@ -44,13 +44,20 @@ class AuthController extends StateNotifier<AuthState> {
   AuthController(this._ref) : super(const AuthState());
 
   Future<void> bootstrap() async {
+    print('🔐 Auth bootstrap: reading saved token');
     final token = await _ref.read(authRepoProvider).readSavedToken();
-    if (token == null) return;
+    if (token == null) {
+      print('📭 No saved token found');
+      return;
+    }
+    print('🎫 Token found, fetching user data');
     state = state.copy(loading: true, token: token, error: null);
     try {
       final me = await _ref.read(authRepoProvider).me(token);
+      print('👤 User data fetched: ${me['name']}');
       state = state.copy(loading: false, me: me);
     } catch (e) {
+      print('❌ Auth bootstrap failed: $e');
       state = const AuthState(); // invalid token, reset
     }
   }
