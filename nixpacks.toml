@@ -11,9 +11,9 @@ cmds = [
 cmds = [
   "cd backend-rasaya",
   "php artisan config:cache",
-  "php artisan route:cache",
-  "php artisan view:cache"
+  "php artisan route:cache"
 ]
 
 [start]
-cmd = "cd backend-rasaya && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"
+cmd = "cd backend-rasaya && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"
+# ↑ TANPA migration!
