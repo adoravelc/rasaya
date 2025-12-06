@@ -17,12 +17,15 @@ class AnalisisRekomendasi extends Model
         'rejected_kategori_id',
         'selected_master_rekomendasi_id',
         'decided_by',
-        'decided_at'
+        'decided_at',
+        'kategori_masalah_id',
+        'rules'
     ];
 
     protected $casts = [
         'match_score' => 'float',
         'decided_at' => 'datetime',
+        'rules' => 'array',
     ];
 
     public function master()

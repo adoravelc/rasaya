@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth', 'role:admin,guru'])->group(function () {
     Route::patch('/guru/analisis/{id}/edit-flex', [\App\Http\Controllers\AnalisisReviewController::class, 'flexibleEditAnalysis'])
         ->name('guru.analisis.edit-flex');
+    Route::get('/api/master-rekomendasi/{kategoriId}', [\App\Http\Controllers\AnalisisReviewController::class, 'getMasterRekomendasi'])
+        ->name('api.master-rekomendasi');
 });
 
 // Admin: Manage recommendation addition requests

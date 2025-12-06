@@ -182,6 +182,7 @@
 
                             <div class="col-md-8">
                                 <label class="form-label">Siswa (Kelas)</label>
+                                <input type="text" id="m-siswa-search" class="form-control mb-2" placeholder="Cari nama atau NISN...">
                                 <select id="m-siswakelas" class="form-select" required>
                                     <option value="">— Pilih —</option>
                                     @foreach ($siswaKelas as $sk)
@@ -304,6 +305,21 @@
                     openDetail(Number(id));
                 });
             });
+
+            // Simple client-side search for student select
+            const sIn = document.getElementById('m-siswa-search');
+            const sSel = document.getElementById('m-siswakelas');
+            if (sIn && sSel) {
+                const opts = Array.from(sSel.options);
+                sIn.addEventListener('input', function(){
+                    const q = this.value.trim().toLowerCase();
+                    opts.forEach(opt => {
+                        if (opt.value === '') return; // keep placeholder
+                        const text = opt.text.toLowerCase();
+                        opt.hidden = q.length > 0 ? !text.includes(q) : false;
+                    });
+                });
+            }
         });
         async function openDetail(id){
             try{

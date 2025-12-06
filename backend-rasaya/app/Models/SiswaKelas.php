@@ -33,6 +33,7 @@ class SiswaKelas extends Model
         $ta   = optional($this->tahunAjaran)->nama ?? optional($this->tahunAjaran)->tahun ?? '';
         $kls  = optional($this->kelas)->label ?? optional($this->kelas)->nama ?? '-';
         $nama = optional($this->siswa)->nama ?? optional($this->siswa->user)->name ?? '-';
-        return trim("{$kls} • {$nama} ".($ta ? "({$ta})" : ''));
+        $nisn = optional($this->siswa->user)->identifier ? " | NISN: ".optional($this->siswa->user)->identifier : '';
+        return trim("{$kls} • {$nama}{$nisn} ".($ta ? "({$ta})" : ''));
     }
 }

@@ -988,164 +988,143 @@
 
 {{-- MODAL EDIT FLEKSIBEL --}}
 <div class="modal fade" id="editFleksibelModal" tabindex="-1" aria-labelledby="editFleksibelLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="editFleksibelLabel">
-                    <i class="bi bi-pencil-square"></i> Edit Analisis (Fleksibel)
+                    <i class="bi bi-pencil-square"></i> Edit Hasil Analisis (Fleksibel)
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
             </div>
             <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Ubah Kategori (opsional)</label>
-                        <select id="flex-kategori" class="form-select">
-                            <option value="">— Tidak diubah —</option>
-                            @foreach($kategoriOptions as $kat)
-                                <option value="{{ $kat->id }}">{{ $kat->nama }}</option>
-                            @endforeach
-                        </select>
-                        <div class="form-text">Jika ingin mengganti kategori utama.</div>
+                <!-- Step 1: Pilih Kategori Kecil -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Pilih Kategori Kecil</label>
+                    <select id="flex-kategori-id" class="form-select">
+                        <option value="">— Pilih Kategori —</option>
+                        @foreach($kategoriOptions as $kat)
+                            <option value="{{ $kat->id }}">{{ $kat->nama }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Step 2: Master Rekomendasi Dropdown -->
+                <div class="mb-3" id="master-rek-container" style="display:none;">
+                    <label class="form-label fw-semibold">Pilih Rekomendasi Tindakan</label>
+                    <select id="flex-master-rek" class="form-select">
+                        <option value="">— Pilih Dari Master —</option>
+                    </select>
+                    <div class="form-text">Pilih dari rekomendasi yang sudah ada, atau buat custom di bawah.</div>
+                </div>
+
+                <hr>
+
+                <!-- Step 3: Custom Rekomendasi -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Atau Tambah Custom Rekomendasi</label>
+                    <div class="card card-body bg-light p-3">
+                        <div class="mb-2">
+                            <label class="form-label">Judul Rekomendasi</label>
+                            <input type="text" id="flex-custom-judul" class="form-control form-control-sm" placeholder="Judul">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Deskripsi</label>
+                            <textarea id="flex-custom-deskripsi" class="form-control form-control-sm" rows="3" placeholder="Deskripsi tindakan"></textarea>
+                        </div>
+                        <div>
+                            <label class="form-label">Severity</label>
+                            <select id="flex-custom-severity" class="form-select form-select-sm">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                            <div class="form-text small">Min Skor Sentimen otomatis dari analisis saat ini: <strong id="flex-min-score-display">-0.50</strong></div>
+                        </div>
                     </div>
-                    
                 </div>
-
-                <hr>
-
-                <label class="form-label">Ganti Daftar Rekomendasi</label>
-                <div id="flex-rekomendasi-list" class="mb-2"></div>
-                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-rek">
-                    <i class="bi bi-plus-circle"></i> Tambah Rekomendasi
-                </button>
-                <div class="form-text">Biarkan kosong jika tidak ingin mengganti rekomendasi.</div>
-
-                <hr>
-
-                <label class="form-label">Tambah Kata Kunci</label>
-                <div id="flex-keywords" class="border rounded p-2 bg-light" style="min-height:100px">
-                    <div id="flex-keywords-tags" class="d-flex flex-wrap gap-1 mb-2"></div>
-                    <input type="text" id="flex-keyword-input" class="border-0 bg-transparent w-100" placeholder="Ketik kata kunci lalu Enter/koma/titik koma" style="outline:none">
-                </div>
-
-                
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-primary" id="btn-save-flex">
-                    <i class="bi bi-save"></i> Simpan Perubahan
+                <button type="button" class="btn btn-primary" id="btn-save-flex-new">
+                    <i class="bi bi-save"></i> Simpan
                 </button>
             </div>
         </div>
     </div>
-    </div>
+</div>
 
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const analisisId = {{ $analisis->id }};
-    const baseApi = `${location.origin}/api`;
+    const skorSentimen = {{ (float)($analisis->skor_sentimen ?? -0.5) }};
     const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
+    // Display min score
+    document.getElementById('flex-min-score-display').textContent = skorSentimen.toFixed(2);
 
-    // Rekomendasi builder
-    const list = document.getElementById('flex-rekomendasi-list');
-    document.getElementById('btn-add-rek').addEventListener('click', () => {
-        const div = document.createElement('div');
-        div.className = 'd-flex flex-column gap-2 mb-3 p-2 border rounded';
-        div.innerHTML = `
-            <div class="d-flex gap-2 align-items-center">
-                <select class="form-select form-select-sm flex-kat" style="max-width:240px">
-                    <option value="">— Pilih Kategori —</option>
-                    @foreach($kategoriOptions as $kat)
-                        <option value="{{ $kat->id }}">{{ $kat->nama }}</option>
-                    @endforeach
-                </select>
-                <button type="button" class="btn btn-sm btn-outline-danger"><i class="bi bi-x"></i></button>
-            </div>
-            <input type="text" class="form-control form-control-sm flex-rek-judul" placeholder="Judul rekomendasi">
-            <textarea class="form-control form-control-sm flex-rek-deskripsi" rows="3" placeholder="Deskripsi rekomendasi"></textarea>
-            <div class="d-flex gap-2 align-items-center">
-                <label class="form-label m-0">Severity</label>
-                <select class="form-select form-select-sm flex-rek-severity" style="max-width:160px">
-                    <option value="low">low</option>
-                    <option value="medium">medium</option>
-                    <option value="high">high</option>
-                </select>
-            </div>
-            <div class="mt-1">
-                <label class="form-label m-0">Minimal Skor Sentimen</label>
-                <div class="d-flex align-items-center gap-2">
-                    <input type="range" class="form-range flex-rek-minscore-range" min="-1" max="0" step="0.01" value="-0.05" style="max-width:280px">
-                    <input type="number" class="form-control form-control-sm flex-rek-minscore" style="max-width:120px" step="0.01" min="-1" max="0" value="-0.05">
-                </div>
-                <div class="form-text">Semakin mendekati −1.00, kondisinya makin berat.</div>
-            </div>
-        `;
-        // Sync range and number inputs
-        const range = div.querySelector('.flex-rek-minscore-range');
-        const num = div.querySelector('.flex-rek-minscore');
-        range.addEventListener('input', () => { num.value = range.value; });
-        num.addEventListener('input', () => { range.value = num.value; });
-        // Remove row
-        div.querySelector('button.btn-outline-danger').addEventListener('click', () => div.remove());
-        list.appendChild(div);
-    });
+    // When kategori selected, load master rekomendasi
+    document.getElementById('flex-kategori-id').addEventListener('change', async function() {
+        const kategoriId = this.value;
+        const container = document.getElementById('master-rek-container');
+        const select = document.getElementById('flex-master-rek');
+        
+        if (!kategoriId) {
+            container.style.display = 'none';
+            select.innerHTML = '<option value="">— Pilih Dari Master —</option>';
+            return;
+        }
 
-    // Keyword tags
-    const tagWrap = document.getElementById('flex-keywords-tags');
-    const kwInput = document.getElementById('flex-keyword-input');
-    let kws = [];
-    const addTag = (text) => {
-        const v = (text || '').trim();
-        if (!v) return;
-        kws.push(v);
-        const span = document.createElement('span');
-        span.className = 'badge bg-secondary';
-        span.textContent = v;
-        span.style.cursor = 'pointer';
-        span.addEventListener('click', () => {
-            kws = kws.filter(x => x !== v);
-            span.remove();
-        });
-        tagWrap.appendChild(span);
-    };
-    kwInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ',' || e.key === ';') {
-            e.preventDefault();
-            addTag(kwInput.value);
-            kwInput.value = '';
+        try {
+            const resp = await fetch(`/api/master-rekomendasi/${kategoriId}`, {
+                headers: { 'Accept': 'application/json' }
+            });
+            const data = await resp.json();
+            
+            let html = '<option value="">— Pilih Dari Master —</option>';
+            if (data.data && data.data.length > 0) {
+                data.data.forEach(m => {
+                    html += `<option value="${m.id}" title="${m.deskripsi}">${m.judul}</option>`;
+                });
+            } else {
+                html += '<option disabled>Tidak ada rekomendasi untuk kategori ini</option>';
+            }
+            select.innerHTML = html;
+            container.style.display = 'block';
+        } catch (e) {
+            console.error('Error loading master rekomendasi:', e);
+            container.style.display = 'none';
         }
     });
 
-    // Save
-    document.getElementById('btn-save-flex').addEventListener('click', async () => {
-        const kategoriId = document.getElementById('flex-kategori').value;
-        
+    // Save button
+    document.getElementById('btn-save-flex-new').addEventListener('click', async function() {
+        const kategoriId = document.getElementById('flex-kategori-id').value;
+        const masterRekId = document.getElementById('flex-master-rek').value;
+        const customJudul = document.getElementById('flex-custom-judul').value.trim();
+        const customDeskripsi = document.getElementById('flex-custom-deskripsi').value.trim();
+        const customSeverity = document.getElementById('flex-custom-severity').value;
 
-        // Build rekomendasi array
-        const rekomendasi = [];
-        list.querySelectorAll('div').forEach(div => {
-            const katSel = div.querySelector('select.flex-kat');
-            const judul = (div.querySelector('input.flex-rek-judul')?.value || '').trim();
-            const deskripsi = (div.querySelector('textarea.flex-rek-deskripsi')?.value || '').trim();
-            const severity = (div.querySelector('select.flex-rek-severity')?.value || 'low').trim();
-            const minScoreRaw = div.querySelector('.flex-rek-minscore')?.value;
-            const minScore = (minScoreRaw !== undefined && minScoreRaw !== null && minScoreRaw !== '') ? parseFloat(minScoreRaw) : -0.05;
-            const katId = katSel ? katSel.value : '';
-            if (katId && deskripsi) {
-                const text = `${judul ? judul + ' - ' : ''}${deskripsi} [severity:${severity}][min:${isNaN(minScore) ? '-0.05' : minScore.toFixed(2)}]`;
-                rekomendasi.push({
-                    kategori_masalah_id: parseInt(katId, 10),
-                    rekomendasi_text: text
-                });
-            }
-        });
+        // Validate: either master OR custom
+        if (!masterRekId && !customJudul) {
+            alert('Pilih rekomendasi dari master atau isi judul untuk custom rekomendasi');
+            return;
+        }
+
+        if (!masterRekId && !customDeskripsi) {
+            alert('Isi deskripsi untuk custom rekomendasi');
+            return;
+        }
 
         const body = {};
-        if (kategoriId) body.kategori = kategoriId;
-        if (rekomendasi.length > 0) body.rekomendasi = rekomendasi;
-        if (kws.length > 0) body.add_keywords = kws.map(t => ({ term: t }));
-        
+        if (masterRekId) {
+            body.master_rekomendasi_id = parseInt(masterRekId, 10);
+        } else {
+            body.kategori_masalah_id = parseInt(kategoriId, 10);
+            body.custom_judul = customJudul;
+            body.custom_deskripsi = customDeskripsi;
+            body.custom_severity = customSeverity;
+        }
 
         try {
             const resp = await fetch(`/guru/analisis/${analisisId}/edit-flex`, {
@@ -1157,11 +1136,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: JSON.stringify(body)
             });
-            const data = await resp.json();
-            if (!resp.ok) throw new Error(data.error || 'Gagal menyimpan perubahan');
+            const result = await resp.json();
+            if (!resp.ok) throw new Error(result.error || result.message || 'Gagal menyimpan');
+            
+            alert('Rekomendasi berhasil ditambahkan!');
             window.location.reload();
         } catch (e) {
-            alert(e.message);
+            alert('Error: ' + e.message);
         }
     });
 });

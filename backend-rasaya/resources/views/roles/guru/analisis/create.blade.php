@@ -18,7 +18,8 @@
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label">Siswa</label>
-                    <select name="siswa_kelas_id" class="form-select" required>
+                    <input type="text" id="siswa-search" class="form-control mb-2" placeholder="Cari nama atau NISN...">
+                    <select name="siswa_kelas_id" id="siswa-select" class="form-select" required>
                         <option value="">— pilih —</option>
                         @foreach ($siswas as $sk)
                             @php
@@ -51,3 +52,23 @@
         </form>
     </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const search = document.getElementById('siswa-search');
+    const select = document.getElementById('siswa-select');
+    if (!search || !select) return;
+
+    const options = Array.from(select.options);
+    search.addEventListener('input', function() {
+        const q = this.value.trim().toLowerCase();
+        options.forEach(opt => {
+            if (opt.value === '') return; // keep placeholder
+            const text = opt.text.toLowerCase();
+            opt.hidden = q.length > 0 ? !text.includes(q) : false;
+        });
+    });
+});
+</script>
+@endpush

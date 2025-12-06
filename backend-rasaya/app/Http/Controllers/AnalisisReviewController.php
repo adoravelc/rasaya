@@ -3,11 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\AnalisisEntry;
-use App\Models\AnalisisRevision;
 use App\Models\AnalisisRekomendasi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use App\Helpers\NotificationHelper;
@@ -57,274 +55,268 @@ class AnalisisReviewController extends Controller
         ]);
     }
 
+    // Legacy reviseAnalysis flow removed; edits handled via flexibleEditAnalysis.
+
     /**
-     * Revise analysis - update kategori and/or rekomendasi
+     * NEW FLOW: Flexible edit rekomendasi
+     * Guru dapat:
+     * 1. Pilih kategori kecil
+     * 2. Pilih rekomendasi dari master OR submit custom request
+     * Min score otomatis dari analisis entry skor sentimen
      */
-    public function reviseAnalysis(Request $request, int $id)
+    public function flexibleEditAnalysis(Request $request, int $id)
     {
         $request->validate([
-            'revised_kategori' => 'required|string',
-            'revised_rekomendasi' => 'required|array',
-            'revised_rekomendasi.*.kategori_masalah_id' => 'required|exists:kategori_masalahs,id',
-            'revised_rekomendasi.*.rekomendasi_text' => 'required|string',
-            'revision_notes' => 'nullable|string',
+            'kategori_masalah_id' => 'nullable|exists:kategori_masalahs,id',
+            'master_rekomendasi_id' => 'nullable|exists:master_rekomendasis,id',
+            'custom_judul' => 'nullable|string',
+            'custom_deskripsi' => 'nullable|string',
+            'custom_severity' => 'nullable|in:low,medium,high',
         ]);
 
-        $entry = AnalisisEntry::with('rekomendasis.kategoriMasalah')->findOrFail($id);
+        $entry = AnalisisEntry::with('rekomendasis')->findOrFail($id);
+        $actualScore = (float)($entry->skor_sentimen ?? -0.5);
+        $minSentiment = (float)config('rekomendasi.min_sentiment');
+        $fallbackEnabled = (bool)config('rekomendasi.fallback_enabled');
+        $tolerance = (float)config('rekomendasi.fallback_tolerance');
+        $maxFallback = (int)config('rekomendasi.max_fallback');
 
         DB::beginTransaction();
         try {
-            // Get original data for ML feedback
-            $originalKategori = $entry->categories_overview[0]['name'] ?? 'Unknown';
-            $originalRekomendasi = $entry->rekomendasis->map(function($r) {
-                return [
-                    'kategori' => $r->kategoriMasalah->name ?? 'Unknown',
-                    'text' => $r->rekomendasi_text
-                ];
-            })->toArray();
-
-            // Get original text from summary
-            $originalText = $entry->summary['full_text'] ?? $entry->auto_summary ?? '';
-
-            // Create revision record for ML feedback
-            $revision = AnalisisRevision::create([
-                'analisis_entry_id' => $entry->id,
-                'original_kategori' => $originalKategori,
-                'original_rekomendasi' => json_encode($originalRekomendasi),
-                'revised_kategori' => $request->revised_kategori,
-                'revised_rekomendasi' => json_encode($request->revised_rekomendasi),
-                'original_text' => $originalText,
-                'revised_by' => Auth::id(),
-                'revision_notes' => $request->revision_notes,
-                'sent_to_ml' => false,
-            ]);
-
-            // Update entry status
-            $entry->update([
-                'review_status' => 'revised',
-                'reviewed_by' => Auth::id(),
-                'reviewed_at' => now(),
-            ]);
-
-            // Update categories_overview with revised kategori
-            $categoriesOverview = $entry->categories_overview;
-            if (isset($categoriesOverview[0])) {
-                $categoriesOverview[0]['name'] = $request->revised_kategori;
-                $entry->categories_overview = $categoriesOverview;
-                $entry->save();
-            }
-
-            // Delete old rekomendasi and create new ones
-            $entry->rekomendasis()->delete();
-            
-            foreach ($request->revised_rekomendasi as $rek) {
+            // Case 1: Pilih rekomendasi dari master
+            if ($request->filled('master_rekomendasi_id')) {
+                $master = \App\Models\MasterRekomendasi::findOrFail($request->master_rekomendasi_id);
+                
+                // Create AnalisisRekomendasi dengan rules dari master tapi min_score dari analisis
+                $rules = $master->rules ?? [];
+                $rules['mode'] = ($actualScore >= $minSentiment) ? 'normal' : 'fallback';
+                $rules['min_sentiment'] = $minSentiment;
+                $rules['actual_score'] = $actualScore;
+                if ($rules['mode'] === 'fallback') {
+                    $rules['tolerance'] = $tolerance;
+                }
+                
                 AnalisisRekomendasi::create([
-                    'analisis_entry_id' => $entry->id,
-                    'kategori_masalah_id' => $rek['kategori_masalah_id'],
-                    'rekomendasi_text' => $rek['rekomendasi_text'],
+                    'analisis_entry_id' => $id,
+                    'master_rekomendasi_id' => $master->id,
+                    'judul' => $master->judul,
+                    'deskripsi' => $master->deskripsi,
+                    'severity' => $master->severity ?? 'low',
+                    'match_score' => 0.95,
+                    'status' => 'suggested',
+                    'rules' => $rules,
                 ]);
             }
+            // Case 2: Submit custom rekomendasi ke admin
+            elseif ($request->filled('custom_judul') && $request->filled('custom_deskripsi')) {
+                $created = \App\Models\RekomendasiRequest::create([
+                    'kategori_masalah_id' => $request->kategori_masalah_id,
+                    'requested_by' => Auth::id(),
+                    'judul' => $request->custom_judul,
+                    'deskripsi' => $request->custom_deskripsi,
+                    'severity' => $request->custom_severity ?? 'low',
+                    'rules' => [
+                        'mode' => ($actualScore >= $minSentiment) ? 'normal' : 'fallback',
+                        'min_sentiment' => $minSentiment,
+                        'actual_score' => $actualScore,
+                        'tolerance' => ($actualScore >= $minSentiment) ? null : $tolerance,
+                    ],
+                    'status' => 'pending',
+                ]);
 
+                try {
+                    $katName = optional(\App\Models\KategoriMasalah::find($request->kategori_masalah_id))->nama;
+                    NotificationHelper::notifyAdminRecommendationRequestSubmitted(
+                        $created->id,
+                        $katName,
+                        $request->custom_judul
+                    );
+                } catch (\Throwable $e) {
+                    Log::warning('Failed to notify admins: ' . $e->getMessage());
+                }
+            }
+            // Case 3: Otomatis sarankan dari master berdasarkan kategori & skor (fallback window)
+            elseif ($request->filled('kategori_masalah_id')) {
+                $kategoriId = (int)$request->kategori_masalah_id;
+                $mode = ($actualScore >= $minSentiment) ? 'normal' : 'fallback';
+
+                // Normal: ambil yang aktif di kategori tsb (tanpa memperluas range)
+                if ($mode === 'normal') {
+                    $masters = \App\Models\MasterRekomendasi::whereHas('kategoris', function($q) use ($kategoriId) {
+                            $q->where('kategori_masalah_id', $kategoriId);
+                        })
+                        ->where('is_active', true)
+                        ->take($maxFallback)
+                        ->get();
+
+                    foreach ($masters as $m) {
+                        AnalisisRekomendasi::create([
+                            'analisis_entry_id' => $id,
+                            'master_rekomendasi_id' => $m->id,
+                            'judul' => $m->judul,
+                            'deskripsi' => $m->deskripsi,
+                            'severity' => $m->severity ?? 'low',
+                            'match_score' => 0.80,
+                            'status' => 'suggested',
+                            'rules' => [
+                                'mode' => 'normal',
+                                'min_sentiment' => $minSentiment,
+                                'actual_score' => $actualScore,
+                            ],
+                        ]);
+                    }
+                } else if ($fallbackEnabled) {
+                    $low = max(-1.0, $actualScore - $tolerance);
+                    $high = min(1.0, $actualScore + $tolerance);
+
+                    // Heuristic: use severity ordering and create proximity-based match_score
+                    $masters = \App\Models\MasterRekomendasi::whereHas('kategoris', function($q) use ($kategoriId) {
+                            $q->where('kategori_masalah_id', $kategoriId);
+                        })
+                        ->where('is_active', true)
+                        ->orderByRaw("CASE severity WHEN 'low' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END")
+                        ->take($maxFallback)
+                        ->get();
+
+                    foreach ($masters as $m) {
+                        // If master has a nominal target_sentiment field use it, else approximate by 0
+                        $target = (float)($m->target_sentiment ?? 0.0);
+                        if ($target >= $low && $target <= $high) {
+                            $distance = abs($target - $actualScore);
+                            $score = max(0.5, 1.0 - ($distance / max($tolerance, 0.0001))); // [0.5..1]
+
+                            AnalisisRekomendasi::create([
+                                'analisis_entry_id' => $id,
+                                'master_rekomendasi_id' => $m->id,
+                                'judul' => $m->judul,
+                                'deskripsi' => $m->deskripsi,
+                                'severity' => $m->severity ?? 'low',
+                                'match_score' => round($score, 3),
+                                'status' => 'suggested',
+                                'rules' => [
+                                    'mode' => 'fallback',
+                                    'min_sentiment' => $minSentiment,
+                                    'actual_score' => $actualScore,
+                                    'tolerance' => $tolerance,
+                                    'window' => [$low, $high],
+                                    'target_sentiment' => $target,
+                                ],
+                            ]);
+                        }
+                    }
+                }
+            }
+            // Case 4: Tidak ada input khusus -> hanya tampilkan master severity cocok dalam kategori yang dianalisis
+            else {
+                $abs = abs($actualScore);
+                $derivedSeverity = $abs <= 0.20 ? 'low' : ($abs <= 0.50 ? 'medium' : 'high');
+
+                $kategoriIds = [];
+                $overview = $entry->categories_overview ?? [];
+                if (is_array($overview) && count($overview) > 0) {
+                    foreach ($overview as $item) {
+                        $kid = $item['id'] ?? $item['kategori_masalah_id'] ?? null;
+                        if (!$kid) {
+                            $cname = $item['category'] ?? $item['name'] ?? null;
+                            if ($cname) {
+                                $resolved = \App\Models\KategoriMasalah::aktif()
+                                    ->where(function($q) use ($cname) {
+                                        $q->where('nama', $cname)->orWhere('kode', $cname);
+                                    })
+                                    ->first(['id']);
+                                $kid = $resolved?->id;
+                            }
+                        }
+                        if ($kid) $kategoriIds[] = (int)$kid;
+                    }
+                }
+
+                if (!empty($kategoriIds)) {
+                    foreach ($kategoriIds as $kid) {
+                        $masters = \App\Models\MasterRekomendasi::whereHas('kategoris', function($q) use ($kid) {
+                                $q->where('kategori_masalah_id', $kid);
+                            })
+                            ->where('is_active', true)
+                            ->where('severity', $derivedSeverity)
+                            ->get();
+
+                        foreach ($masters as $m) {
+                            $exists = $entry->rekomendasis()
+                                ->where('master_rekomendasi_id', $m->id)
+                                ->where('kategori_masalah_id', $kid)
+                                ->exists();
+                            if ($exists) { continue; }
+                            AnalisisRekomendasi::create([
+                                'analisis_entry_id' => $id,
+                                'master_rekomendasi_id' => $m->id,
+                                'kategori_masalah_id' => $kid,
+                                'judul' => $m->judul,
+                                'deskripsi' => $m->deskripsi,
+                                'severity' => $m->severity ?? $derivedSeverity,
+                                'match_score' => 0.75,
+                                'status' => 'suggested',
+                                'rules' => [
+                                    'mode' => 'severity-bucket',
+                                    'derived_severity' => $derivedSeverity,
+                                    'min_sentiment' => $minSentiment,
+                                    'actual_score' => $actualScore,
+                                    'kategori_source' => 'overview',
+                                ],
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            $entry->save();
             DB::commit();
 
-            // Send feedback to ML service asynchronously
-            $this->sendFeedbackToML($revision);
-
             return response()->json([
-                'message' => 'Analisis berhasil direvisi dan feedback dikirim ke ML service',
-                'entry' => $entry->fresh()->load(['siswaKelas.siswa', 'rekomendasis.kategoriMasalah']),
-                'revision' => $revision
+                'message' => 'Rekomendasi berhasil ditambahkan',
+                'entry' => $entry->fresh()->load(['rekomendasis.master'])
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Failed to revise analysis: ' . $e->getMessage());
+            Log::error('Flexible edit failed: ' . $e->getMessage());
             return response()->json([
-                'message' => 'Gagal melakukan revisi',
+                'message' => 'Gagal menambahkan rekomendasi',
                 'error' => $e->getMessage()
             ], 500);
         }
     }
 
     /**
-     * Flexible edit: allow partial updates to kategori, rekomendasi, and keywords.
-     * This is a separate action from revise (accept-with-revision) and does not change review_status unless provided.
+     * Get master rekomendasi by kategori
      */
-    public function flexibleEditAnalysis(Request $request, int $id)
+    public function getMasterRekomendasi(int $kategoriId)
     {
-        $request->validate([
-            'kategori' => 'nullable|string',
-            'rekomendasi' => 'nullable|array',
-            'rekomendasi.*.kategori_masalah_id' => 'required_with:rekomendasi|exists:kategori_masalahs,id',
-            // Allow either selecting existing master recommendation or providing free text
-            'rekomendasi.*.master_rekomendasi_id' => 'nullable|integer',
-            'rekomendasi.*.rekomendasi_text' => 'nullable|string',
-            'add_keywords' => 'nullable|array',
-            'add_keywords.*.term' => 'required|string',
-            'add_keywords.*.count' => 'nullable|integer',
-        ]);
-
-        $entry = AnalisisEntry::with('rekomendasis')->findOrFail($id);
-
-        DB::beginTransaction();
         try {
-            // Update kategori if provided (top of categories_overview)
-            if ($request->filled('kategori')) {
-                $categoriesOverview = $entry->categories_overview ?? [];
-                if (isset($categoriesOverview[0])) {
-                    $categoriesOverview[0]['name'] = $request->kategori;
-                } else {
-                    $categoriesOverview = [['name' => $request->kategori, 'score' => 1.0]];
-                }
-                $entry->categories_overview = $categoriesOverview;
-            }
-
-            // Submit new recommendation requests to admin (DO NOT create AnalisisRekomendasi entries here)
-            if (is_array($request->rekomendasi) && count($request->rekomendasi) > 0) {
-                foreach ($request->rekomendasi as $rek) {
-                    $text = trim((string)($rek['rekomendasi_text'] ?? ''));
-                    if ($text === '') continue;
-
-                    try {
-                        // Parse judul, deskripsi, severity, min score from composed text
-                        $judul = null;
-                        $deskripsi = $text;
-                        $severity = null;
-                        $minNegScore = null;
-
-                        $parts = explode(' - ', $text, 2);
-                        if (count($parts) === 2) {
-                            $judul = trim($parts[0]);
-                            $deskripsi = trim($parts[1]);
-                        }
-                        if (preg_match('/\[severity:([^\]]+)\]/i', $text, $m)) {
-                            $severity = strtolower(trim($m[1]));
-                        }
-                        if (preg_match('/\[min:([-]?[0-9]+(?:\.[0-9]+)?)\]/i', $text, $m2)) {
-                            $minNegScore = (float)$m2[1];
-                        }
-
-                        // Strip patterns from deskripsi
-                        $deskripsi = preg_replace('/\s*\[severity:[^\]]+\]\s*/i', ' ', $deskripsi);
-                        $deskripsi = preg_replace('/\s*\[min:[-]?[0-9]+(?:\.[0-9]+)?\]\s*/i', ' ', $deskripsi);
-                        $deskripsi = trim($deskripsi);
-
-                        $rules = [];
-                        if (!is_null($minNegScore)) {
-                            $rules['min_neg_score'] = $minNegScore;
-                        }
-
-                        $created = \App\Models\RekomendasiRequest::create([
-                            'kategori_masalah_id' => $rek['kategori_masalah_id'],
-                            'requested_by' => Auth::id(),
-                            'judul' => $judul,
-                            'deskripsi' => $deskripsi,
-                            'severity' => $severity,
-                            'rules' => $rules,
-                            'status' => 'pending',
-                        ]);
-
-                        // Notify admins
-                        try {
-                            $katName = optional(\App\Models\KategoriMasalah::find($rek['kategori_masalah_id']))->nama;
-                            NotificationHelper::notifyAdminRecommendationRequestSubmitted($created->id, $katName, $judul);
-                        } catch (\Throwable $e) {
-                            Log::warning('Failed to notify admins: ' . $e->getMessage());
-                        }
-                    } catch (\Throwable $e) {
-                        Log::warning('Failed to create RekomendasiRequest: ' . $e->getMessage());
-                    }
-                }
-            }
-
-            // Append keywords if provided
-            if (is_array($request->add_keywords) && count($request->add_keywords) > 0) {
-                $existing = collect($entry->kata_kunci ?? []);
-                $incoming = collect($request->add_keywords)
-                    ->map(function ($k) {
-                        return [
-                            'term' => (string)($k['term'] ?? ''),
-                            'count' => (int)($k['count'] ?? 1),
-                        ];
-                    })
-                    ->filter(fn($x) => !empty($x['term']))
-                    ->values();
-
-                // merge counts for same term
-                $merged = $existing->concat($incoming)
-                    ->groupBy('term')
-                    ->map(function ($items, $term) {
-                        $total = collect($items)->sum('count');
-                        return ['term' => $term, 'count' => (int)$total];
-                    })
-                    ->values()
-                    ->all();
-                $entry->kata_kunci = $merged;
-            }
-
-            // No-op: review status and notes removed per user request
-
-            $entry->save();
-            DB::commit();
-
-            return response()->json([
-                'message' => 'Analisis berhasil diupdate secara fleksibel',
-                'entry' => $entry->fresh()->load(['siswaKelas.siswa', 'rekomendasis.kategoriMasalah'])
+            $masters = \App\Models\MasterRekomendasi::whereHas('kategoris', function($q) use ($kategoriId) {
+                $q->where('kategori_masalah_id', $kategoriId);
+            })
+            ->where('is_active', true)
+            ->get()
+            ->map(fn($m) => [
+                'id' => $m->id,
+                'judul' => $m->judul,
+                'deskripsi' => $m->deskripsi,
+                'severity' => $m->severity,
             ]);
+
+            return response()->json(['data' => $masters]);
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Flexible edit failed: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'Gagal mengedit analisis',
-                'error' => $e->getMessage()
-            ], 500);
+            Log::error('Failed to fetch master rekomendasi: ' . $e->getMessage());
+            return response()->json(['data' => [], 'error' => $e->getMessage()], 500);
         }
     }
 
     /**
      * Send feedback to ML service for continuous learning
      */
-    protected function sendFeedbackToML(AnalisisRevision $revision)
-    {
-        try {
-            $mlServiceUrl = env('ML_SERVICE_URL', 'http://localhost:5000');
-            
-            $response = Http::timeout(10)->post("{$mlServiceUrl}/feedback", [
-                'revision_id' => $revision->id,
-                'original_text' => $revision->original_text,
-                'original_kategori' => $revision->original_kategori,
-                'original_rekomendasi' => json_decode($revision->original_rekomendasi, true),
-                'revised_kategori' => $revision->revised_kategori,
-                'revised_rekomendasi' => json_decode($revision->revised_rekomendasi, true),
-                'revision_notes' => $revision->revision_notes,
-            ]);
-
-            if ($response->successful()) {
-                $revision->update([
-                    'sent_to_ml' => true,
-                    'sent_to_ml_at' => now(),
-                ]);
-                Log::info("Feedback sent to ML service for revision #{$revision->id}");
-            } else {
-                Log::warning("Failed to send feedback to ML service: " . $response->body());
-            }
-        } catch (\Exception $e) {
-            Log::error("Error sending feedback to ML service: " . $e->getMessage());
-            // Don't throw - this is async operation
-        }
-    }
+    // ML revision feedback method removed; teacher actions send feedback directly elsewhere.
 
     /**
      * Get revision history for an analisis entry
      */
-    public function getRevisionHistory(int $id)
-    {
-        $entry = AnalisisEntry::with('revisions.revisedBy')->findOrFail($id);
-        
-        return response()->json([
-            'entry_id' => $entry->id,
-            'current_status' => $entry->review_status,
-            'revisions' => $entry->revisions
-        ]);
-    }
+    // Revision history endpoint removed.
 }

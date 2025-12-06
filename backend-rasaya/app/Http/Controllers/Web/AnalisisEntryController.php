@@ -50,7 +50,10 @@ class AnalisisEntryController extends Controller
     {
         // daftar siswa untuk dropdown
         $guru = optional($r->user())->guru;
-        $q = SiswaKelas::with(['siswa.user', 'kelas'])->orderBy('id', 'desc');
+        $q = SiswaKelas::with(['siswa.user', 'kelas'])
+            ->where('is_active', true)
+            ->whereNull('left_at')
+            ->orderBy('id', 'desc');
         if ($guru && $guru->jenis === 'wali_kelas') {
             $q->whereHas('kelas', function ($qq) use ($r) {
                 $qq->where('wali_guru_id', $r->user()->id);
@@ -106,6 +109,79 @@ class AnalisisEntryController extends Controller
     {
         $analisis->load(['rekomendasis.master.kategoris', 'siswaKelas.siswa.user', 'siswaKelas.kelas.jurusan', 'createdBy']);
 
+        // Auto-populate severity-bucket recommendations if none exist yet
+        if ($analisis->rekomendasis()->count() === 0) {
+            try {
+                $actualScore = (float) ($analisis->skor_sentimen ?? 0.0);
+                $abs = abs($actualScore);
+                $derivedSeverity = $abs <= 0.20 ? 'low' : ($abs <= 0.50 ? 'medium' : 'high');
+                $maxFallback = (int) config('rekomendasi.max_fallback', 5);
+
+                    $kategoriIds = [];
+                    $overview = $analisis->categories_overview ?? [];
+                    if (is_array($overview) && count($overview) > 0) {
+                        foreach ($overview as $item) {
+                            $kid = $item['id'] ?? $item['kategori_masalah_id'] ?? null;
+                            if (!$kid) {
+                                // Try resolve by category name/kode from overview
+                                $cname = $item['category'] ?? $item['name'] ?? null;
+                                if ($cname) {
+                                    $resolved = KategoriMasalah::aktif()
+                                        ->where(function($q) use ($cname) {
+                                            $q->where('nama', $cname)->orWhere('kode', $cname);
+                                        })
+                                        ->first(['id']);
+                                    $kid = $resolved?->id;
+                                }
+                            }
+                            if ($kid) $kategoriIds[] = (int) $kid;
+                        }
+                    }
+                    // ONLY use categories analyzed by the system; if none, do not auto-populate
+                    if (empty($kategoriIds)) {
+                        throw new \RuntimeException('No analyzed categories available to suggest recommendations.');
+                    }
+
+                foreach ($kategoriIds as $kid) {
+                    $masters = MasterRekomendasi::whereHas('kategoris', function($q) use ($kid) {
+                            $q->where('kategori_masalah_id', $kid);
+                        })
+                        ->where('is_active', true)
+                        ->where('severity', $derivedSeverity)
+                        ->get();
+
+                    foreach ($masters as $m) {
+                        // Avoid duplicates if already exists
+                        $exists = $analisis->rekomendasis()
+                            ->where('master_rekomendasi_id', $m->id)
+                            ->where('kategori_masalah_id', $kid)
+                            ->exists();
+                        if ($exists) { continue; }
+                        AnalisisRekomendasi::create([
+                            'analisis_entry_id' => $analisis->id,
+                            'master_rekomendasi_id' => $m->id,
+                            'kategori_masalah_id' => $kid,
+                            'judul' => $m->judul,
+                            'deskripsi' => $m->deskripsi,
+                            'severity' => $m->severity ?? $derivedSeverity,
+                            'match_score' => 0.75,
+                            'status' => 'suggested',
+                            'rules' => [
+                                'mode' => 'severity-bucket:auto',
+                                'derived_severity' => $derivedSeverity,
+                                'actual_score' => $actualScore,
+                                    'kategori_source' => 'overview',
+                            ],
+                        ]);
+                    }
+                }
+                $analisis->refresh()->load('rekomendasis.master.kategoris');
+            } catch (\Throwable $e) {
+                // Non-blocking: continue rendering page even if auto-populate fails
+                Log::warning('Auto-populate rekomendasi failed: ' . $e->getMessage());
+            }
+        }
+
         // 1. Ambil Overview & Sentimen
         $categoriesOverview = collect($analisis->categories_overview ?? []);
         $studentSentiment = abs((float) ($analisis->skor_sentimen ?? 0));
@@ -123,28 +199,43 @@ class AnalisisEntryController extends Controller
             ->groupBy('master_rekomendasi_id')
             ->pluck('total', 'master_rekomendasi_id');
 
-        // 2. Logic Sorting & Filtering (Diupdate)
-        $sortedRekomendasis = $analisis->rekomendasis
-            ->sortBy(function ($rekom) use ($studentSentiment, $popularityScores) {
-                // A. Prioritas Visual: Status Suggested Paling Atas
-                // 0 = Suggested, 1 = Accepted/Rejected
-                $statusOrder = ($rekom->status === 'suggested') ? 0 : 1;
+        // 2. Sorting sesuai permintaan: kategori (ranking overview) lalu skor terbesar
+        $overviewOrderedKategoriIds = [];
+        if ($categoriesOverview->isNotEmpty()) {
+            // categories_overview diurutkan secara natural dari atas ke bawah (sudah ranking)
+            foreach ($categoriesOverview as $item) {
+                $kid = $item['id'] ?? $item['kategori_masalah_id'] ?? null;
+                if (!$kid) {
+                    $cname = $item['category'] ?? $item['name'] ?? null;
+                    if ($cname) {
+                        $resolved = KategoriMasalah::aktif()
+                            ->where(function($q) use ($cname) {
+                                $q->where('nama', $cname)->orWhere('kode', $cname);
+                            })
+                            ->first(['id']);
+                        $kid = $resolved?->id;
+                    }
+                }
+                if ($kid) $overviewOrderedKategoriIds[] = (int) $kid;
+            }
+        }
 
-                // B. Popularitas (History Learning)
-                // Ambil jumlah accepted dari array yang kita buat tadi. Kalau gak ada, nilai 0.
-                $countAccepted = $popularityScores[$rekom->master_rekomendasi_id] ?? 0;
+        // Fallback jika tidak ada mapping: pertahankan urutan asli
+        $sortedRekomendasis = $analisis->rekomendasis->sort(function ($a, $b) use ($overviewOrderedKategoriIds) {
+            // Tentukan index kategori berdasarkan urutan overview
+            $aIdx = array_search((int)($a->kategori_masalah_id ?? 0), $overviewOrderedKategoriIds, true);
+            $bIdx = array_search((int)($b->kategori_masalah_id ?? 0), $overviewOrderedKategoriIds, true);
+            // Jika kategori tidak ditemukan dalam overview, taruh di belakang
+            $aIdx = ($aIdx === false) ? PHP_INT_MAX : $aIdx;
+            $bIdx = ($bIdx === false) ? PHP_INT_MAX : $bIdx;
 
-                // C. Kedekatan Sentimen
-                $minNegScore = abs((float) ($rekom->master?->rules['min_neg_score'] ?? 0));
-                $scoreDiff = abs($studentSentiment - $minNegScore);
+            if ($aIdx !== $bIdx) return $aIdx <=> $bIdx; // kategori lebih atas dulu
 
-                // RETURN TUPLE SORTING:
-                // 1. Status (ASC: 0 dulu baru 1)
-                // 2. Popularitas (DESC: Kita kasih MINUS biar yang angkanya GEDE jadi di atas)
-                // 3. Selisih Sentimen (ASC: Yang selisihnya dikit di atas)
-                return [$statusOrder, -$countAccepted, $scoreDiff];
-            })
-            ->values();
+            // Dalam kategori yang sama: urutkan skor terbesar ke kecil
+            $aScore = (float) ($a->match_score ?? 0.0);
+            $bScore = (float) ($b->match_score ?? 0.0);
+            return $bScore <=> $aScore; // desc
+        })->values();
 
         $analisis->setRelation('rekomendasis', $sortedRekomendasis);
 
