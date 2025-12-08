@@ -59,7 +59,10 @@ class AdminUserManagementController extends Controller
                   ->orderBy('name');
         }
 
-        $users = $query->paginate(15)->withQueryString();
+        // Prioritize users with reset_requested_at at top
+        $users = $query->orderByRaw('CASE WHEN reset_requested_at IS NOT NULL THEN 0 ELSE 1 END ASC')
+            ->orderByDesc('reset_requested_at')
+            ->paginate(15)->withQueryString();
 
         return view('roles.admin.users.index', compact('users', 'q', 'role', 'activeTa'));
     }

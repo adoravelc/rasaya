@@ -40,8 +40,13 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($users as $i => $u)
-                    <tr>
+                                @php
+                                    $sorted = $users->sortByDesc(function($u) {
+                                        return $u->reset_requested_at ? strtotime($u->reset_requested_at) : 0;
+                                    });
+                                @endphp
+                                @forelse($sorted as $i => $u)
+                                        <tr @if($u->reset_requested_at) style="background-color: #fff8e1;" @endif>
                         <td>{{ $users->firstItem() + $i }}</td>
                         <td>{{ $u->identifier }}</td>
                         <td>{{ $u->name }}</td>

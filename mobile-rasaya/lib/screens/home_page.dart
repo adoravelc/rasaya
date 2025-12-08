@@ -141,6 +141,8 @@ class HomePage extends ConsumerWidget {
     final nis = (me['nis'] ?? me['identifier'] ?? '-').toString();
     final kelasLabel = (me['kelas_label'] ?? me['role'] ?? '-').toString();
     final needsPwdUpdate = me['needs_password_update'] == true;
+    // Hide alert if user just changed password (password_changed_at exists)
+    final hasChangedPwd = me['password_changed_at'] != null;
 
     final refleksiAsync = ref.watch(recentRefleksiProvider);
     final moodAsync = ref.watch(recentMoodProvider);
@@ -179,7 +181,7 @@ class HomePage extends ConsumerWidget {
               error: (_, __) => const SizedBox.shrink(),
             ),
           if (showMoodShortcut) const SizedBox(height: 12),
-          if (needsPwdUpdate) ...[
+          if (needsPwdUpdate && !hasChangedPwd) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Card(

@@ -111,9 +111,10 @@ class _AppState extends ConsumerState<App> {
         final loggedIn = st.token != null && st.me != null;
         final isAtLoginPage = state.matchedLocation == '/';
         final isAtSplash = state.matchedLocation == '/splash';
+        final isAtForgot = state.matchedLocation == '/forgot-password';
 
         // Not logged in: redirect to login (including from splash)
-        if (!loggedIn && !isAtLoginPage) return '/';
+        if (!loggedIn && !isAtLoginPage && !isAtForgot) return '/';
 
         // Logged in but at login/splash: go to home
         if (loggedIn && (isAtLoginPage || isAtSplash)) return '/home';
