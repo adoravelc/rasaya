@@ -80,10 +80,10 @@ Route::get('/dashboard', function (Request $request) {
     return redirect('/');
 })->name('dashboard')->middleware('auth');
 
-/** ===================== NOTIFICATIONS ===================== */
+/** ===================== NOTIFICATIONS (ALL AUTHENTICATED USERS) ===================== */
 Route::middleware('auth')->group(function () {
     Route::post('/notifications/{id}/read', [\App\Http\Controllers\Web\NotificationController::class, 'markAsRead'])->name('notifications.read');
-    Route::post('/notifications/mark-all-read', [\App\Http\Controllers\Web\NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
+    Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read_all');
 });
 
 /** ===================== ADMIN ===================== */
@@ -272,9 +272,6 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
     Route::get('/referrals/{id}/private/create', [\App\Http\Controllers\Web\CounselingReferralController::class, 'createPrivateSlot'])->middleware('gurujenis:bk')->name('guru.guru_bk.private_slots.create');
     Route::post('/referrals/{id}/private/schedule', [\App\Http\Controllers\Web\CounselingReferralController::class, 'schedule'])->middleware('gurujenis:bk')->name('guru.guru_bk.private_slots.schedule');
     Route::post('/referrals/analysis/{analisis}/direct', [\App\Http\Controllers\Web\CounselingReferralController::class, 'createFromAnalysis'])->middleware('gurujenis:bk')->name('guru.referrals.analysis.direct');
-
-    // Notifikasi - tandai semua dibaca
-    Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read_all');
 
     // Tren Emosi (Dashboard chart + halaman khusus)
     Route::get('/tren-emosi', [EmosiTrenController::class, 'index'])->name('guru.tren_emosi.index');

@@ -1,11 +1,12 @@
 <!doctype html>
 <html lang="id">
-
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Masuk — RASAYA</title>
+    <link rel="icon" type="image/png" href="{{ asset('images/app_icon.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/app_icon.png') }}">
     @vite(['resources/js/app.js'])
     <style>
         .auth-bg {
@@ -25,8 +26,8 @@
         <div class="row justify-content-center">
             <div class="col-12 col-sm-10 col-md-8 col-lg-5">
                 <div class="text-center mb-4">
-                    <div class="fw-bold" style="font-size:1.5rem;color:var(--ras-primary, #192653);">RASAYA<span class="brand-dot"></span></div>
-                    <div class="text-muted small">Masuk untuk melanjutkan</div>
+                    <img src="{{ asset('images/logo_horizontal.png') }}" alt="RASAYA" style="max-height:48px;width:auto;object-fit:contain;">
+                    <div class="text-muted small mt-1">Masuk untuk melanjutkan</div>
                 </div>
 
                 @if ($errors->any())
@@ -41,7 +42,7 @@
                             @csrf
 
                             <div class="mb-3">
-                                <label for="identifier" class="form-label">NIS/NUPTK</label>
+                                <label for="identifier" class="form-label">Username</label>
                                 <input id="identifier" type="text" name="identifier" value="{{ old('identifier') }}" class="form-control @error('identifier') is-invalid @enderror" autocomplete="username" required>
                                 @error('identifier')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -49,7 +50,7 @@
                             </div>
 
                             <div class="mb-3">
-                                <label for="password" class="form-label">Kata Sandi</label>
+                                <label for="password" class="form-label">Password</label>
                                 <div class="input-group">
                                     <input id="password" type="password" name="password" class="form-control @error('password') is-invalid @enderror" autocomplete="current-password" required>
                                     <button class="btn btn-outline-secondary" type="button" id="togglePassword" aria-label="Tampilkan/Sembunyikan kata sandi">Tampilkan</button>

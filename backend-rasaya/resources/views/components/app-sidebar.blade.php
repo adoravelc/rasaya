@@ -6,18 +6,13 @@
 
 <aside class="col-12 col-md-3 col-lg-2 p-0 sidebar bg-light border-end" style="min-height: 100vh; position: sticky; top: 0; height: 100vh; overflow-y: auto;">
     <div class="p-3">
-        {{-- Logo RASAYA - Centered and Large --}}
+        {{-- Logo RASAYA - Horizontal Image --}}
         <div class="text-center mb-4 pb-3 border-bottom">
+            <img src="{{ asset('images/logo_horizontal.png') }}" alt="RASAYA" style="max-height:42px; width:auto; object-fit:contain;">
             @if($role === 'admin')
-                <div class="display-6 fw-bold mb-1" style="color: #1e3a8a; letter-spacing: 2px;">
-                    RASAYA
-                </div>
-                <small class="d-block text-uppercase text-muted" style="font-size: 0.7rem; letter-spacing: 1px;">Portal Admin</small>
+                <small class="d-block text-uppercase text-muted mt-1" style="font-size: 0.7rem; letter-spacing: 1px;">Portal Admin</small>
             @else
-                <div class="display-6 fw-bold mb-1" style="color: #ec4899; letter-spacing: 2px;">
-                    RASAYA
-                </div>
-                <small class="d-block text-uppercase text-muted" style="font-size: 0.7rem; letter-spacing: 1px;">Portal Guru</small>
+                <small class="d-block text-uppercase text-muted mt-1" style="font-size: 0.7rem; letter-spacing: 1px;">Portal Guru</small>
             @endif
         </div>
 

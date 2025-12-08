@@ -6,6 +6,8 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'Guru — RASAYA')</title>
+    <link rel="icon" type="image/png" href="{{ asset('images/app_icon.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/app_icon.png') }}">
     @vite(['resources/js/app.js'])
     <style>
         :root {
@@ -79,6 +81,12 @@
             aside.sidebar:not(.is-open){ display: none; }
             .navbar .navbar-toggler{ display: none !important; }
             #topbar{ display: none !important; }
+        }
+        /* Desktop: keep sidebar static (does not scroll with main content) */
+        @media (min-width: 768px){
+            aside.sidebar{ position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto; }
+            /* Ensure main content scrolls independently and layout stays aligned */
+            main.col-md-9, main.col-lg-10{ min-height: 100vh; }
         }
     </style>
 </head>
