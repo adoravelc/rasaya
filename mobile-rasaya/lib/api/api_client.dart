@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
+import 'dart:io';
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform, kDebugMode;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,9 +20,11 @@ class ApiClient {
 
   // Allow override via --dart-define=API_BASE_URL=http://<host>:<port>/api
   static const String _envBase = String.fromEnvironment('API_BASE_URL');
-  static const String _webBase = 'http://127.0.0.1:8000/api';
-  static const String _androidEmuBase = 'http://10.0.2.2:8000/api';
-  static const String _iosSimBase = 'http://127.0.0.1:8000/api';
+// === UBAH BAGIAN INI JADI LINK LIVE KAMU ===
+  // Kita samakan semua karena sekarang targetnya Server IDCloudHost
+  static const String _webBase = 'https://rasaya.my.id/api';
+  static const String _androidEmuBase = 'https://rasaya.my.id/api';
+  static const String _iosSimBase = 'https://rasaya.my.id/api';
 
   static String _resolveBaseUrl() {
     if (_envBase.isNotEmpty) return _envBase;
@@ -70,6 +74,19 @@ class ApiClient {
         handler.next(e);
       },
     ));
+
+    // TEMPORARY: Bypass SSL verification untuk testing
+    // HAPUS INI DI PRODUCTION setelah SSL certificate valid!
+    if (!kIsWeb) {
+      _dio.httpClientAdapter = IOHttpClientAdapter(
+        createHttpClient: () {
+          final client = HttpClient();
+          client.badCertificateCallback =
+              (X509Certificate cert, String host, int port) => true;
+          return client;
+        },
+      );
+    }
   }
 
   Future<ApiResponse> post(String path, Map<String, dynamic> data) async {
