@@ -98,12 +98,6 @@
         <div class="mb-2"><label class="form-label">Identifier (NISN)</label><input name="identifier" class="form-control" required></div>
         <div class="mb-2"><label class="form-label">Nama</label><input name="name" class="form-control" required></div>
         <div class="mb-2"><label class="form-label">Email</label><input name="email" type="email" class="form-control" required autocomplete="off"></div>
-        <div class="mb-2">
-          <label class="form-label">Password</label>
-          <input name="password" id="addPassword" type="password" class="form-control" autocomplete="new-password" minlength="8" placeholder="Minimal 8 karakter">
-          <div id="addPasswordError" class="text-danger small mt-1" style="display:none">Password minimal 8 karakter.</div>
-          <div class="form-text">Berikan password ini kepada user yang meminta reset.</div>
-        </div>
         <div class="mb-2"><label class="form-label">Jenis Kelamin</label>
             <select name="jenis_kelamin" class="form-select" required>
                 <option value="L">Laki-laki</option>
@@ -151,12 +145,6 @@
         <div class="mb-2"><label class="form-label">Identifier</label><input name="identifier" class="form-control" required></div>
         <div class="mb-2"><label class="form-label">Nama</label><input name="name" class="form-control" required></div>
         <div class="mb-2"><label class="form-label">Email</label><input name="email" type="email" class="form-control" required autocomplete="off"></div>
-        <div id="groupPassword" class="mb-2 d-none">
-          <label class="form-label">Password</label>
-          <input name="password" id="editPassword" type="password" class="form-control" autocomplete="new-password" minlength="8" placeholder="Minimal 8 karakter">
-          <div id="editPasswordError" class="text-danger small mt-1" style="display:none">Password minimal 8 karakter.</div>
-          <div class="form-text">Berikan password ini kepada user yang meminta reset.</div>
-        </div>
         <div class="mb-2"><label class="form-label">Jenis Kelamin</label>
             <select name="jenis_kelamin" class="form-select">
                 <option value="L">Laki-laki</option>
@@ -171,19 +159,6 @@
 
 @push('scripts')
 <script>
-// Client-side validation: keep modal open and show inline errors
-document.getElementById('formAddSiswa')?.addEventListener('submit', (e)=>{
-  const pwd = document.getElementById('addPassword');
-  const err = document.getElementById('addPasswordError');
-  if (pwd && pwd.value && pwd.value.length < 8) {
-    e.preventDefault();
-    err.style.display = 'block';
-    pwd.focus();
-  } else if (err) {
-    err.style.display = 'none';
-  }
-});
-
 document.getElementById('modalEditSiswa')?.addEventListener('show.bs.modal', (ev)=>{
   const btn = ev.relatedTarget || window.rasayaLastModalTrigger;
   if (!btn) return;
@@ -195,43 +170,6 @@ document.getElementById('modalEditSiswa')?.addEventListener('show.bs.modal', (ev
   form.querySelector('[name=email]').value = data.email;
   if (data.jenis_kelamin) {
     form.querySelector('[name=jenis_kelamin]').value = data.jenis_kelamin;
-  }
-  // Clear password field & toggle by reset request
-  const pwdInput = form.querySelector('[name=password]');
-  if (pwdInput) pwdInput.value = '';
-  const pwdGroup = form.querySelector('#groupPassword');
-  if (pwdGroup && pwdInput) {
-    if (data.reset_requested_at) {
-      pwdGroup.classList.remove('d-none');
-      pwdInput.setAttribute('name','password');
-    } else {
-      pwdGroup.classList.add('d-none');
-      pwdInput.removeAttribute('name');
-    }
-  }
-  // reset error state
-  const editErr = document.getElementById('editPasswordError');
-  if (editErr) editErr.style.display = 'none';
-});
-
-// Remove empty password field before submit
-document.getElementById('formEditSiswa')?.addEventListener('submit', (e)=>{
-  const passwordInput = e.target.querySelector('[name=password]');
-  const err = document.getElementById('editPasswordError');
-  if (passwordInput) {
-    const val = passwordInput.value.trim();
-    if (val === '') {
-      // Don't send empty password
-      passwordInput.removeAttribute('name');
-      if (err) err.style.display = 'none';
-    } else if (val.length < 8) {
-      // Show inline error and keep modal open
-      e.preventDefault();
-      if (err) err.style.display = 'block';
-      passwordInput.focus();
-    } else if (err) {
-      err.style.display = 'none';
-    }
   }
 });
 </script>

@@ -8,7 +8,6 @@ use App\Http\Requests\UpdateGuruRequest;
 use App\Models\Guru;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Crypt;
 
 class AdminGuruController extends Controller
@@ -66,11 +65,6 @@ class AdminGuruController extends Controller
         $user->identifier = $data['identifier'];
         $user->name = $data['name'];
         $user->email = $data['email'];
-        if (!empty($data['password'])) {
-            $user->password = $data['password'];
-            $user->password_changed_at = now();
-            $user->initial_password = null;
-        }
         if (array_key_exists('jenis_kelamin', $data)) {
             $user->jenis_kelamin = $data['jenis_kelamin'];
         }

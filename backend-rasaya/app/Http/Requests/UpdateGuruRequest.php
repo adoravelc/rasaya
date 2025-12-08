@@ -12,14 +12,6 @@ class UpdateGuruRequest extends FormRequest
         return true;
     }
 
-    protected function prepareForValidation(): void
-    {
-        // Convert empty password to null so it's truly optional
-        if ($this->password === '') {
-            $this->merge(['password' => null]);
-        }
-    }
-
     public function rules(): array
     {
         // Route parameter name is 'userId' (camelCase) from routes/web.php
@@ -35,7 +27,6 @@ class UpdateGuruRequest extends FormRequest
                 'required', 'email', 'max:255',
                 Rule::unique('users', 'email')->ignore($userId, 'id')->whereNull('deleted_at'),
             ],
-            'password' => ['nullable', 'min:6'],
             'jenis' => ['required', Rule::in(['bk', 'wali_kelas'])],
             'jenis_kelamin' => ['sometimes', Rule::in(['L', 'P'])],
         ];

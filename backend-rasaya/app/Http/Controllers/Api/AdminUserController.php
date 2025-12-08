@@ -8,7 +8,7 @@ use App\Models\Guru;
 use App\Models\Siswa;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Validation\Rule;
 
 class AdminUserController extends Controller
@@ -21,7 +21,6 @@ class AdminUserController extends Controller
      *   "role": "guru" | "siswa",
      *   "name": "Nama Lengkap",
      *   "email": "opsional@rasaya.id",   // bisa null kalau email nullable
-     *   "password": "rahasia",
      *   "jenis": "bk" | "wali_kelas"     // WAJIB jika role=guru
      * }
      */
@@ -33,7 +32,6 @@ class AdminUserController extends Controller
             'role'       => ['required', Rule::in(['guru','siswa'])],
             'name'       => ['required','string','max:100'],
             'email'      => ['nullable','email','max:150','unique:users,email'],
-            'password'   => ['required','string','min:6'],
             'jenis'      => ['nullable', Rule::in(['bk','wali_kelas'])], // hanya untuk guru
             'jenis_kelamin' => ['required', Rule::in(['L','P'])],
         ]);
@@ -46,14 +44,16 @@ class AdminUserController extends Controller
         }
 
         // Transaksi: buat user + tabel peran
-        $user = DB::transaction(function () use ($data) {
+        [$user, $plain] = DB::transaction(function () use ($data) {
+            $plain = str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
             $user = User::create([
                 'identifier' => $data['identifier'],
                 'role'       => $data['role'],
                 'name'       => $data['name'],
                 'jenis_kelamin' => $data['jenis_kelamin'] ?? null,
                 'email'      => $data['email'] ?? null,
-                'password'   => $data['password'],
+                'password'   => $plain,
+                'initial_password' => Crypt::encryptString($plain),
             ]);
 
             if ($data['role'] === 'guru') {
@@ -65,7 +65,7 @@ class AdminUserController extends Controller
                 Siswa::create(['user_id' => $user->id]);
             }
 
-            return $user->fresh();
+            return [$user->fresh(), $plain];
         });
 
         return response()->json([
@@ -76,6 +76,7 @@ class AdminUserController extends Controller
                 'role' => $user->role,
                 'name' => $user->name,
                 'email' => $user->email,
+                'initial_password_token' => $plain,
             ]
         ], 201);
     }

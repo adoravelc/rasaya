@@ -9,7 +9,6 @@ use App\Models\Siswa;
 use App\Models\TahunAjaran;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Crypt;
 
 class AdminSiswaController extends Controller
@@ -68,11 +67,6 @@ class AdminSiswaController extends Controller
         $user->identifier = $data['identifier'];
         $user->name = $data['name'];
         $user->email = $data['email'];
-        if (!empty($data['password'])) {
-            $user->password = $data['password'];
-            $user->password_changed_at = now();
-            $user->initial_password = null;
-        }
         if (array_key_exists('jenis_kelamin', $data)) {
             $user->jenis_kelamin = $data['jenis_kelamin'];
         }
