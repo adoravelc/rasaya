@@ -90,6 +90,33 @@ class MoodController extends Controller
         return $rows;
     }
 
+    public function update(StoreMoodRequest $r, int $id)
+    {
+        $siswaKelasId = $this->getActiveRosterId($r);
+        $mood = PemantauanEmosiSiswa::where('id', $id)
+            ->where('siswa_kelas_id', $siswaKelasId)
+            ->firstOrFail();
+
+        $data = $r->validated();
+        $path = $mood->gambar;
+
+        if ($r->hasFile('gambar')) {
+            if ($path)
+                Storage::disk('public')->delete($path);
+            $path = $r->file('gambar')->store('moods', 'public');
+        }
+
+        $mood->update([
+            'skor' => (int) $data['skor'],
+            'catatan' => $data['catatan'] ?? null,
+            'gambar' => $path,
+        ]);
+
+        $payload = $mood->toArray();
+        $payload['gambar_url'] = $this->publicFileUrl($r, $mood->gambar);
+        return response()->json($payload);
+    }
+
     private function resolveSesi(CarbonInterface $now): string
     {
         $h = (int) $now->copy()->setTimezone(config('app.timezone'))->format('H');

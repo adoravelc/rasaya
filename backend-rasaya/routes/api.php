@@ -59,6 +59,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Mood tracker (siswa, guru, admin)
     Route::post('/mood', [MoodController::class, 'store']);   // siswa submit
+    Route::put('/mood/{id}', [MoodController::class, 'update']);   // update mood existing
     Route::get('/mood/today', [MoodController::class, 'today']);   // status hari ini
     Route::get('/mood/history', [MoodController::class, 'history']); // riwayat
 

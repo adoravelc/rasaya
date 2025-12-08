@@ -28,15 +28,29 @@ class RefleksiHistoryPage extends StatelessWidget {
 }
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  // Set default locale to Indonesian and load date symbols for intl
-  Intl.defaultLocale = 'id_ID';
-  try {
-    await initializeDateFormatting('id_ID');
-  } catch (_) {
-    // If initialization fails, the app will still run with default locale
-  }
-  runApp(const ProviderScope(child: App()));
+  // Catch all uncaught errors
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    // Set default locale to Indonesian and load date symbols for intl
+    Intl.defaultLocale = 'id_ID';
+    try {
+      await initializeDateFormatting('id_ID');
+    } catch (e) {
+      debugPrint('❌ Date formatting init failed: $e');
+    }
+
+    // Catch Flutter framework errors
+    FlutterError.onError = (FlutterErrorDetails details) {
+      debugPrint('❌ Flutter Error: ${details.exception}');
+      debugPrint('Stack: ${details.stack}');
+    };
+
+    runApp(const ProviderScope(child: App()));
+  }, (error, stack) {
+    debugPrint('❌ Uncaught Error: $error');
+    debugPrint('Stack: $stack');
+  });
 }
 
 class App extends ConsumerStatefulWidget {

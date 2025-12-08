@@ -139,6 +139,11 @@ class ApiClient {
       final token = prefs.getString(_kTokenKey);
 
       final form = FormData.fromMap(fields);
+      // For PHP/Laravel on shared hosting, PUT multipart may not be parsed.
+      // Use POST with _method=PUT so fields/files tetap terbaca.
+      if (!form.fields.any((e) => e.key == '_method')) {
+        form.fields.add(MapEntry('_method', 'PUT'));
+      }
       if (xfile != null) {
         if (kIsWeb) {
           final b = await xfile.readAsBytes();
@@ -278,7 +283,8 @@ class ApiClient {
         ));
       }
 
-      final res = await _dio.put(
+      final res = await _dio.post(
+        // <--- GANTI JADI POST
         path,
         data: form,
         options: Options(headers: {

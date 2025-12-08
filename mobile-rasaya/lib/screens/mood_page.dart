@@ -311,9 +311,8 @@ class _MoodPageState extends ConsumerState<MoodPage>
     try {
       final api = ref.read(apiClientProvider);
 
-      // Build form data
       final fields = <String, dynamic>{
-        'skor': score,
+        'skor': score.toString(),
         if (catatan.isNotEmpty) 'catatan': catatan,
       };
 

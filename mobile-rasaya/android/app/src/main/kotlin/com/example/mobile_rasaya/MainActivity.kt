@@ -1,4 +1,4 @@
-package com.example.mobile_rasaya
+package com.rasaya.app
 
 import io.flutter.embedding.android.FlutterActivity
 
