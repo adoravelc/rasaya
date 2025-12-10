@@ -74,7 +74,7 @@ class AuthController extends StateNotifier<AuthState> {
       final msg =
           e.response?.data is Map && (e.response?.data['message'] != null)
               ? e.response?.data['message'].toString()
-              : 'Gagal login. Cek identifier/password.';
+              : 'Gagal login. Cek NIS/password.';
       state = state.copy(loading: false, error: msg);
     } catch (e) {
       state =

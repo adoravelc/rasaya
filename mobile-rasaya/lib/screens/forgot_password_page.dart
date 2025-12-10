@@ -60,7 +60,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                             TextFormField(
                               controller: _idCtrl,
                               decoration: InputDecoration(
-                                labelText: 'NIS/NUPTK (atau Email)',
+                                labelText: 'NIS',
                                 filled: true,
                                 fillColor: cs.primary.withOpacity(0.06),
                               ),

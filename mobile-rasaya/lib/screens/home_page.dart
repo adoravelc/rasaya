@@ -5,30 +5,29 @@ import '../auth/auth_controller.dart';
 import '../widgets/app_scaffold.dart';
 import 'package:intl/intl.dart';
 
-// Clean rebuild of the Home page to fix corruption and match new design
-
-// Helpers
 String _fmtTanggal(BuildContext context, String? raw) {
   if (raw == null || raw.isEmpty) return '-';
   try {
-    // If backend sends full ISO (e.g. 2025-11-16T16:00:00.000000Z representing midnight WITA),
-    // parse as UTC then shift +8h to get the intended local date.
-    if (raw.contains('T')) {
-      final dt = DateTime.parse(raw);
-      final dtWita = dt.isUtc ? dt.toUtc().add(const Duration(hours: 8)) : dt;
-      final d = DateTime(dtWita.year, dtWita.month, dtWita.day);
-      return DateFormat('EEEE, d MMMM y', 'id_ID').format(d);
-    }
-    // Plain date string yyyy-MM-dd
-    final p = raw.split('-');
+    // 1. Ambil bagian tanggal saja (buang jam kalau ada)
+    String datePart = raw;
+    if (raw.contains('T')) datePart = raw.split('T').first;
+    if (raw.contains(' ')) datePart = raw.split(' ').first;
+
+    final p = datePart.split('-');
     if (p.length == 3) {
       final y = int.parse(p[0]);
       final m = int.parse(p[1]);
       final d = int.parse(p[2]);
-      final dt = DateTime(y, m, d);
+
+      // --- RAHASIANYA DI SINI ---
+      // Kita buat DateTime LOKAL tapi jam 12 Siang.
+      // Jadi mau digeser timezone manapun, tanggalnya tetap aman (gak loncat).
+      final dt = DateTime(y, m, d, 12, 0, 0);
+
       return DateFormat('EEEE, d MMMM y', 'id_ID').format(dt);
     }
-    // Fallback
+
+    // Fallback parsing biasa
     final dt = DateTime.parse(raw);
     return DateFormat('EEEE, d MMMM y', 'id_ID').format(dt);
   } catch (_) {
@@ -73,11 +72,42 @@ final recentRefleksiProvider =
   final token = ref.watch(authControllerProvider.select((s) => s.token));
   if (token == null) return <Map<String, dynamic>>[];
   final api = ref.read(apiClientProvider);
-  final res = await api.get('/input-siswa', query: {'page': 1, 'per_page': 3});
-  if (!res.ok) throw Exception(res.errorMessage);
+
+  // Ambil data refleksi (agak banyak biar kalau ada yang difilter, list gak kosong melompong)
+  final res = await api.get('/input-siswa', query: {'page': 1, 'per_page': 10});
+
+  if (!res.ok) {
+    return <Map<String, dynamic>>[];
+  }
+
   final m = (res.data as Map).cast<String, dynamic>();
   final list = (m['data'] as List? ?? const []);
-  return list
+
+  // Tanggal hari ini (YYYY-MM-DD)
+  final todayStr = DateTime.now().toIso8601String().split('T').first;
+
+  // Filter Logic:
+  // Tampilkan jika: BUKAN DRAFT  -ATAU-  (DRAFT DAN TANGGALNYA HARI INI)
+  final filteredList = list.where((e) {
+    final map = (e as Map).cast<String, dynamic>();
+
+    final isDraft = (map['status_upload'].toString() == '0');
+
+    // Ambil tanggal dari data (format yyyy-mm-dd)
+    final rawDate = (map['tanggal'] ?? map['created_at']).toString();
+    final itemDateStr = rawDate.split('T').first;
+
+    if (!isDraft) {
+      return true; // Kalau sudah final, selalu tampilkan
+    } else {
+      // Kalau draft, cuma tampilkan kalau tanggalnya SAMA dengan hari ini
+      return itemDateStr == todayStr;
+    }
+  }).toList();
+
+  // Ambil 3 teratas saja untuk ditampilkan di Home
+  return filteredList
+      .take(3)
       .map<Map<String, dynamic>>((e) => (e as Map).cast<String, dynamic>())
       .toList();
 });
@@ -280,51 +310,69 @@ class HomePage extends ConsumerWidget {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Card(
                         clipBehavior: Clip.antiAlias,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(children: [
-                                Text(tanggal,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w700)),
-                                const SizedBox(width: 8),
-                                if (draft)
-                                  const Chip(
-                                    label: Text('Draft',
-                                        style: TextStyle(fontSize: 12)),
+                        child: InkWell(
+                          onTap: draft
+                              ? () async {
+                                  // Klik draft -> redirect ke page refleksi sesuai jenis
+                                  final route = jenis == 'laporan'
+                                      ? '/refleksi?jenis=laporan'
+                                      : '/refleksi';
+                                  final res = await context.push(route);
+                                  if (res == true) {
+                                    ref.invalidate(recentRefleksiProvider);
+                                    ref.invalidate(
+                                        _refleksiTodayStatusProvider);
+                                  }
+                                }
+                              : null,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(children: [
+                                  Text(tanggal,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w700)),
+                                  const SizedBox(width: 8),
+                                  if (draft)
+                                    const Chip(
+                                      label: Text('Draft',
+                                          style: TextStyle(fontSize: 12)),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  const SizedBox(width: 6),
+                                  Chip(
+                                    label: Text(
+                                        jenis == 'laporan'
+                                            ? 'Laporan Teman'
+                                            : 'Pribadi',
+                                        style: const TextStyle(fontSize: 12)),
                                     visualDensity: VisualDensity.compact,
                                   ),
-                                const SizedBox(width: 6),
-                                Chip(
-                                  label: Text(
-                                      jenis == 'laporan'
-                                          ? 'Laporan Teman'
-                                          : 'Pribadi',
-                                      style: const TextStyle(fontSize: 12)),
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                              ]),
-                              const SizedBox(height: 8),
-                              Text(teks,
-                                  maxLines: 4, overflow: TextOverflow.ellipsis),
-                              if (kategori.isNotEmpty) ...[
+                                ]),
                                 const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: -6,
-                                  children: kategori.map((k) {
-                                    final nama = (k['nama'] ?? '').toString();
-                                    return Chip(
-                                      label: Text(nama,
-                                          style: const TextStyle(fontSize: 12)),
-                                      visualDensity: VisualDensity.compact,
-                                    );
-                                  }).toList(),
-                                ),
+                                Text(teks,
+                                    maxLines: 4,
+                                    overflow: TextOverflow.ellipsis),
+                                if (kategori.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: -6,
+                                    children: kategori.map((k) {
+                                      final nama = (k['nama'] ?? '').toString();
+                                      return Chip(
+                                        label: Text(nama,
+                                            style:
+                                                const TextStyle(fontSize: 12)),
+                                        visualDensity: VisualDensity.compact,
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
                         ),
                       ),

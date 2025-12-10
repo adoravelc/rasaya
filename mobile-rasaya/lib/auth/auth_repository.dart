@@ -25,7 +25,7 @@ class AuthRepository {
     } on DioException catch (e) {
       final msg = e.response?.data is Map && e.response?.data['message'] != null
           ? e.response!.data['message'].toString()
-          : 'Gagal login. Periksa identifier/password.';
+          : 'Gagal login. Periksa NIS/password.';
       throw Exception(msg);
     }
   }

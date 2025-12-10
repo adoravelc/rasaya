@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:RASAYA/auth/auth_controller.dart';
 import 'package:intl/intl.dart';
 import '../widgets/app_scaffold.dart';
+// import 'refleksi_page.dart'; // Gak perlu import ini lagi karena gak ada navigasi ke sana
 
 class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
@@ -131,6 +133,7 @@ class _RefleksiTabState extends ConsumerState<_RefleksiTab> {
     );
   }
 
+  // --- FILTER DRAFT LAMA ---
   Future<void> _load({bool refresh = false}) async {
     if (refresh) {
       setState(() {
@@ -140,11 +143,38 @@ class _RefleksiTabState extends ConsumerState<_RefleksiTab> {
       });
     }
     final api = ref.read(apiClientProvider);
+
+    // Request data
     final res = await api.get('/input-siswa?page=$_page&per_page=10');
+
     if (res.ok && res.data is Map && res.data['data'] is List) {
       final data = (res.data['data'] as List).cast<Map>();
+
+      // Ambil tanggal hari ini (YYYY-MM-DD)
+      final todayStr = DateTime.now().toIso8601String().split('T').first;
+
+      // Filter: Tampilkan jika (Bukan Draft) ATAU (Draft DAN Tanggal == Hari Ini)
+      final filteredList = data.where((m) {
+        final map = m.cast<String, dynamic>();
+        final isDraft = (map['status_upload'].toString() == '0');
+
+        // Ambil tanggal mentah dari data
+        final rawDate = (map['tanggal'] ?? map['created_at']).toString();
+        // Bersihkan format jadi YYYY-MM-DD
+        final itemDateStr = rawDate.contains('T')
+            ? rawDate.split('T').first
+            : rawDate.split(' ').first;
+
+        if (!isDraft) {
+          return true; // Kalau final, selalu tampil
+        } else {
+          // Kalau draft, cek tanggalnya harus hari ini
+          return itemDateStr == todayStr;
+        }
+      }).toList();
+
       _lastPage = (res.data['last_page'] ?? 1) as int;
-      _items.addAll(data.cast<Map<String, dynamic>>());
+      _items.addAll(filteredList.cast<Map<String, dynamic>>());
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -164,23 +194,26 @@ class _RefleksiTabState extends ConsumerState<_RefleksiTab> {
     _load();
   }
 
+  // --- FORMAT TANGGAL AMAN ---
   String _fmtTanggal(String? raw) {
     if (raw == null || raw.isEmpty) return '-';
     try {
-      if (raw.contains('T')) {
-        final dt = DateTime.parse(raw);
-        final dtWita = dt.isUtc ? dt.toUtc().add(const Duration(hours: 8)) : dt;
-        final d = DateTime(dtWita.year, dtWita.month, dtWita.day);
-        return DateFormat('EEEE, d MMMM y', 'id_ID').format(d);
-      }
-      final p = raw.split('-');
+      // Ambil bagian tanggal saja
+      String datePart = raw;
+      if (raw.contains('T')) datePart = raw.split('T').first;
+      if (raw.contains(' ')) datePart = raw.split(' ').first;
+
+      final p = datePart.split('-');
       if (p.length == 3) {
         final y = int.parse(p[0]);
         final m = int.parse(p[1]);
-        final day = int.parse(p[2]);
-        final dt = DateTime(y, m, day);
+        final d = int.parse(p[2]);
+
+        // Set jam 12 siang biar aman dari geseran timezone
+        final dt = DateTime(y, m, d, 12, 0, 0);
         return DateFormat('EEEE, d MMMM y', 'id_ID').format(dt);
       }
+
       final dt = DateTime.parse(raw);
       return DateFormat('EEEE, d MMMM y', 'id_ID').format(dt);
     } catch (_) {
@@ -236,9 +269,11 @@ class _RefleksiTabState extends ConsumerState<_RefleksiTab> {
           final m = _items[i];
           final idKey = m['id'] ?? i;
           final isExpanded = _expanded.contains(idKey);
+
           final tanggal = _fmtTanggal(m['tanggal']?.toString());
           final teks = (m['teks'] ?? '').toString();
           final draft = (m['status_upload']?.toString() ?? '1') == '0';
+
           final jenis = (m['meta']?['jenis'] ??
                   (m['siswa_dilapor_id'] != null ? 'laporan' : 'pribadi'))
               .toString();
@@ -249,6 +284,7 @@ class _RefleksiTabState extends ConsumerState<_RefleksiTab> {
           return Card(
             clipBehavior: Clip.antiAlias,
             child: InkWell(
+              // --- CUMA EXPAND/COLLAPSE SAJA (GAK PINDAH PAGE) ---
               onTap: () => setState(() {
                 if (isExpanded) {
                   _expanded.remove(idKey);
@@ -279,7 +315,9 @@ class _RefleksiTabState extends ConsumerState<_RefleksiTab> {
                                 const SizedBox(width: 6),
                                 Chip(
                                   label: Text(
-                                    jenis.toUpperCase(),
+                                    jenis == 'laporan'
+                                        ? 'Laporan Teman'
+                                        : 'Pribadi',
                                     style: const TextStyle(fontSize: 12),
                                   ),
                                   visualDensity: VisualDensity.compact,
@@ -326,7 +364,7 @@ class _RefleksiTabState extends ConsumerState<_RefleksiTab> {
   }
 }
 
-/* -------------------------- TAB: MOOD -------------------------- */
+/* -------------------------- TAB: MOOD (TETAP SAMA) -------------------------- */
 
 class _MoodTab extends ConsumerStatefulWidget {
   const _MoodTab();
@@ -389,20 +427,20 @@ class _MoodTabState extends ConsumerState<_MoodTab> {
   }
 
   String _fmtTanggal(String? iso) {
-    if (iso == null) return '-';
+    if (iso == null || iso.isEmpty) return '-';
     try {
-      final datePart = iso.split('T').first;
+      final datePart = iso.contains('T') ? iso.split('T').first : iso;
       final p = datePart.split('-');
-      DateTime d;
       if (p.length == 3) {
         final y = int.parse(p[0]);
         final m = int.parse(p[1]);
         final day = int.parse(p[2]);
-        d = DateTime(y, m, day);
-      } else {
-        d = DateTime.parse(iso);
+        final d = DateTime(
+            y, m, day, 12, 0, 0); // Pake trik jam 12 juga disini biar aman
+        return DateFormat('EEEE, d MMMM y', 'id_ID').format(d);
       }
-      return DateFormat('EEEE, d MMMM y', 'id_ID').format(d);
+      final dt = DateTime.parse(iso);
+      return DateFormat('EEEE, d MMMM y', 'id_ID').format(dt);
     } catch (_) {
       return iso;
     }
@@ -452,10 +490,32 @@ class _MoodTabState extends ConsumerState<_MoodTab> {
           final s = int.tryParse((m['skor'] ?? '').toString()) ?? 0;
           final icon = _moodIconForScore(s);
           final color = _moodColorForScore(s);
-          final gambarPath = _extractImagePath(m);
+
+          // Helper extract image path for mood (reused)
+          String? extractMoodImage(Map<String, dynamic> item) {
+            for (final k in ['gambar', 'image', 'photo', 'path']) {
+              final v = item[k];
+              if (v is String && v.isNotEmpty) return v;
+            }
+            return null;
+          }
+
+          final gambarPath = extractMoodImage(m);
           final adaLampiran = gambarPath != null;
+
           final catatan = (m['catatan'] ?? '').toString();
-          final gambar = (gambarPath ?? '').toString();
+
+          // Re-use logic for image url resolver from RefleksiTab
+          // (Since it's in the same file, we can duplicate logic or move helper to parent class.
+          // For simplicity, copy logic here or use a shared mixin)
+          String resolveUrl(String path) {
+            final api = ref.read(apiClientProvider);
+            final base =
+                api.dio.options.baseUrl.replaceFirst(RegExp(r'/api/?$'), '');
+            return '$base${path.startsWith('/') ? path : '/$path'}';
+          }
+
+          final gambarUrl = adaLampiran ? resolveUrl(gambarPath!) : '';
 
           return Card(
             clipBehavior: Clip.antiAlias,
@@ -499,8 +559,25 @@ class _MoodTabState extends ConsumerState<_MoodTab> {
                         const SizedBox(height: 8),
                         Text(catatan),
                       ],
-                      if (gambar.isNotEmpty)
-                        _RefMoodImage(baseHost: _baseHost(), path: gambar),
+                      if (adaLampiran)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              gambarUrl,
+                              height: 180,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                height: 180,
+                                color: Colors.grey[200],
+                                alignment: Alignment.center,
+                                child: const Icon(Icons.broken_image),
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ],
                 ),
@@ -508,73 +585,6 @@ class _MoodTabState extends ConsumerState<_MoodTab> {
             ),
           );
         },
-      ),
-    );
-  }
-
-  String _baseHost() {
-    final api = ref.read(apiClientProvider);
-    final base = api.dio.options.baseUrl;
-    return base.replaceFirst(RegExp(r'/api/?$'), '');
-  }
-
-  String? _extractImagePath(Map<String, dynamic> m) {
-    for (final key in const [
-      'gambar_url',
-      'gambar',
-      'image_url',
-      'image',
-      'foto',
-      'photo',
-      'path'
-    ]) {
-      final v = m[key];
-      if (v is String && v.trim().isNotEmpty) return v.trim();
-    }
-    return null;
-  }
-}
-
-class _RefMoodImage extends StatelessWidget {
-  const _RefMoodImage({required this.baseHost, required this.path});
-  final String baseHost;
-  final String path;
-
-  @override
-  Widget build(BuildContext context) {
-    String url;
-    if (path.startsWith('http')) {
-      try {
-        final u = Uri.parse(path);
-        if (u.host == 'localhost' ||
-            u.host == '127.0.0.1' ||
-            u.host == '0.0.0.0') {
-          url = '$baseHost${u.path.startsWith('/') ? u.path : '/${u.path}'}';
-        } else {
-          url = path;
-        }
-      } catch (_) {
-        url = path;
-      }
-    } else {
-      url = '$baseHost${path.startsWith('/') ? path : '/$path'}';
-    }
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          url,
-          height: 180,
-          width: double.infinity,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
-            height: 180,
-            color: Colors.grey[200],
-            alignment: Alignment.center,
-            child: const Icon(Icons.broken_image),
-          ),
-        ),
       ),
     );
   }

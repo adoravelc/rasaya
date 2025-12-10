@@ -8,12 +8,14 @@ use App\Models\InputSiswa;
 use App\Models\SiswaKelas;
 use App\Http\Requests\StoreInputSiswaRequest;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class InputSiswaController extends Controller
 {
     private function publicFileUrl(Request $r, ?string $path): ?string
     {
-        if (!$path) return null;
+        if (!$path)
+            return null;
         return $r->getSchemeAndHttpHost() . '/storage/' . ltrim($path, '/');
     }
 
@@ -26,29 +28,90 @@ class InputSiswaController extends Controller
             ->latest('id')
             ->first();
 
-        if (!$roster) abort(422, 'Data kelas aktif siswa tidak ditemukan.');
+        if (!$roster)
+            abort(422, 'Data kelas aktif siswa tidak ditemukan.');
         return (int) $roster->id;
     }
 
     public function index(Request $r)
     {
-        $user = $r->user();
+        try {
+            $user = $r->user();
 
-        if ($user->role === 'siswa') {
-            $rosterId = $this->getActiveRosterId($r);
+            // === LOGIC UNTUK SISWA ===
+            if ($user->role === 'siswa') {
+                $rosterId = $this->getActiveRosterId($r);
 
-            $rows = InputSiswa::with(['siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user'])
-                ->where('siswa_kelas_id', $rosterId)
-                ->orderByDesc('tanggal')
-                ->paginate($r->integer('per_page', 10));
+                $q = InputSiswa::with(['siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user'])
+                    ->where('siswa_kelas_id', $rosterId);
 
-            // tambahkan gambar_url pada setiap item
+                // --- 1. Filter Status Upload (Draft vs Final) ---
+                if ($r->has('status_upload')) {
+                    $status = (int) $r->input('status_upload');
+                    $q->where('status_upload', $status);
+
+                    // --- TAMBAHAN PENTING: Draft Expired Logic ---
+                    // Jika mencari DRAFT (0), pastikan tanggalnya HARI INI.
+                    // Draft kemarin dianggap basi/expired, jadi jangan dimunculkan.
+                    if ($status === 0) {
+                        $q->whereDate('tanggal', now()->toDateString());
+                    }
+                }
+
+                // 2. Filter Jenis (Mapping ke is_friend)
+                if ($r->filled('jenis')) {
+                    $jenis = $r->input('jenis');
+                    if ($jenis === 'laporan') {
+                        $q->where('is_friend', true);
+                    } else {
+                        $q->where('is_friend', false);
+                    }
+                }
+
+                // 3. Sorting Aman
+                $q->orderByDesc('id');
+
+                // 4. Limit Logic
+                $isDraftRequest = $r->has('status_upload') && (int) $r->input('status_upload') === 0;
+                $perPage = $isDraftRequest ? 1 : $r->integer('per_page', 10);
+
+                $rows = $q->paginate($perPage);
+
+                // Transform output
+                $rows->getCollection()->transform(function ($m) use ($r) {
+                    $arr = $m->toArray();
+                    $arr['gambar_url'] = $this->publicFileUrl($r, $m->gambar);
+                    if ($m->siswaDilaporKelas && $m->siswaDilaporKelas->siswa && $m->siswaDilaporKelas->siswa->user) {
+                        $arr['siswa_dilapor_nama'] = $m->siswaDilaporKelas->siswa->user->name ?? null;
+                    }
+                    return $arr;
+                });
+                return $rows;
+            }
+
+            // ... (Kode Admin/Guru di bawah biarkan sama) ...
+            $q = InputSiswa::with(['siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user']);
+            // ... (lanjutkan kode admin seperti file aslimu) ...
+            if ($r->filled('siswa_kelas_id')) {
+                $q->where('siswa_kelas_id', (int) $r->input('siswa_kelas_id'));
+            }
+            if ($r->filled('tanggal')) {
+                $q->whereDate('tanggal', $r->date('tanggal'));
+            }
+            $rows = $q->orderByDesc('id')->paginate($r->integer('per_page', 10));
             $rows->getCollection()->transform(function ($m) use ($r) {
                 $arr = $m->toArray();
                 $arr['gambar_url'] = $this->publicFileUrl($r, $m->gambar);
                 return $arr;
             });
             return $rows;
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'DEBUG ERROR: ' . $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ], 500);
         }
 
         // admin/guru
@@ -78,7 +141,7 @@ class InputSiswaController extends Controller
         abort_if(!$siswaKelasId, 403, 'siswa_kelas_id wajib.');
 
         // Cegah melaporkan diri sendiri
-        if (!empty($data['siswa_dilapor_kelas_id']) && (int)$data['siswa_dilapor_kelas_id'] === (int)$siswaKelasId) {
+        if (!empty($data['siswa_dilapor_kelas_id']) && (int) $data['siswa_dilapor_kelas_id'] === (int) $siswaKelasId) {
             return response()->json(['message' => 'Tidak boleh melaporkan diri sendiri.'], 422);
         }
 
@@ -133,49 +196,92 @@ class InputSiswaController extends Controller
 
     public function update(StoreInputSiswaRequest $r, InputSiswa $inputSiswa)
     {
-        $user = $r->user();
-        $isOwner = false;
-        if ($user->role === 'siswa') {
-            $isOwner = $inputSiswa->siswa_kelas_id === $this->getActiveRosterId($r);
-        }
-        if (!($user->role === 'admin' || $isOwner)) abort(403);
+        try {
+            $user = $r->user();
+            $isOwner = false;
 
-        $data = $r->validated();
+            // LOGIC CEK OWNER YANG DIPERBAIKI
+            if ($user->role === 'siswa') {
+                // Ambil roster aktif saat ini
+                $activeRosterId = $this->getActiveRosterId($r);
 
-        // optional update siswa_dilapor_kelas_id (tetap cegah self)
-        if (!empty($data['siswa_dilapor_kelas_id']) && (int)$data['siswa_dilapor_kelas_id'] === (int)$inputSiswa->siswa_kelas_id) {
-            return response()->json(['message' => 'Tidak boleh melaporkan diri sendiri.'], 422);
-        }
+                // Bandingkan sebagai integer agar aman (5 vs "5")
+                $isOwner = (int) $inputSiswa->siswa_kelas_id === (int) $activeRosterId;
 
-        $inputSiswa->update([
-            'tanggal' => $data['tanggal'] ?? $inputSiswa->tanggal,
-            'teks' => $data['teks'] ?? $inputSiswa->teks,
-            'status_upload' => $data['status_upload'] ?? $inputSiswa->status_upload,
-            'meta' => $data['meta'] ?? $inputSiswa->meta,
-            'siswa_dilapor_kelas_id' => array_key_exists('siswa_dilapor_kelas_id', $data)
-                ? $data['siswa_dilapor_kelas_id']
-                : $inputSiswa->siswa_dilapor_kelas_id,
-            'is_friend' => array_key_exists('siswa_dilapor_kelas_id', $data)
-                ? !empty($data['siswa_dilapor_kelas_id'])
-                : $inputSiswa->is_friend,
-        ]);
-
-        // handle replace gambar jika ada upload baru
-        if ($r->hasFile('gambar')) {
-            if ($inputSiswa->gambar) {
-                Storage::disk('public')->delete($inputSiswa->gambar);
+                // FALLBACK: Cek apakah user_id nya sama (jika roster_id beda tapi orangnya sama)
+                if (!$isOwner) {
+                    // Load relasi siswaKelas -> siswa -> user
+                    $inputSiswa->load('siswaKelas.siswa');
+                    if ($inputSiswa->siswaKelas && $inputSiswa->siswaKelas->siswa) {
+                        $ownerUserId = $inputSiswa->siswaKelas->siswa->user_id;
+                        $isOwner = (int) $ownerUserId === (int) $user->id;
+                    }
+                }
             }
-            $newPath = $r->file('gambar')->store('inputs', 'public');
-            $inputSiswa->gambar = $newPath;
-            $inputSiswa->save();
+
+            // Jika admin, otomatis owner = true
+            if ($user->role === 'admin') {
+                $isOwner = true;
+            }
+
+            if (!$isOwner) {
+                // Debugging: Boleh dibuka kalau mau lihat kenapa gagal
+                // return response()->json([
+                //    'message' => 'Unauthorized Debug',
+                //    'data_roster' => $inputSiswa->siswa_kelas_id,
+                //    'active_roster' => $this->getActiveRosterId($r)
+                // ], 403);
+                return response()->json(['message' => 'Unauthorized: Data ini bukan milikmu.'], 403);
+            }
+
+            // ... (SISA KODE UPDATE BIARKAN SAMA SEPERTI YANG TADI) ...
+            $data = $r->validated();
+
+            // Cegah self-report
+            if (!empty($data['siswa_dilapor_kelas_id']) && (int) $data['siswa_dilapor_kelas_id'] === (int) $inputSiswa->siswa_kelas_id) {
+                return response()->json(['message' => 'Tidak boleh melaporkan diri sendiri.'], 422);
+            }
+
+            // Update data
+            $inputSiswa->update([
+                'tanggal' => $data['tanggal'] ?? $inputSiswa->tanggal,
+                'teks' => $data['teks'] ?? $inputSiswa->teks,
+                'status_upload' => (int) ($data['status_upload'] ?? $inputSiswa->status_upload),
+                'meta' => $data['meta'] ?? $inputSiswa->meta,
+                'siswa_dilapor_kelas_id' => array_key_exists('siswa_dilapor_kelas_id', $data)
+                    ? $data['siswa_dilapor_kelas_id']
+                    : $inputSiswa->siswa_dilapor_kelas_id,
+                'is_friend' => array_key_exists('siswa_dilapor_kelas_id', $data)
+                    ? !empty($data['siswa_dilapor_kelas_id'])
+                    : $inputSiswa->is_friend,
+            ]);
+
+            // Handle gambar baru
+            if ($r->hasFile('gambar')) {
+                if ($inputSiswa->gambar) {
+                    Storage::disk('public')->delete($inputSiswa->gambar);
+                }
+                $newPath = $r->file('gambar')->store('inputs', 'public');
+                $inputSiswa->gambar = $newPath;
+                $inputSiswa->save();
+            }
+
+            $inputSiswa->refresh();
+            $inputSiswa->load(['siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user']);
+
+            $arr = $inputSiswa->toArray();
+            $arr['gambar_url'] = $this->publicFileUrl($r, $inputSiswa->gambar);
+
+            if ($inputSiswa->siswaDilaporKelas && $inputSiswa->siswaDilaporKelas->siswa && $inputSiswa->siswaDilaporKelas->siswa->user) {
+                $arr['siswa_dilapor_nama'] = $inputSiswa->siswaDilaporKelas->siswa->user->name ?? null;
+            }
+
+            return response()->json($arr, 200);
+
+        } catch (\Exception $e) {
+            Log::error('Update error: ' . $e->getMessage());
+            return response()->json(['message' => 'Server Error: ' . $e->getMessage()], 500);
         }
-
-        // kategori_ids diabaikan: tabel pivot sudah dihapus
-
-        $inputSiswa->load(['siswaKelas.siswa.user', 'siswaDilaporKelas.siswa.user']);
-        $arr = $inputSiswa->toArray();
-        $arr['gambar_url'] = $this->publicFileUrl($r, $inputSiswa->gambar);
-        return $arr;
     }
 
     public function destroy(Request $r, InputSiswa $inputSiswa)
@@ -185,7 +291,8 @@ class InputSiswaController extends Controller
         if ($user->role === 'siswa') {
             $isOwner = $inputSiswa->siswa_kelas_id === $this->getActiveRosterId($r);
         }
-        if (!($user->role === 'admin' || $isOwner)) abort(403);
+        if (!($user->role === 'admin' || $isOwner))
+            abort(403);
 
         // hapus file saat dihapus (opsional)
         if ($inputSiswa->gambar) {

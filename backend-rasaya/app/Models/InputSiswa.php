@@ -21,7 +21,7 @@ class InputSiswa extends Model
     ];
 
     protected $casts = [
-        'tanggal' => 'date',
+        'tanggal' => 'date:Y-m-d',
         'status_upload' => 'integer',
         'is_friend' => 'boolean',
         'meta' => 'array',
