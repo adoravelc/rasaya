@@ -107,7 +107,7 @@ class AnalisisEntryController extends Controller
 
     public function show(AnalisisEntry $analisis)
     {
-        $analisis->load(['rekomendasis.master.kategoris', 'siswaKelas.siswa.user', 'siswaKelas.kelas.jurusan', 'createdBy']);
+        $analisis->load(['rekomendasis.master.kategoris', 'siswaKelas.siswa.user', 'siswaKelas.kelas.jurusan', 'createdBy', 'reviewedBy']);
 
         // Auto-populate severity-bucket recommendations if none exist yet
         if ($analisis->rekomendasis()->count() === 0) {
@@ -553,6 +553,57 @@ class AnalisisEntryController extends Controller
             $analisis->save();
         }
         return response()->json(['ok' => true]);
+    }
+
+    // Accept analysis review (set review_status → accepted)
+    public function acceptReview(Request $r, AnalisisEntry $analisis)
+    {
+        // Idempotent: jika sudah accepted, kembalikan status sekarang
+        if ($analisis->review_status === 'accepted') {
+            return response()->json([
+                'review_status' => $analisis->review_status,
+                'reviewed_by' => $analisis->reviewed_by,
+                'reviewed_at' => $analisis->reviewed_at,
+            ]);
+        }
+
+        $analisis->update([
+            'review_status' => 'accepted',
+            'reviewed_by' => Auth::id(),
+            'reviewed_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Analisis ditandai sebagai accepted.',
+            'review_status' => $analisis->review_status,
+            'reviewed_by' => $analisis->reviewed_by,
+            'reviewed_at' => $analisis->reviewed_at,
+        ]);
+    }
+
+    // Mark analysis as under revision (review_status → revised)
+    public function markRevised(Request $r, AnalisisEntry $analisis)
+    {
+        if ($analisis->review_status === 'revised') {
+            return response()->json([
+                'review_status' => $analisis->review_status,
+                'reviewed_by' => $analisis->reviewed_by,
+                'reviewed_at' => $analisis->reviewed_at,
+            ]);
+        }
+
+        $analisis->update([
+            'review_status' => 'revised',
+            'reviewed_by' => Auth::id(),
+            'reviewed_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Analisis ditandai untuk revisi.',
+            'review_status' => $analisis->review_status,
+            'reviewed_by' => $analisis->reviewed_by,
+            'reviewed_at' => $analisis->reviewed_at,
+        ]);
     }
 
     // Toggle needs_attention flag manually by guru (BK or WK)

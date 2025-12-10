@@ -262,6 +262,8 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
         Route::post('/{analisis}/finalize', [AnalisisEntryController::class, 'finalize'])->name('guru.analisis.finalize');
         Route::post('/{analisis}/attention', [AnalisisEntryController::class, 'attention'])->name('guru.analisis.attention');
         Route::post('/{analisis}/handling-status', [AnalisisEntryController::class, 'handlingStatus'])->name('guru.analisis.handling_status');
+        Route::post('/{analisis}/review-accept', [AnalisisEntryController::class, 'acceptReview'])->name('guru.analisis.review.accept');
+        Route::post('/{analisis}/review-revise', [AnalisisEntryController::class, 'markRevised'])->name('guru.analisis.review.revise');
         Route::get('/{analisis}/rekomendasi/{rid}/alternatives', [AnalisisEntryController::class, 'alternatives'])->name('guru.analisis.alternatives');
         Route::post('/{analisis}/revise-category', [AnalisisEntryController::class, 'reviseCategory'])->name('guru.analisis.revise-category');
     });

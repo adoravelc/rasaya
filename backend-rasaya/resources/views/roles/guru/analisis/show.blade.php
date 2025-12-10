@@ -60,6 +60,38 @@
                     </div>
                 </div>
 
+                @php
+                    $reviewStatus = $analisis->review_status ?? 'pending_review';
+                    $reviewBadgeMap = [
+                        'pending_review' => ['class' => 'text-bg-warning', 'text' => 'Pending Review'],
+                        'accepted' => ['class' => 'text-bg-success', 'text' => 'Accepted'],
+                        'revised' => ['class' => 'text-bg-info', 'text' => 'Revised'],
+                    ];
+                    $reviewBadge = $reviewBadgeMap[$reviewStatus] ?? ['class' => 'text-bg-secondary', 'text' => $reviewStatus];
+                @endphp
+                <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+                    <span id="review-badge" class="badge {{ $reviewBadge['class'] }}">{{ $reviewBadge['text'] }}</span>
+                    @if ($reviewStatus === 'pending_review')
+                        <div class="btn-group" role="group" aria-label="Review actions">
+                            <button type="button" class="btn btn-sm btn-success" onclick="acceptReview({{ $analisis->id }});">
+                                <i class="bi bi-check2-circle"></i> Accept
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="startRevision({{ $analisis->id }});">
+                                <i class="bi bi-pencil-square"></i> Revisi
+                            </button>
+                        </div>
+                    @elseif ($reviewStatus === 'accepted')
+                        <span class="small text-muted">
+                            Disetujui {{ $analisis->reviewed_at?->format('d M Y H:i') ?? '' }}
+                            @if ($analisis->reviewedBy)
+                                oleh {{ $analisis->reviewedBy->name }}
+                            @endif
+                        </span>
+                    @elseif ($reviewStatus === 'revised')
+                        <span class="small text-muted">Status revisi, lanjutkan edit di bawah.</span>
+                    @endif
+                </div>
+
                 <h5 class="mb-1">Ringkasan</h5>
                 <div class="mb-2">
                     <form id="attention-form" class="d-inline-flex align-items-center gap-2" method="post"
@@ -238,12 +270,14 @@
                                 <br><small class="text-muted">Oleh: {{ $analisis->revisedBy->name ?? '-' }} pada {{ $analisis->revised_at?->format('d M Y H:i') }}</small>
                             </div>
                         @else
-                            <button type="button" class="btn btn-warning btn-sm mt-3" data-bs-toggle="modal" data-bs-target="#revisiKategoriModal">
-                                <i class="bi bi-pencil-square"></i> Revisi Kategori
-                            </button>
-                            <button type="button" class="btn btn-outline-primary btn-sm mt-3 ms-2" data-bs-toggle="modal" data-bs-target="#editFleksibelModal">
-                                <i class="bi bi-pencil-square"></i> Edit Hasil Analisis
-                            </button>
+                            <div id="revision-actions" class="{{ $reviewStatus === 'pending_review' ? 'd-none' : '' }}">
+                                <button type="button" class="btn btn-warning btn-sm mt-3" data-bs-toggle="modal" data-bs-target="#revisiKategoriModal">
+                                    <i class="bi bi-pencil-square"></i> Revisi Kategori
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm mt-3 ms-2" data-bs-toggle="modal" data-bs-target="#editFleksibelModal">
+                                    <i class="bi bi-pencil-square"></i> Revisi Rekomendasi Tindakan
+                                </button>
+                            </div>
                         @endif
                     </div>
                 @endif
@@ -709,6 +743,61 @@
                     (data.errors ? JSON.stringify(data.errors) : '');
             } catch (err) {
                 document.getElementById('rej-error').innerText = err.message || 'Gagal menyimpan';
+            }
+        }
+
+        async function acceptReview(analisisId) {
+            const url = `${location.origin}/guru/analisis/${analisisId}/review-accept`;
+            const fd = new FormData();
+            fd.append('_token', csrf);
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    body: fd,
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (res.ok) {
+                    location.reload();
+                    return;
+                }
+
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || 'Gagal menandai accepted');
+            } catch (err) {
+                alert(err.message || 'Gagal menandai accepted');
+            }
+        }
+
+        async function startRevision(analisisId) {
+            const url = `${location.origin}/guru/analisis/${analisisId}/review-revise`;
+            const fd = new FormData();
+            fd.append('_token', csrf);
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    body: fd,
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.message || 'Gagal masuk mode revisi');
+                }
+
+                // Reveal revision controls
+                const actions = document.getElementById('revision-actions');
+                if (actions) actions.classList.remove('d-none');
+                const badge = document.getElementById('review-badge');
+                if (badge) {
+                    badge.classList.remove('text-bg-warning', 'text-bg-success', 'text-bg-secondary');
+                    badge.classList.add('text-bg-info');
+                    badge.textContent = 'Revised';
+                }
+            } catch (err) {
+                alert(err.message || 'Gagal memulai revisi');
             }
         }
 
