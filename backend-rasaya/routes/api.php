@@ -59,15 +59,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Mood tracker (siswa, guru, admin)
     Route::post('/mood', [MoodController::class, 'store']);   // siswa submit
-    Route::put('/mood/{id}', [MoodController::class, 'update']);   // update mood existing
+    Route::post('/mood/{id}', [MoodController::class, 'update']);
     Route::get('/mood/today', [MoodController::class, 'today']);   // status hari ini
     Route::get('/mood/history', [MoodController::class, 'history']); // riwayat
 
     // Booking konseling (siswa)
-    Route::get('/slots/available', [BookingKonselingController::class,'available']);
-    Route::post('/bookings',                [BookingKonselingController::class,'book']);      // {slot_id}
-    Route::get('/bookings/me',              [BookingKonselingController::class,'myBookings']);
-    Route::post('/bookings/{id}/cancel',    [BookingKonselingController::class,'cancelMine']);
+    Route::get('/slots/available', [BookingKonselingController::class, 'available']);
+    Route::post('/bookings', [BookingKonselingController::class, 'book']);      // {slot_id}
+    Route::get('/bookings/me', [BookingKonselingController::class, 'myBookings']);
+    Route::post('/bookings/{id}/cancel', [BookingKonselingController::class, 'cancelMine']);
 
     // ==== Admin only ====
     Route::middleware('role:admin')->group(function () {

@@ -239,8 +239,6 @@ class AnalisisEntryController extends Controller
 
         $analisis->setRelation('rekomendasis', $sortedRekomendasis);
 
-        // ... (SISA KODE KE BAWAH TETAP SAMA SEPERTI ASLINYA) ...
-
         $isWali = optional(Auth::user()->guru)->jenis === 'wali_kelas';
 
         // Kumpulkan semua input yang termasuk dalam rentang analisis ini
