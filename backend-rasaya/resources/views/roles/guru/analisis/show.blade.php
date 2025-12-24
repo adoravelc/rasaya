@@ -163,6 +163,7 @@
                                 <i class="bi bi-send me-1"></i>Ajukan Konseling BK
                             </button>
                         </form>
+                        <span class="small text-muted ms-2">Wali Kelas / guru lain hanya mengajukan referral, jadwal konseling akan diatur oleh Guru BK.</span>
                     @endif
                 </div>
                 @php
@@ -348,8 +349,7 @@
                             <div class="small text-muted mb-1">Status: <strong>{{ $r->status }}</strong></div>
                             @if ($r->status === 'suggested')
                                 <form class="d-inline" method="post"
-                                    action="{{ route('guru.analisis.decide', [$analisis->id, $r->id]) }}"
-                                    onsubmit="window.__accepted = true;">
+                                    action="{{ route('guru.analisis.decide', [$analisis->id, $r->id]) }}">
                                     @csrf
                                     <input type="hidden" name="action" value="accept">
                                     <button class="btn btn-sm btn-success">Terima</button>
@@ -874,37 +874,6 @@
             });
         })();
 
-        // Auto-finalize on page leave
-        (function() {
-            window.__accepted = window.__accepted || false;
-            window.__finalized = false;
-
-            const finalize = () => {
-                if (window.__finalized) return;
-                if (!window.__accepted) return;
-                window.__finalized = true;
-
-                try {
-                    const analisisId = {{ $analisis->id }};
-                    const url = `${location.origin}/guru/analisis/${analisisId}/finalize`;
-                    const data = new FormData();
-                    data.append('_token', csrf);
-
-                    fetch(url, {
-                        method: 'POST',
-                        body: data,
-                        keepalive: true,
-                        headers: {
-                            'Accept': 'application/json'
-                        }
-                    });
-                } catch (e) {}
-            };
-
-            window.addEventListener('beforeunload', finalize);
-            window.addEventListener('pagehide', finalize);
-        })();
-
         // (Duplicate attention toggle listener removed)
     </script>
 @endpush
@@ -1205,6 +1174,12 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        // Jika pakai custom rekomendasi, kategori wajib diisi supaya request ke admin valid
+        if (!masterRekId && !kategoriId) {
+            alert('Pilih kategori masalah terlebih dahulu sebelum mengirim request rekomendasi baru ke admin');
+            return;
+        }
+
         const body = {};
         if (masterRekId) {
             body.master_rekomendasi_id = parseInt(masterRekId, 10);
@@ -1226,7 +1201,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify(body)
             });
             const result = await resp.json();
-            if (!resp.ok) throw new Error(result.error || result.message || 'Gagal menyimpan');
+            if (!resp.ok) {
+                // Tampilkan pesan validasi yang lebih ramah jika ada
+                let msg = result.error || result.message || 'Gagal menyimpan';
+                if (result.errors) {
+                    const first = Object.values(result.errors).flat()[0];
+                    if (first) msg = first;
+                }
+                throw new Error(msg);
+            }
             
             alert('Rekomendasi berhasil ditambahkan!');
             window.location.reload();

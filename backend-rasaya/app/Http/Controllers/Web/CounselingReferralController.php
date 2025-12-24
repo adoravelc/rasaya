@@ -27,9 +27,14 @@ class CounselingReferralController extends Controller
             ]);
 
             $user = $request->user();
-            // Basic guard: must be guru (role guru) and NOT guru BK for referral; guru BK can schedule directly.
+            // Guard: hanya guru non-BK yang mengajukan referral.
+            // Guru BK diarahkan untuk menjadwalkan langsung dari analisis / dashboard BK.
             if ($user->role !== 'guru') {
                 return redirect()->back()->with('error', 'Hanya guru yang dapat mengajukan referral.');
+            }
+            $guru = $user->guru;
+            if ($guru && $guru->jenis === 'bk') {
+                return redirect()->back()->with('error', 'Guru BK dapat langsung menjadwalkan konseling privat tanpa mengajukan referral. Gunakan tombol "Jadwalkan Konseling Privat" pada analisis atau dashboard BK.');
             }
             
             // Validasi siswa_kelas exists
@@ -76,7 +81,7 @@ class CounselingReferralController extends Controller
     {
         $ref = CounselingReferral::pending()->findOrFail($id);
         $user = $request->user();
-        if ($user->role !== 'guru' || !$user->guru) {
+        if ($user->role !== 'guru' || !$user->guru || $user->guru->jenis !== 'bk') {
             abort(403,'Hanya Guru BK yang dapat menerima referral.');
         }
         // Mark accepted
@@ -97,7 +102,7 @@ class CounselingReferralController extends Controller
     {
         $ref = CounselingReferral::findOrFail($referralId);
         $user = $request->user();
-        if ($user->role !== 'guru' || !$user->guru) {
+        if ($user->role !== 'guru' || !$user->guru || $user->guru->jenis !== 'bk') {
             abort(403,'Akses ditolak.');
         }
         if (!in_array($ref->status,['accepted','pending'])) {
@@ -109,9 +114,24 @@ class CounselingReferralController extends Controller
         }
         $siswaKelas = $ref->siswaKelas()->with(['siswa.user','kelas'])->first();
 
+        // Ringkasan jadwal Guru BK (7 hari ke depan) untuk membantu memilih waktu
+        $upcomingSlots = collect();
+        $guru = $user->guru;
+        if ($guru) {
+            $nowWita = now()->setTimezone('Asia/Makassar');
+            $upcomingSlots = SlotKonseling::with(['bookings.siswaKelas.siswa.user'])
+                ->where('guru_id', $guru->user_id)
+                ->where('status', 'published')
+                ->where('start_at', '>=', $nowWita->copy()->startOfDay())
+                ->where('start_at', '<=', $nowWita->copy()->addDays(7)->endOfDay())
+                ->orderBy('start_at')
+                ->get();
+        }
+
         return view('roles.guru.guru_bk.private_slot_create',[
             'referral' => $ref,
             'siswaKelas' => $siswaKelas,
+            'upcomingSlots' => $upcomingSlots,
         ]);
     }
 
@@ -122,7 +142,7 @@ class CounselingReferralController extends Controller
     {
         $ref = CounselingReferral::findOrFail($referralId);
         $user = $request->user();
-        if ($user->role !== 'guru' || !$user->guru) {
+        if ($user->role !== 'guru' || !$user->guru || $user->guru->jenis !== 'bk') {
             abort(403,'Akses ditolak.');
         }
         if (!in_array($ref->status,['accepted','pending'])) {

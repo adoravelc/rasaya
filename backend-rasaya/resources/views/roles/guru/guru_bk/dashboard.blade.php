@@ -59,7 +59,7 @@
                                                 {{ $booking->slot->start_at->format('H:i') }} - {{ $booking->slot->end_at->format('H:i') }}
                                             </small>
                                         </td>
-                                        <td>
+                                        <td>6
                                             <div class="fw-medium">{{ $booking->siswaKelas->siswa->user->name }}</div>
                                             <small class="text-muted">{{ $booking->siswaKelas->siswa->user->identifier }}</small>
                                         </td>
@@ -100,6 +100,71 @@
                     </div>
                 </div>
                 @endif
+                {{-- Referral diterima tapi belum dijadwalkan --}}
+                @if(isset($acceptedUnscheduledReferrals) && $acceptedUnscheduledReferrals->count() > 0)
+                <div class="alert alert-warning border-warning small mb-3" role="alert">
+                    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
+                        <div>
+                            <div class="fw-semibold" style="color:var(--guru-navy);">
+                                <i class="bi bi-exclamation-circle me-1"></i>
+                                Ada {{ $acceptedUnscheduledReferrals->count() }} permintaan konseling privat yang sudah Anda terima tetapi belum memiliki jadwal.
+                            </div>
+                            <div class="text-muted">
+                                Tetapkan jadwal konseling privat agar siswa dan wali kelas mendapatkan kepastian waktu.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card shadow-sm mb-4" style="border-left:4px solid var(--guru-pink);background:rgba(236,72,153,0.04);">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <div>
+                                <h5 class="mb-0" style="color:var(--guru-pink-dark);"><i class="bi bi-calendar-event me-2"></i>Perlu Dijadwalkan</h5>
+                                <small class="text-muted">Referral yang sudah Anda terima namun belum memiliki jadwal konseling privat.</small>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                    <tr style="background:rgba(236,72,153,0.08);">
+                                        <th style="color:var(--guru-pink-dark);">Siswa</th>
+                                        <th style="color:var(--guru-pink-dark);">Diajukan Oleh</th>
+                                        <th style="color:var(--guru-pink-dark);">Kelas</th>
+                                        <th style="color:var(--guru-pink-dark);">Diterima Pada</th>
+                                        <th style="color:var(--guru-pink-dark);">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($acceptedUnscheduledReferrals as $ref)
+                                    <tr>
+                                        <td>
+                                            <div class="fw-medium">{{ optional($ref->siswaKelas->siswa->user)->name }}</div>
+                                            <small class="text-muted">{{ optional($ref->siswaKelas->siswa->user)->identifier }}</small>
+                                        </td>
+                                        <td>
+                                            <div class="fw-medium">{{ optional($ref->submittedBy)->name }}</div>
+                                            <small class="text-muted">{{ optional($ref->submittedBy)->identifier }}</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge text-bg-light">{{ optional($ref->siswaKelas->kelas)->label }}</span>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ optional($ref->accepted_at)->format('d/m/Y H:i') }}</small>
+                                        </td>
+                                        <td>
+                                            <a href="{{ route('guru.guru_bk.private_slots.create', $ref->id) }}" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-calendar-plus me-1"></i>Tentukan Jadwal
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
                 {{-- Pending Referrals --}}
                 @if(isset($pendingReferrals) && $pendingReferrals->count() > 0)
                 <div class="card shadow-sm mb-4" style="border-left:4px solid var(--guru-navy);background:rgba(30,58,138,0.04);">

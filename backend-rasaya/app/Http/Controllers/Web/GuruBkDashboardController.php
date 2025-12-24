@@ -40,6 +40,7 @@ class GuruBkDashboardController extends Controller
         $guru = $user->guru;
         $guruId = $guru ? $guru->user_id : null;
         $upcomingSchedules = collect();
+        $acceptedUnscheduledReferrals = collect();
         
         if ($guruId) {
             $upcomingSchedules = SlotBooking::with(['slot', 'siswaKelas.siswa.user', 'siswaKelas.kelas.jurusan'])
@@ -52,6 +53,15 @@ class GuruBkDashboardController extends Controller
                 ->where('status', 'booked')
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
+                ->get();
+
+            // Referral yang sudah diterima oleh Guru BK ini namun belum dijadwalkan (belum ada slot/booking)
+            $acceptedUnscheduledReferrals = CounselingReferral::with(['siswaKelas.siswa.user','submittedBy'])
+                ->accepted()
+                ->where('accepted_by_user_id', $user->id)
+                ->whereNull('slot_konseling_id')
+                ->orderByDesc('accepted_at')
+                ->limit(15)
                 ->get();
         }
 
@@ -67,6 +77,7 @@ class GuruBkDashboardController extends Controller
             'handledList' => $handledList,
             'upcomingSchedules' => $upcomingSchedules,
             'pendingReferrals' => $pendingReferrals,
+            'acceptedUnscheduledReferrals' => $acceptedUnscheduledReferrals,
         ]);
     }
 

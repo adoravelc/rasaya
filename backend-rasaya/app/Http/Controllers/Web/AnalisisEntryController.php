@@ -426,6 +426,48 @@ class AnalisisEntryController extends Controller
                 $analisis->needs_attention = true;
                 $analisis->save();
             }
+
+            // Otomatis tolak semua rekomendasi lain yang masih "suggested" untuk analisis ini
+            // sehingga hanya satu rekomendasi yang berstatus accepted.
+            $remaining = $analisis->rekomendasis()
+                ->where('status', 'suggested')
+                ->where('id', '!=', $rec->id)
+                ->get();
+
+            foreach ($remaining as $other) {
+                $other->update([
+                    'status' => 'rejected',
+                    'decided_by' => Auth::id(),
+                    'decided_at' => now(),
+                ]);
+
+                // ML feedback mirip finalize(): penalize kategori asli sedikit
+                try {
+                    $fromCat = optional($other->master?->kategoris?->first())->nama;
+                    if ($fromCat) {
+                        $rawKeywords = collect($analisis->kata_kunci ?? [])->pluck('term')->take(6);
+                        $keywords = collect();
+                        foreach ($rawKeywords as $phrase) {
+                            $words = collect(explode(' ', strtolower($phrase)))
+                                ->filter(fn($w) => strlen($w) >= 3)
+                                ->values();
+                            $keywords = $keywords->merge($words);
+                        }
+                        $keywords = $keywords->unique()->take(10)->values()->all();
+
+                        if (!empty($keywords)) {
+                            app(\App\Services\MlClient::class)->feedback(
+                                keywords: $keywords,
+                                from: $fromCat,
+                                to: null,
+                                delta: 0.15
+                            );
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // abaikan kegagalan feedback ML
+                }
+            }
             
             return back()->with('ok', 'Rekomendasi diterima. Sistem ML terus belajar dari keputusan Anda.');
         }
@@ -604,18 +646,25 @@ class AnalisisEntryController extends Controller
         ]);
     }
 
-    // Toggle needs_attention flag manually by guru (BK or WK)
+    // Toggle needs_attention flag manually by guru (BK atau Wali Kelas)
     public function attention(Request $r, AnalisisEntry $analisis)
     {
         $r->validate(['needs_attention' => ['required', 'boolean']]);
 
-        // Authorization: BK can toggle for all; WK only for their class
-        $guru = optional($r->user())->guru;
-        if (!$guru) {
+        $user = $r->user();
+        if (!$user || $user->role !== 'guru') {
             abort(403);
         }
-        if ($guru->jenis === 'wali_kelas') {
-            $allow = optional($analisis->siswaKelas?->kelas)->wali_guru_id === $r->user()->id;
+
+        $guru = optional($user)->guru;
+        $kelas = optional($analisis->siswaKelas)->kelas;
+
+        // Guru BK: boleh mengubah untuk semua siswa
+        if ($guru && $guru->jenis === 'bk') {
+            // allowed
+        } else {
+            // Wali Kelas atau guru lain: hanya boleh jika benar-benar wali kelas siswa tersebut
+            $allow = $kelas && (int) $kelas->wali_guru_id === (int) $user->id;
             abort_if(!$allow, 403);
         }
 
@@ -631,14 +680,20 @@ class AnalisisEntryController extends Controller
     public function handlingStatus(Request $r, AnalisisEntry $analisis)
     {
         $r->validate(['handling_status' => ['required', 'in:handled,resolved']]);
-
-        // Authorization: BK can toggle for all; WK only for their class
-        $guru = optional($r->user())->guru;
-        if (!$guru) {
+        $user = $r->user();
+        if (!$user || $user->role !== 'guru') {
             abort(403);
         }
-        if ($guru->jenis === 'wali_kelas') {
-            $allow = optional($analisis->siswaKelas?->kelas)->wali_guru_id === $r->user()->id;
+
+        $guru = optional($user)->guru;
+        $kelas = optional($analisis->siswaKelas)->kelas;
+
+        // Guru BK: boleh mengubah untuk semua siswa
+        if ($guru && $guru->jenis === 'bk') {
+            // allowed
+        } else {
+            // Wali Kelas atau guru lain: hanya boleh jika benar-benar wali kelas siswa tersebut
+            $allow = $kelas && (int) $kelas->wali_guru_id === (int) $user->id;
             abort_if(!$allow, 403);
         }
 

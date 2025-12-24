@@ -109,6 +109,11 @@ class AnalisisReviewController extends Controller
             }
             // Case 2: Submit custom rekomendasi ke admin
             elseif ($request->filled('custom_judul') && $request->filled('custom_deskripsi')) {
+                // Pastikan kategori dipilih agar tidak melanggar FK (kolom tidak boleh null)
+                $request->validate([
+                    'kategori_masalah_id' => 'required|exists:kategori_masalahs,id',
+                ]);
+
                 $created = \App\Models\RekomendasiRequest::create([
                     'kategori_masalah_id' => $request->kategori_masalah_id,
                     'requested_by' => Auth::id(),
