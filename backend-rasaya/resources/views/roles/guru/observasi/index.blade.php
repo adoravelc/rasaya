@@ -126,8 +126,8 @@
                                     @endif
                                 </td>
                                 <td class="td-gambar">
-                                    @if ($r->gambar)
-                                        <a href="{{ asset('storage/'.$r->gambar) }}" target="_blank" class="text-decoration-none">📎</a>
+                                        @if ($r->gambar_url)
+                                            <a href="{{ $r->gambar_url }}" target="_blank" class="text-decoration-none">📎</a>
                                     @else
                                         <span class="text-muted">—</span>
                                     @endif
@@ -365,7 +365,8 @@
                 const topik = d.master_kategori ? (d.master_kategori.nama || '-') : (d.master_kategori_masalah?.nama || d.master_kategori_masalah_id || '-');
                 document.getElementById('d-kategori').innerText = topik || '-';
                 document.getElementById('d-catatan').innerText = d.teks || '-';
-                const gambar = d.gambar ? `<a href="${location.origin}/storage/${d.gambar}" target="_blank">Lihat Lampiran</a>` : '-';
+                const gambarUrl = d.gambar_url || (d.gambar ? `${location.origin}/storage/${d.gambar}` : null);
+                const gambar = gambarUrl ? `<a href="${gambarUrl}" target="_blank">Lihat Lampiran</a>` : '-';
                 document.getElementById('d-gambar').innerHTML = gambar;
                 bsDetail.show();
             }catch(err){

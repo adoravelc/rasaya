@@ -4,10 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class InputGuru extends Model
 {
     use SoftDeletes;
+
+    protected $appends = ['gambar_url'];
 
     // Kalau kamu masih punya $fillable lama (isi, iduser_guru, dst) — ganti dengan ini
     protected $fillable = [
@@ -42,5 +45,19 @@ class InputGuru extends Model
     public function masterKategori()
     {
         return $this->belongsTo(MasterKategoriMasalah::class, 'master_kategori_masalah_id');
+    }
+
+    public function getGambarUrlAttribute(): ?string
+    {
+        if (!$this->gambar) {
+            return null;
+        }
+        // Izinkan override base URL via env jika Laravel dipasang di subfolder
+        $base = env('PUBLIC_STORAGE_URL');
+        if (!$base) {
+            $base = config('filesystems.disks.public.url') ?? (config('app.url') . '/storage');
+        }
+
+        return rtrim($base, '/') . '/' . ltrim($this->gambar, '/');
     }
 }
