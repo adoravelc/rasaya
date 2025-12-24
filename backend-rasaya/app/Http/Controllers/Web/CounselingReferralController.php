@@ -141,6 +141,17 @@ class CounselingReferralController extends Controller
         $startAt = \Carbon\Carbon::createFromFormat('Y-m-d H:i', $data['tanggal'].' '.$data['start_time'], 'Asia/Makassar');
         $endAt = (clone $startAt)->addMinutes($duration);
 
+        // Cek bentrok jadwal: guru_id + start_at sudah ada (massal / privat)
+        $guruId = $user->guru->user_id;
+        $conflict = SlotKonseling::where('guru_id', $guruId)
+            ->where('start_at', $startAt)
+            ->exists();
+        if ($conflict) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Jadwal tersebut sudah terpakai (ada slot konseling lain pada waktu yang sama). Silakan pilih jam lain atau sesuaikan durasi.');
+        }
+
         DB::beginTransaction();
         try {
             // Create slot private
@@ -176,6 +187,14 @@ class CounselingReferralController extends Controller
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
+
+            // Tangani error unik jadwal dengan pesan yang lebih ramah
+            if ($e instanceof \Illuminate\Database\QueryException && $e->getCode() === '23000' && str_contains($e->getMessage(), 'slot_konselings_guru_id_start_at_unique')) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Jadwal tersebut sudah terpakai untuk Guru BK ini. Silakan pilih waktu lain yang masih kosong.');
+            }
+
             return redirect()->back()->with('error','Gagal menjadwalkan: '.$e->getMessage());
         }
 

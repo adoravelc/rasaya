@@ -23,38 +23,39 @@
         <div class="card-body row g-2 align-items-end">
             <div class="col-md-3">
                 <label class="form-label">Cari</label>
-                <input type="text" class="form-control" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Cari siswa/kelas/teks">
+                <input type="text" class="form-control" name="q" value="{{ $filters['q'] ?? '' }}"
+                    placeholder="Cari siswa/kelas/teks">
             </div>
             @if (empty($wkKelasId))
-            <div class="col-md-3">
-                <label class="form-label">Kelas</label>
-                <select name="kelas_id" class="form-select">
-                    <option value="">— Semua —</option>
-                    @foreach ($kelasOptions as $opt)
-                        <option value="{{ $opt['id'] }}" @selected(($filters['kelas_id'] ?? '') == (string) $opt['id'])>{{ $opt['label'] }}</option>
-                    @endforeach
-                </select>
-            </div>
+                <div class="col-md-3">
+                    <label class="form-label">Kelas</label>
+                    <select name="kelas_id" class="form-select">
+                        <option value="">— Semua —</option>
+                        @foreach ($kelasOptions as $opt)
+                            <option value="{{ $opt['id'] }}" @selected(($filters['kelas_id'] ?? '') == (string) $opt['id'])>{{ $opt['label'] }}</option>
+                        @endforeach
+                    </select>
+                </div>
             @endif
             <div class="col-md-2">
                 <label class="form-label">Kondisi</label>
                 <select name="kondisi" class="form-select">
                     <option value="">— Semua —</option>
                     @foreach ($opsiKondisi as $opt)
-                        <option value="{{ $opt }}" @selected(($filters['kondisi'] ?? '')===$opt)>{{ strtoupper($opt) }}</option>
+                        <option value="{{ $opt }}" @selected(($filters['kondisi'] ?? '') === $opt)>{{ strtoupper($opt) }}</option>
                     @endforeach
                 </select>
             </div>
             @if (!empty($wkKelasId))
-            <div class="col-md-4">
-                <label class="form-label">Topik Besar (Filter)</label>
-                <select name="filter_master_kategori_id" class="form-select">
-                    <option value="">— Semua —</option>
-                    @foreach ($masterKategoris as $mk)
-                        <option value="{{ $mk->id }}" @selected(($filters['filter_master_kategori_id'] ?? '') == (string)$mk->id)>{{ $mk->nama }}</option>
-                    @endforeach
-                </select>
-            </div>
+                <div class="col-md-4">
+                    <label class="form-label">Topik Besar (Filter)</label>
+                    <select name="filter_master_kategori_id" class="form-select">
+                        <option value="">— Semua —</option>
+                        @foreach ($masterKategoris as $mk)
+                            <option value="{{ $mk->id }}" @selected(($filters['filter_master_kategori_id'] ?? '') == (string) $mk->id)>{{ $mk->nama }}</option>
+                        @endforeach
+                    </select>
+                </div>
             @endif
             <div class="col-md-2">
                 <label class="form-label">Dari</label>
@@ -91,29 +92,31 @@
                             @php
                                 $k = strtolower($r->kondisi_siswa ?? 'grey');
                                 $colorMap = [
-                                    'green'=>'#dcfce7',
-                                    'yellow'=>'#fef9c3',
-                                    'orange'=>'#ffedd5',
-                                    'red'=>'#fee2e2',
-                                    'black'=>'#1f2937',
-                                    'grey'=>'#f3f4f6'
+                                    'green' => '#dcfce7',
+                                    'yellow' => '#fef9c3',
+                                    'orange' => '#ffedd5',
+                                    'red' => '#fee2e2',
+                                    'black' => '#1f2937',
+                                    'grey' => '#f3f4f6',
                                 ];
                                 $rowBg = $colorMap[$k] ?? 'transparent';
-                                $rowFg = $k==='black' ? 'color:#fff;' : '';
-                                
+                                $rowFg = $k === 'black' ? 'color:#fff;' : '';
+
                                 $kondisiLabels = [
                                     'green' => 'Normal / Baik',
                                     'yellow' => 'Perlu Dipantau',
                                     'orange' => 'Butuh Perhatian Lebih',
                                     'red' => 'Perlu Intervensi Segera',
                                     'black' => 'Kritis / Darurat',
-                                    'grey' => 'Netral / Tidak Jelas'
+                                    'grey' => 'Netral / Tidak Jelas',
                                 ];
                                 $kondisiText = $kondisiLabels[$k] ?? strtoupper($r->kondisi_siswa);
                             @endphp
-                            <tr data-id="{{ $r->id }}" data-tanggal="{{ optional($r->tanggal)->format('Y-m-d') }}" style="background:{{ $rowBg }};{{ $rowFg }}">
+                            <tr data-id="{{ $r->id }}" data-tanggal="{{ optional($r->tanggal)->format('Y-m-d') }}"
+                                style="background:{{ $rowBg }};{{ $rowFg }}">
                                 <td>{{ $rows->firstItem() + $i }}</td>
-                                <td class="td-tanggal">{{ optional($r->tanggal)->locale('id')->translatedFormat('l, d F Y') }}</td>
+                                <td class="td-tanggal">
+                                    {{ optional($r->tanggal)->locale('id')->translatedFormat('l, d F Y') }}</td>
                                 <td class="td-siswakelas" data-siswakelas="{{ $r->siswa_kelas_id }}">
                                     {{ $r->siswaKelas->label ?? '-' }}
                                 </td>
@@ -126,8 +129,8 @@
                                     @endif
                                 </td>
                                 <td class="td-gambar">
-                                        @if ($r->gambar_url)
-                                            <a href="{{ $r->gambar_url }}" target="_blank" class="text-decoration-none">📎</a>
+                                    @if ($r->gambar_url)
+                                        <a href="{{ $r->gambar_url }}" target="_blank" class="text-decoration-none">📎</a>
                                     @else
                                         <span class="text-muted">—</span>
                                     @endif
@@ -182,12 +185,15 @@
 
                             <div class="col-md-8">
                                 <label class="form-label">Siswa (Kelas)</label>
-                                <input type="text" id="m-siswa-search" class="form-control mb-2" placeholder="Cari nama atau NISN...">
+                                <input type="text" id="m-siswa-search" class="form-control mb-2"
+                                    placeholder="Cari nama atau NISN...">
                                 <select id="m-siswakelas" class="form-select" required>
                                     <option value="">— Pilih —</option>
                                     @foreach ($siswaKelas as $sk)
-                                        @php($flagged = in_array($sk['id'], ($flaggedIds ?? [])))
-                                        <option value="{{ $sk['id'] }}" @if($flagged) style="font-weight:bold;color:#dc2626;background:#fee2e2" @endif>{{ $flagged ? '⚠ ' : '' }}{{ $sk['label'] }}</option>
+                                        @php($flagged = in_array($sk['id'], $flaggedIds ?? []))
+                                        <option value="{{ $sk['id'] }}"
+                                            @if ($flagged) style="font-weight:bold;color:#dc2626;background:#fee2e2" @endif>
+                                            {{ $flagged ? '⚠ ' : '' }}{{ $sk['label'] }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -200,15 +206,20 @@
                                             <option value="{{ $opt }}">{{ strtoupper($opt) }}</option>
                                         @endforeach
                                     </select>
-                                    <div id="kondisi-dot" class="rounded-circle" style="width:18px;height:18px;border:1px solid #cbd5e1"></div>
+                                    <div id="kondisi-dot" class="rounded-circle"
+                                        style="width:18px;height:18px;border:1px solid #cbd5e1"></div>
                                 </div>
                                 <div class="form-text mt-1">
                                     <span class="badge" style="background:#16a34a">GREEN — Aman (stabil)</span>
-                                    <span class="badge" style="background:#f59e0b;color:#000">YELLOW — Perlu perhatian awal</span>
-                                    <span class="badge" style="background:#f97316">ORANGE — Perlu tindak lanjut segera</span>
+                                    <span class="badge" style="background:#f59e0b;color:#000">YELLOW — Perlu perhatian
+                                        awal</span>
+                                    <span class="badge" style="background:#f97316">ORANGE — Perlu tindak lanjut
+                                        segera</span>
                                     <span class="badge" style="background:#dc2626">RED — Urgent (prioritas tinggi)</span>
-                                    <span class="badge" style="background:#111827">BLACK — Krisis (intervensi langsung)</span>
-                                    <span class="badge" style="background:#9ca3af;color:#000">GREY — Tidak diketahui</span>
+                                    <span class="badge" style="background:#111827">BLACK — Krisis (intervensi
+                                        langsung)</span>
+                                    <span class="badge" style="background:#9ca3af;color:#000">GREY — Tidak
+                                        diketahui</span>
                                 </div>
                             </div>
 
@@ -220,7 +231,8 @@
                                         <option value="{{ $mk->id }}">{{ $mk->nama }}</option>
                                     @endforeach
                                 </select>
-                                <div class="form-text">Guru memilih satu topik besar; sub-topik akan dipetakan otomatis oleh sistem analisis.</div>
+                                <div class="form-text">Guru memilih satu topik besar; sub-topik akan dipetakan otomatis
+                                    oleh sistem analisis.</div>
                             </div>
 
                             <div class="col-12">
@@ -230,8 +242,29 @@
 
                             <div class="col-md-6">
                                 <label class="form-label">Gambar (opsional)</label>
-                                <input id="m-gambar" type="file" accept="image/*" class="form-control">
-                                <div class="form-text">PNG/JPG maks 2MB</div>
+
+                                {{-- Container Preview Gambar Existing --}}
+                                <div id="preview-container"
+                                    class="d-none mb-2 p-2 border rounded bg-light position-relative">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <img id="img-preview" src="" alt="Preview" class="img-fluid rounded"
+                                            style="max-height: 100px; width: auto;">
+                                        <div>
+                                            <small class="d-block text-muted mb-1">Gambar saat ini</small>
+                                            <button type="button" class="btn btn-xs btn-danger" onclick="hapusGambar()">
+                                                Hapus Gambar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {{-- Input File --}}
+                                <input id="m-gambar" type="file" accept="image/*" class="form-control"
+                                    onchange="previewNewImage(this)">
+                                <div class="form-text">Upload baru untuk mengganti.</div>
+
+                                {{-- Input Hidden buat nandain kalo gambar dihapus --}}
+                                <input type="hidden" id="m-hapus-gambar-flag" value="0">
                             </div>
 
                             <div class="col-12">
@@ -284,11 +317,11 @@
 
 @push('scripts')
     <script>
-    const token = document.querySelector('meta[name="csrf-token"]').content;
+        const token = document.querySelector('meta[name="csrf-token"]').content;
         const base = "{{ route('guru.observasi.index') }}".replace(/\/$/, ''); // /guru/observasi
         const modalEl = document.getElementById('modal');
-    let bsModal;
-    let bsDetail;
+        let bsModal;
+        let bsDetail;
 
         document.addEventListener('DOMContentLoaded', () => {
             bsModal = new bootstrap.Modal(modalEl, {
@@ -311,7 +344,7 @@
             const sSel = document.getElementById('m-siswakelas');
             if (sIn && sSel) {
                 const opts = Array.from(sSel.options);
-                sIn.addEventListener('input', function(){
+                sIn.addEventListener('input', function() {
                     const q = this.value.trim().toLowerCase();
                     opts.forEach(opt => {
                         if (opt.value === '') return; // keep placeholder
@@ -321,16 +354,26 @@
                 });
             }
         });
-        async function openDetail(id){
-            try{
-                const res = await fetch(`${base}/${id}`, { headers: { 'Accept':'application/json' } });
-                if(!res.ok) throw new Error('Gagal memuat detail');
+        async function openDetail(id) {
+            try {
+                const res = await fetch(`${base}/${id}`, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                if (!res.ok) throw new Error('Gagal memuat detail');
                 const d = await res.json();
                 // Tanggal Observasi (tanpa waktu) - dari field tanggal
                 if (d.tanggal) {
                     try {
                         const t = new Date(d.tanggal);
-                        const f = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Makassar', weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).format(t);
+                        const f = new Intl.DateTimeFormat('id-ID', {
+                            timeZone: 'Asia/Makassar',
+                            weekday: 'long',
+                            day: '2-digit',
+                            month: 'long',
+                            year: 'numeric'
+                        }).format(t);
                         document.getElementById('d-tanggal').innerText = f;
                     } catch (_) {
                         document.getElementById('d-tanggal').innerText = d.tanggal;
@@ -342,8 +385,19 @@
                 // Format waktu dibuat (created_at) + WITA 24h
                 const created = d.created_at ? new Date(d.created_at) : null;
                 if (created) {
-                    const dateFmt = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Makassar', weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-                    const timeFmt = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Makassar', hour: '2-digit', minute: '2-digit', hour12: false });
+                    const dateFmt = new Intl.DateTimeFormat('id-ID', {
+                        timeZone: 'Asia/Makassar',
+                        weekday: 'long',
+                        day: '2-digit',
+                        month: 'long',
+                        year: 'numeric'
+                    });
+                    const timeFmt = new Intl.DateTimeFormat('id-ID', {
+                        timeZone: 'Asia/Makassar',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    });
                     const fd = dateFmt.format(created);
                     const ft = timeFmt.format(created);
                     document.getElementById('d-dibuat').innerText = `${fd} pukul ${ft} WITA`;
@@ -352,34 +406,60 @@
                 }
 
                 const siswa = d.siswa_kelas?.siswa?.user?.name ?? d.siswa_kelas?.siswa?.name ?? '-';
-                const kelas = d.siswa_kelas?.kelas ? `${d.siswa_kelas.kelas.tingkat} ${(d.siswa_kelas.kelas.jurusan?.nama ?? '').trim()} ${d.siswa_kelas.kelas.rombel}`.replace(/\s+/g,' ').trim() : '-';
+                const kelas = d.siswa_kelas?.kelas ?
+                    `${d.siswa_kelas.kelas.tingkat} ${(d.siswa_kelas.kelas.jurusan?.nama ?? '').trim()} ${d.siswa_kelas.kelas.rombel}`
+                    .replace(/\s+/g, ' ').trim() : '-';
                 document.getElementById('d-siswa').innerText = `${siswa} (${kelas})`;
                 // Kondisi: dot + label + keterangan
                 const kond = (d.kondisi_siswa || '').toLowerCase();
-                const colorMap = { green:'#16a34a', yellow:'#f59e0b', orange:'#fb923c', red:'#ef4444', black:'#111827', grey:'#9ca3af' };
-                const ketMap = { green:'Aman', yellow:'Perlu Perhatian', orange:'Perlu Tindak Lanjut', red:'Urgent', black:'Krisis', grey:'Tidak Diketahui' };
-                const dot = `<span class="rounded-circle me-2" style="display:inline-block;width:12px;height:12px;background:${colorMap[kond]||'#e5e7eb'};border:1px solid #cbd5e1"></span>`;
+                const colorMap = {
+                    green: '#16a34a',
+                    yellow: '#f59e0b',
+                    orange: '#fb923c',
+                    red: '#ef4444',
+                    black: '#111827',
+                    grey: '#9ca3af'
+                };
+                const ketMap = {
+                    green: 'Aman',
+                    yellow: 'Perlu Perhatian',
+                    orange: 'Perlu Tindak Lanjut',
+                    red: 'Urgent',
+                    black: 'Krisis',
+                    grey: 'Tidak Diketahui'
+                };
+                const dot =
+                    `<span class="rounded-circle me-2" style="display:inline-block;width:12px;height:12px;background:${colorMap[kond]||'#e5e7eb'};border:1px solid #cbd5e1"></span>`;
                 const label = (kond || '-').toUpperCase();
                 const ket = ketMap[kond] ? ` — ${ketMap[kond]}` : '';
                 document.getElementById('d-kondisi').innerHTML = `${dot}${label}${ket}`;
-                const topik = d.master_kategori ? (d.master_kategori.nama || '-') : (d.master_kategori_masalah?.nama || d.master_kategori_masalah_id || '-');
+                const topik = d.master_kategori ? (d.master_kategori.nama || '-') : (d.master_kategori_masalah?.nama ||
+                    d.master_kategori_masalah_id || '-');
                 document.getElementById('d-kategori').innerText = topik || '-';
                 document.getElementById('d-catatan').innerText = d.teks || '-';
                 const gambarUrl = d.gambar_url || (d.gambar ? `${location.origin}/storage/${d.gambar}` : null);
                 const gambar = gambarUrl ? `<a href="${gambarUrl}" target="_blank">Lihat Lampiran</a>` : '-';
                 document.getElementById('d-gambar').innerHTML = gambar;
                 bsDetail.show();
-            }catch(err){
+            } catch (err) {
                 alert(err.message || 'Gagal membuka detail');
             }
         }
 
         // kategori checkboxes handled directly via checked state; no hidden field needed
 
-        function paintKondisi(){
+        function paintKondisi() {
             const val = document.getElementById('m-kondisi').value.toLowerCase();
             const dot = document.getElementById('kondisi-dot');
-            const map = { green:'#16a34a', yellow:'#f59e0b', orange:'#fb923c', red:'#ef4444', black:'#111827', grey:'#9ca3af', aman:'#16a34a'};
+            const map = {
+                green: '#16a34a',
+                yellow: '#f59e0b',
+                orange: '#fb923c',
+                red: '#ef4444',
+                black: '#111827',
+                grey: '#9ca3af',
+                aman: '#16a34a'
+            };
             if (dot) dot.style.background = map[val] || '#e5e7eb';
         }
 
@@ -389,21 +469,34 @@
             // lock date to today (cannot change in UI)
             const today = new Date();
             const y = today.getFullYear();
-            const m = String(today.getMonth()+1).padStart(2,'0');
-            const d = String(today.getDate()).padStart(2,'0');
+            const m = String(today.getMonth() + 1).padStart(2, '0');
+            const d = String(today.getDate()).padStart(2, '0');
             const iso = `${y}-${m}-${d}`;
             document.getElementById('m-tanggal').value = iso;
-            try{
-                const f = new Intl.DateTimeFormat('id-ID', { timeZone:'Asia/Makassar', weekday:'long', day:'2-digit', month:'long', year:'numeric' }).format(today);
+            try {
+                const f = new Intl.DateTimeFormat('id-ID', {
+                    timeZone: 'Asia/Makassar',
+                    weekday: 'long',
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric'
+                }).format(today);
                 document.getElementById('m-tanggal-display').innerText = f;
-            }catch(_){ document.getElementById('m-tanggal-display').innerText = iso; }
+            } catch (_) {
+                document.getElementById('m-tanggal-display').innerText = iso;
+            }
             document.getElementById('m-siswakelas').value = '';
             document.getElementById('m-kondisi').value = "{{ $opsiKondisi[0] ?? 'aman' }}";
             document.getElementById('m-master-kategori').value = '';
-            const file = document.getElementById('m-gambar'); if (file) file.value = '';
+            const file = document.getElementById('m-gambar');
+            if (file) file.value = '';
             document.getElementById('m-catatan').value = '';
             document.getElementById('m-error').innerText = '';
             paintKondisi();
+            document.getElementById('m-title').innerText = 'Tambah Observasi';
+
+            // RESET BAGIAN GAMBAR
+            resetGambarUI();
             bsModal.show();
         }
 
@@ -411,10 +504,15 @@
             document.getElementById('m-title').innerText = 'Edit Observasi';
             document.getElementById('m-id').value = id;
             document.getElementById('m-error').innerText = '';
-            const file = document.getElementById('m-gambar'); if (file) file.value = '';
+            const file = document.getElementById('m-gambar');
+            if (file) file.value = '';
 
             try {
-                const res = await fetch(`${base}/${id}`, { headers: { 'Accept':'application/json' } });
+                const res = await fetch(`${base}/${id}`, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
                 if (!res.ok) throw new Error('Gagal memuat data');
                 const d = await res.json();
                 fillFormFromData(d);
@@ -424,13 +522,23 @@
                 if (tr) {
                     const raw = tr.getAttribute('data-tanggal') || "";
                     document.getElementById('m-tanggal').value = raw;
-                    try{
+                    try {
                         const t = raw ? new Date(raw) : null;
-                        const f = t ? new Intl.DateTimeFormat('id-ID', { timeZone:'Asia/Makassar', weekday:'long', day:'2-digit', month:'long', year:'numeric' }).format(t) : '-';
+                        const f = t ? new Intl.DateTimeFormat('id-ID', {
+                            timeZone: 'Asia/Makassar',
+                            weekday: 'long',
+                            day: '2-digit',
+                            month: 'long',
+                            year: 'numeric'
+                        }).format(t) : '-';
                         document.getElementById('m-tanggal-display').innerText = f || raw || '-';
-                    }catch(_){ document.getElementById('m-tanggal-display').innerText = raw || '-'; }
-                    document.getElementById('m-siswakelas').value = tr.querySelector('.td-siswakelas').dataset.siswakelas;
-                    document.getElementById('m-kondisi').value = tr.querySelector('.td-kondisi').innerText.trim().toLowerCase();
+                    } catch (_) {
+                        document.getElementById('m-tanggal-display').innerText = raw || '-';
+                    }
+                    document.getElementById('m-siswakelas').value = tr.querySelector('.td-siswakelas').dataset
+                        .siswakelas;
+                    document.getElementById('m-kondisi').value = tr.querySelector('.td-kondisi').innerText.trim()
+                        .toLowerCase();
                     // no subkategori editing in new flow
                     document.getElementById('m-catatan').value = '';
                 }
@@ -439,22 +547,67 @@
             bsModal.show();
         }
 
-        function fillFormFromData(d){
+        // 3. Fungsi Tombol Hapus Gambar (di klik user)
+        function hapusGambar() {
+            if (!confirm('Yakin mau menghapus gambar ini?')) return;
+
+            document.getElementById('preview-container').classList.add('d-none'); // Sembunyikan preview
+            document.getElementById('m-hapus-gambar-flag').value = '1'; // Tandai buat backend
+            document.getElementById('m-gambar').value = ''; // Reset input file
+        }
+
+        // 4. Helper buat reset UI (dipakai di openCreate)
+        function resetGambarUI() {
+            document.getElementById('preview-container').classList.add('d-none');
+            document.getElementById('img-preview').src = '';
+            document.getElementById('m-hapus-gambar-flag').value = '0';
+            const f = document.getElementById('m-gambar');
+            if (f) f.value = '';
+        }
+
+        function fillFormFromData(d) {
             // tanggal may be 'YYYY-mm-dd' or include time, slice to 10
-            const tgl = (d.tanggal || '').slice(0,10);
+            const tgl = (d.tanggal || '').slice(0, 10);
             const iso = tgl || "{{ now()->toDateString() }}";
             document.getElementById('m-tanggal').value = iso;
             try {
                 const t = new Date(iso);
-                const f = new Intl.DateTimeFormat('id-ID', { timeZone:'Asia/Makassar', weekday:'long', day:'2-digit', month:'long', year:'numeric' }).format(t);
+                const f = new Intl.DateTimeFormat('id-ID', {
+                    timeZone: 'Asia/Makassar',
+                    weekday: 'long',
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric'
+                }).format(t);
                 document.getElementById('m-tanggal-display').innerText = f;
-            } catch(_) { document.getElementById('m-tanggal-display').innerText = iso; }
+            } catch (_) {
+                document.getElementById('m-tanggal-display').innerText = iso;
+            }
             const siswakelasId = d.siswa_kelas_id || d.siswa_kelas?.id || '';
             document.getElementById('m-siswakelas').value = String(siswakelasId);
             const kondisi = (d.kondisi_siswa || '').toLowerCase();
             if (kondisi) document.getElementById('m-kondisi').value = kondisi;
             document.getElementById('m-master-kategori').value = d.master_kategori_masalah_id || '';
             document.getElementById('m-catatan').value = d.teks || '';
+            // LOGIKA GAMBAR
+            const container = document.getElementById('preview-container');
+            const img = document.getElementById('img-preview');
+            const flag = document.getElementById('m-hapus-gambar-flag');
+            const fileInput = document.getElementById('m-gambar');
+
+            // Reset dulu
+            flag.value = '0';
+            fileInput.value = '';
+
+            // Cek ada gambar gak dari database?
+            // d.gambar_url didapat dari accessor model InputGuru
+            if (d.gambar_url) {
+                container.classList.remove('d-none'); // Munculin kotak preview
+                img.src = d.gambar_url; // Set src gambar
+            } else {
+                container.classList.add('d-none'); // Umpetin kalau gak ada
+                img.src = '';
+            }
         }
 
         async function submitForm(e) {
@@ -470,15 +623,20 @@
             const catatan = document.getElementById('m-catatan').value || '';
             fd.append('teks', catatan);
             const file = document.getElementById('m-gambar');
-            if (file && file.files && file.files[0]) fd.append('gambar', file.files[0]);
+            const hapusFlag = document.getElementById('m-hapus-gambar-flag').value;
 
+            if (file && file.files && file.files[0]) {
+                fd.append('gambar', file.files[0]); // Kalau user upload baru
+            } else if (hapusFlag === '1') {
+                fd.append('hapus_gambar', '1'); // Kalau user klik hapus
+            }
             const res = await fetch(id ? `${base}/${id}` : base, {
                 method: id ? 'POST' : 'POST', // we'll override with _method for PUT
                 headers: {
                     'X-CSRF-TOKEN': token,
                     'Accept': 'application/json'
                 },
-                body: (function(){
+                body: (function() {
                     if (id) fd.append('_method', 'PUT');
                     return fd;
                 })()
@@ -488,7 +646,8 @@
             if (!res.ok) {
                 // handle duplicate (409) by prompting to edit existing
                 if (res.status === 409 && data && data.existing_id) {
-                    const proceed = confirm((data.message || 'Data duplikat untuk hari ini.') + '\nBuka dan edit data yang sudah ada?');
+                    const proceed = confirm((data.message || 'Data duplikat untuk hari ini.') +
+                        '\nBuka dan edit data yang sudah ada?');
                     if (proceed) {
                         bsModal.hide();
                         await openEdit(data.existing_id);
@@ -513,7 +672,7 @@
             });
             if (res.ok) location.reload();
         }
-        document.addEventListener('DOMContentLoaded', ()=>{
+        document.addEventListener('DOMContentLoaded', () => {
             paintKondisi();
             const sel = document.getElementById('m-kondisi');
             if (sel) sel.addEventListener('change', paintKondisi);

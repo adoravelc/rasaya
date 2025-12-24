@@ -37,7 +37,7 @@ class InputGuruController extends Controller
             $q->whereDate('tanggal', '<=', $r->date('date_to'));
         }
         if ($r->filled('q')) {
-            $text = '%'.(string)$r->input('q').'%';
+            $text = '%' . (string) $r->input('q') . '%';
             $q->where('teks', 'like', $text); // khusus cari di catatan saja
         }
         // optional filter by topik besar (single)
@@ -82,21 +82,21 @@ class InputGuruController extends Controller
             ->values()
             ->map(fn($sk) => ['id' => $sk->id, 'label' => $sk->label]);
 
-    $opsiKondisi = ['green', 'yellow', 'orange', 'red', 'black', 'grey'];
-    // Topik besar (master) untuk pilihan guru (hanya satu)
-    $masterKategoris = MasterKategoriMasalah::aktif()->orderBy('nama')->get(['id','nama']);
+        $opsiKondisi = ['green', 'yellow', 'orange', 'red', 'black', 'grey'];
+        // Topik besar (master) untuk pilihan guru (hanya satu)
+        $masterKategoris = MasterKategoriMasalah::aktif()->orderBy('nama')->get(['id', 'nama']);
 
         // Pass filters back to view
         $filters = [
-            'q' => (string) $r->input('q',''),
-            'kelas_id' => (string) $r->input('kelas_id',''),
-            'kondisi' => (string) $r->input('kondisi',''),
-            'date_from' => (string) $r->input('date_from',''),
-            'date_to' => (string) $r->input('date_to',''),
+            'q' => (string) $r->input('q', ''),
+            'kelas_id' => (string) $r->input('kelas_id', ''),
+            'kondisi' => (string) $r->input('kondisi', ''),
+            'date_from' => (string) $r->input('date_from', ''),
+            'date_to' => (string) $r->input('date_to', ''),
             'filter_master_kategori_id' => $filterMaster,
         ];
 
-    return view('roles.guru.observasi.index', compact('rows', 'siswaKelas', 'masterKategoris', 'opsiKondisi', 'filters', 'kelasOptions', 'wkKelasId', 'flaggedIds'));
+        return view('roles.guru.observasi.index', compact('rows', 'siswaKelas', 'masterKategoris', 'opsiKondisi', 'filters', 'kelasOptions', 'wkKelasId', 'flaggedIds'));
     }
 
     public function store(Request $r): JsonResponse
@@ -108,7 +108,7 @@ class InputGuruController extends Controller
             // tanggal ditetapkan otomatis (hari ini), abaikan input dari klien
             'kondisi_siswa' => ['required', Rule::in(['green', 'yellow', 'orange', 'red', 'black', 'grey'])],
             'gambar' => ['nullable', 'image', 'max:2048'],
-            'master_kategori_masalah_id' => ['nullable','integer', Rule::exists('master_kategori_masalahs','id')],
+            'master_kategori_masalah_id' => ['nullable', 'integer', Rule::exists('master_kategori_masalahs', 'id')],
         ]);
 
         // ambil id guru dari relasi; fallback ke user->id (karena gurus.user_id == users.id)
@@ -118,8 +118,8 @@ class InputGuruController extends Controller
         // If this user is a wali kelas, restrict siswa_kelas selection to their own kelas
         $wkKelasId = \App\Models\Kelas::where('wali_guru_id', $r->user()->id)->latest('tahun_ajaran_id')->value('id');
         if ($wkKelasId) {
-            $sk = SiswaKelas::findOrFail((int)$r->siswa_kelas_id);
-            if ($sk->kelas_id !== (int)$wkKelasId) {
+            $sk = SiswaKelas::findOrFail((int) $r->siswa_kelas_id);
+            if ($sk->kelas_id !== (int) $wkKelasId) {
                 abort(403, 'Anda hanya bisa input untuk siswa di kelas Anda.');
             }
         }
@@ -128,12 +128,12 @@ class InputGuruController extends Controller
         if ($teks === null || $teks === '')
             $teks = $r->input('catatan', '');
 
-    // tanggal target: selalu hari ini (kunci di server)
-    $tanggal = now()->toDateString();
+        // tanggal target: selalu hari ini (kunci di server)
+        $tanggal = now()->toDateString();
 
         // duplicate guard: guru + siswa_kelas + tanggal
         $dup = InputGuru::where('guru_id', $guruId)
-            ->where('siswa_kelas_id', (int)$r->siswa_kelas_id)
+            ->where('siswa_kelas_id', (int) $r->siswa_kelas_id)
             ->whereDate('tanggal', $tanggal)
             ->first();
         if ($dup) {
@@ -167,7 +167,7 @@ class InputGuruController extends Controller
 
     public function show(InputGuru $observasi): JsonResponse
     {
-    return response()->json($observasi->load('siswaKelas.siswa.user', 'siswaKelas.kelas.jurusan', 'masterKategori'));
+        return response()->json($observasi->load('siswaKelas.siswa.user', 'siswaKelas.kelas.jurusan', 'masterKategori'));
     }
 
     public function update(Request $r, InputGuru $observasi): JsonResponse
@@ -176,23 +176,22 @@ class InputGuruController extends Controller
             'siswa_kelas_id' => ['sometimes', 'integer', Rule::exists('siswa_kelass', 'id')],
             'teks' => ['nullable', 'string'],
             'catatan' => ['nullable', 'string'],
-            // tanggal tidak dapat diubah melalui update
             'kondisi_siswa' => ['sometimes', Rule::in(['green', 'yellow', 'orange', 'red', 'black', 'grey'])],
             'gambar' => ['nullable', 'image', 'max:2048'],
-            'master_kategori_masalah_id' => ['sometimes','nullable','integer', Rule::exists('master_kategori_masalahs','id')],
+            'master_kategori_masalah_id' => ['sometimes', 'nullable', 'integer', Rule::exists('master_kategori_masalahs', 'id')],
         ]);
 
-        // Jangan pernah menerima perubahan tanggal via update
-    $data = $r->only(['siswa_kelas_id', 'kondisi_siswa','master_kategori_masalah_id']);
+        $data = $r->only(['siswa_kelas_id', 'kondisi_siswa', 'master_kategori_masalah_id']);
 
-        // If WK, ensure new siswa_kelas (if provided) belongs to own kelas
+        // ... (Validasi Wali Kelas & Teks sama seperti sebelumnya) ...
         $wkKelasId = \App\Models\Kelas::where('wali_guru_id', $r->user()->id)->latest('tahun_ajaran_id')->value('id');
         if ($wkKelasId && $r->filled('siswa_kelas_id')) {
-            $sk = SiswaKelas::findOrFail((int)$r->siswa_kelas_id);
-            if ($sk->kelas_id !== (int)$wkKelasId) {
+            $sk = SiswaKelas::findOrFail((int) $r->siswa_kelas_id);
+            if ($sk->kelas_id !== (int) $wkKelasId) {
                 abort(403, 'Anda hanya bisa input untuk siswa di kelas Anda.');
             }
         }
+
         $teks = $r->input('teks');
         if (($teks === null || $teks === '') && $r->filled('catatan')) {
             $teks = $r->input('catatan');
@@ -201,32 +200,46 @@ class InputGuruController extends Controller
             $data['teks'] = $teks;
         }
 
-        // duplicate guard on update: tanggal dikunci ke tanggal observasi
+        // ... (Validasi Duplikat sama seperti sebelumnya) ...
         $targetTanggal = (string) $observasi->tanggal;
-        $targetSiswaKelasId = $r->filled('siswa_kelas_id') ? (int)$r->siswa_kelas_id : (int)$observasi->siswa_kelas_id;
+        $targetSiswaKelasId = $r->filled('siswa_kelas_id') ? (int) $r->siswa_kelas_id : (int) $observasi->siswa_kelas_id;
         $dup = InputGuru::where('guru_id', $observasi->guru_id)
             ->where('siswa_kelas_id', $targetSiswaKelasId)
             ->whereDate('tanggal', $targetTanggal)
             ->where('id', '<>', $observasi->id)
             ->first();
+
         if ($dup) {
             return response()->json([
-                'message' => 'Observasi untuk siswa ini pada tanggal tersebut sudah ada. Ingin mengedit yang sudah ada?',
+                'message' => 'Observasi untuk siswa ini pada tanggal tersebut sudah ada.',
                 'existing_id' => $dup->id,
             ], 409);
         }
 
+        // === BAGIAN INI YANG DIPERBAIKI ===
+
+        // 1. Jika ada upload gambar BARU
         if ($r->hasFile('gambar')) {
-            // delete old if exists
+            // Hapus gambar lama fisik
             if ($observasi->gambar) {
                 Storage::disk('public')->delete($observasi->gambar);
             }
+            // Simpan gambar baru
             $data['gambar'] = $r->file('gambar')->store('observasi', 'public');
         }
+        // 2. Jika tidak upload baru, tapi bendera HAPUS dikirim (hapus_gambar == '1')
+        elseif ($r->input('hapus_gambar') == '1') {
+            // Hapus gambar lama fisik
+            if ($observasi->gambar) {
+                Storage::disk('public')->delete($observasi->gambar);
+            }
+            // Set di database jadi NULL
+            $data['gambar'] = null;
+        }
+
+        // === SELESAI PERBAIKAN ===
 
         $observasi->update($data);
-
-        // tidak lagi menerima kategori_ids manual
 
         return response()->json($observasi->load('siswaKelas.siswa', 'siswaKelas.kelas', 'masterKategori'));
     }
