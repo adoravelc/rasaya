@@ -380,6 +380,69 @@ class _MoodTabState extends ConsumerState<_MoodTab> {
   final List<Map<String, dynamic>> _items = [];
   final Set<dynamic> _expanded = {};
 
+  String _baseHost() {
+    final api = ref.read(apiClientProvider);
+    final base = api.dio.options.baseUrl;
+    return base.replaceFirst(RegExp(r'/api/?$'), '');
+  }
+
+  String? _extractImagePath(Map<String, dynamic> m) {
+    for (final key in const [
+      'gambar_url',
+      'gambar',
+      'image_url',
+      'image',
+      'foto',
+      'photo',
+      'path'
+    ]) {
+      final v = m[key];
+      if (v is String && v.trim().isNotEmpty) return v.trim();
+    }
+    return null;
+  }
+
+  String _resolveImageUrl(String path) {
+    final host = _baseHost();
+    if (path.startsWith('http')) {
+      try {
+        final u = Uri.parse(path);
+        if (u.host == 'localhost' ||
+            u.host == '127.0.0.1' ||
+            u.host == '0.0.0.0') {
+          return '$host${u.path.startsWith('/') ? u.path : '/${u.path}'}';
+        }
+        return path;
+      } catch (_) {
+        return path;
+      }
+    }
+    return '$host${path.startsWith('/') ? path : '/$path'}';
+  }
+
+  Widget _buildNetworkImage(String? path) {
+    if (path == null || path.isEmpty) return const SizedBox.shrink();
+    final url = _resolveImageUrl(path);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          url,
+          height: 180,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            height: 180,
+            color: Colors.grey[200],
+            alignment: Alignment.center,
+            child: const Icon(Icons.broken_image),
+          ),
+        ),
+      ),
+    );
+  }
+
   Color _moodColorForScore(int s) {
     final t = ((s.clamp(1, 10) - 1) / 9.0);
     final hue = 120.0 * t; // 0=red -> 120=green
@@ -491,46 +554,10 @@ class _MoodTabState extends ConsumerState<_MoodTab> {
           final icon = _moodIconForScore(s);
           final color = _moodColorForScore(s);
 
-          // Helper extract image path for mood (prioritise absolute URL from backend)
-          String? extractMoodImage(Map<String, dynamic> item) {
-            for (final k in [
-              'gambar_url',
-              'gambar',
-              'image',
-              'photo',
-              'path'
-            ]) {
-              final v = item[k];
-              if (v is String && v.trim().isNotEmpty) return v.trim();
-            }
-            return null;
-          }
-
-          final gambarPath = extractMoodImage(m);
+          final gambarPath = _extractImagePath(m);
           final adaLampiran = gambarPath != null;
 
           final catatan = (m['catatan'] ?? '').toString();
-
-          // Resolve final URL; if backend already gives full URL (gambar_url), use it as-is.
-          String resolveUrl(String path) {
-            if (path.startsWith('http')) {
-              return path;
-            }
-            final api = ref.read(apiClientProvider);
-            final base =
-                api.dio.options.baseUrl.replaceFirst(RegExp(r'/api/?$'), '');
-
-            // Ensure we point to Laravel public storage if only relative path is provided
-            if (!path.startsWith('/')) {
-              path = '/$path';
-            }
-            if (!path.startsWith('/storage/')) {
-              path = '/storage${path}';
-            }
-            return '$base$path';
-          }
-
-          final gambarUrl = adaLampiran ? resolveUrl(gambarPath!) : '';
 
           return Card(
             clipBehavior: Clip.antiAlias,
@@ -577,21 +604,7 @@ class _MoodTabState extends ConsumerState<_MoodTab> {
                       if (adaLampiran)
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              gambarUrl,
-                              height: 180,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                height: 180,
-                                color: Colors.grey[200],
-                                alignment: Alignment.center,
-                                child: const Icon(Icons.broken_image),
-                              ),
-                            ),
-                          ),
+                          child: _buildNetworkImage(gambarPath),
                         ),
                     ],
                   ],
