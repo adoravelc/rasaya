@@ -491,11 +491,17 @@ class _MoodTabState extends ConsumerState<_MoodTab> {
           final icon = _moodIconForScore(s);
           final color = _moodColorForScore(s);
 
-          // Helper extract image path for mood (reused)
+          // Helper extract image path for mood (prioritise absolute URL from backend)
           String? extractMoodImage(Map<String, dynamic> item) {
-            for (final k in ['gambar', 'image', 'photo', 'path']) {
+            for (final k in [
+              'gambar_url',
+              'gambar',
+              'image',
+              'photo',
+              'path'
+            ]) {
               final v = item[k];
-              if (v is String && v.isNotEmpty) return v;
+              if (v is String && v.trim().isNotEmpty) return v.trim();
             }
             return null;
           }
@@ -505,14 +511,23 @@ class _MoodTabState extends ConsumerState<_MoodTab> {
 
           final catatan = (m['catatan'] ?? '').toString();
 
-          // Re-use logic for image url resolver from RefleksiTab
-          // (Since it's in the same file, we can duplicate logic or move helper to parent class.
-          // For simplicity, copy logic here or use a shared mixin)
+          // Resolve final URL; if backend already gives full URL (gambar_url), use it as-is.
           String resolveUrl(String path) {
+            if (path.startsWith('http')) {
+              return path;
+            }
             final api = ref.read(apiClientProvider);
             final base =
                 api.dio.options.baseUrl.replaceFirst(RegExp(r'/api/?$'), '');
-            return '$base${path.startsWith('/') ? path : '/$path'}';
+
+            // Ensure we point to Laravel public storage if only relative path is provided
+            if (!path.startsWith('/')) {
+              path = '/$path';
+            }
+            if (!path.startsWith('/storage/')) {
+              path = '/storage${path}';
+            }
+            return '$base$path';
           }
 
           final gambarUrl = adaLampiran ? resolveUrl(gambarPath!) : '';

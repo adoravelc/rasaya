@@ -76,18 +76,31 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
 
       if (res.ok && res.data is Map && res.data['data'] is List) {
         final me = ref.read(authControllerProvider).me ?? {};
-        final myUserId = me['id'];
+        final dynamic myRawId = me['id'];
+        final int? myUserId = myRawId is String
+            ? int.tryParse(myRawId)
+            : (myRawId is int ? myRawId : null);
+
         final list = (res.data['data'] as List).cast<Map>();
 
-        final newList = list
-            .map((e) => {
-                  'id': e['siswa_kelas_id'] ?? e['id'],
-                  'nama': (e['nama'] ?? e['siswa_nama'] ?? '').toString(),
-                  'user_id': e['user_id'] ?? e['siswa_user_id'] ?? e['id'],
-                  'kelas': (e['kelas_label'] ?? '').toString(),
-                })
-            .where((m) => (m['user_id'] ?? -1) != myUserId)
-            .toList();
+        final newList = list.map((e) {
+          final dynamic rawUserId =
+              e['user_id'] ?? e['siswa_user_id'] ?? e['id'];
+          final int? intUserId = rawUserId is String
+              ? int.tryParse(rawUserId)
+              : (rawUserId is int ? rawUserId : null);
+
+          return {
+            'id': e['siswa_kelas_id'] ?? e['id'],
+            'nama': (e['nama'] ?? e['siswa_nama'] ?? '').toString(),
+            'user_id': intUserId,
+            'kelas': (e['kelas_label'] ?? '').toString(),
+          };
+        }).where((m) {
+          final dynamic uid = m['user_id'];
+          if (uid == null || myUserId == null) return true;
+          return uid != myUserId;
+        }).toList();
 
         // Sortir
         newList.sort((a, b) {
@@ -113,6 +126,16 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
       final res = await FilePicker.platform.pickFiles(type: FileType.image);
       if (res != null && res.files.isNotEmpty) {
         final f = res.files.first;
+        // Laravel max:2048 KB (~2 MB)
+        const maxBytes = 2048 * 1024;
+        if (f.size != null && f.size! > maxBytes) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Ukuran file tidak boleh lebih dari 2 MB.'),
+            ));
+          }
+          return;
+        }
         setState(() {
           _webBytes = f.bytes;
           _webFilename = f.name;
@@ -125,6 +148,17 @@ class _RefleksiPageState extends ConsumerState<RefleksiPage> {
     final x =
         await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (x != null) {
+      // Laravel max:2048 KB (~2 MB)
+      const maxBytes = 2048 * 1024;
+      final size = await x.length();
+      if (size > maxBytes) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Ukuran file tidak boleh lebih dari 2 MB.'),
+          ));
+        }
+        return;
+      }
       setState(() {
         _pickedFile = x;
         _webBytes = null;

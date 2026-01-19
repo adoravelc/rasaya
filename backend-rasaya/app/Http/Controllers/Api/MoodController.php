@@ -13,9 +13,22 @@ class MoodController extends Controller
 {
     private function publicFileUrl(Request $r, ?string $path): ?string
     {
-        if (!$path)
+        if (!$path) {
             return null;
-        return $r->getSchemeAndHttpHost() . '/storage/' . ltrim($path, '/');
+        }
+
+        // Samakan logika dengan InputGuru::getGambarUrlAttribute
+        // agar bisa override base URL via PUBLIC_STORAGE_URL
+        $base = env('PUBLIC_STORAGE_URL');
+        if (!$base) {
+            $base = config('filesystems.disks.public.url');
+        }
+        if (!$base) {
+            $appUrl = config('app.url') ?: $r->getSchemeAndHttpHost();
+            $base = rtrim($appUrl, '/') . '/storage';
+        }
+
+        return rtrim($base, '/') . '/' . ltrim($path, '/');
     }
     private function getActiveRosterId(Request $r): int
     {
@@ -56,6 +69,9 @@ class MoodController extends Controller
         );
 
         $payload = $row->toArray();
+        if ($row->tanggal instanceof CarbonInterface) {
+            $payload['tanggal'] = $row->tanggal->toDateString();
+        }
         $payload['gambar_url'] = $this->publicFileUrl($r, $row->gambar); // <- pakai helper
         return response()->json($payload, 201);
     }
@@ -69,9 +85,14 @@ class MoodController extends Controller
             ->whereDate('tanggal', $tanggal)
             ->orderBy('sesi')
             ->get()
-            ->map(fn($m) => array_merge($m->toArray(), [
-                'gambar_url' => $this->publicFileUrl($r, $m->gambar), // <- pakai helper
-            ]));
+            ->map(function ($m) use ($r) {
+                $arr = $m->toArray();
+                if ($m->tanggal instanceof CarbonInterface) {
+                    $arr['tanggal'] = $m->tanggal->toDateString();
+                }
+                $arr['gambar_url'] = $this->publicFileUrl($r, $m->gambar); // <- pakai helper
+                return $arr;
+            });
 
         return ['tanggal' => $tanggal, 'sesi_now' => $this->resolveSesi(now()), 'items' => $items];
     }
@@ -84,9 +105,14 @@ class MoodController extends Controller
         if ($r->filled('tanggal_to'))
             $q->whereDate('tanggal', '<=', $r->date('tanggal_to'));
         $rows = $q->orderByDesc('tanggal')->orderBy('sesi')->paginate((int) $r->input('per_page', 20));
-        $rows->getCollection()->transform(fn($m) => array_merge($m->toArray(), [
-            'gambar_url' => $this->publicFileUrl($r, $m->gambar), // <- pakai helper
-        ]));
+        $rows->getCollection()->transform(function ($m) use ($r) {
+            $arr = $m->toArray();
+            if ($m->tanggal instanceof CarbonInterface) {
+                $arr['tanggal'] = $m->tanggal->toDateString();
+            }
+            $arr['gambar_url'] = $this->publicFileUrl($r, $m->gambar); // <- pakai helper
+            return $arr;
+        });
         return $rows;
     }
 
@@ -113,6 +139,9 @@ class MoodController extends Controller
         ]);
 
         $payload = $mood->toArray();
+        if ($mood->tanggal instanceof CarbonInterface) {
+            $payload['tanggal'] = $mood->tanggal->toDateString();
+        }
         $payload['gambar_url'] = $this->publicFileUrl($r, $mood->gambar);
         return response()->json($payload);
     }

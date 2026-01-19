@@ -220,20 +220,42 @@ class _MoodPageState extends ConsumerState<MoodPage>
         withData: true, // penting untuk dapat bytes
       );
       if (result != null && result.files.isNotEmpty) {
-        setState(() {
-          _webFile = result.files.first;
-          _imageFile = null;
-        });
+        final f = result.files.first;
+        // Laravel max:2048 KB (~2 MB)
+        const maxBytes = 2048 * 1024;
+        if (f.size != null && f.size! > maxBytes) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Ukuran file tidak boleh lebih dari 2 MB.'),
+            ));
+          }
+        } else {
+          setState(() {
+            _webFile = f;
+            _imageFile = null;
+          });
+        }
       }
     } else {
       final picker = ImagePicker();
       final x =
           await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
       if (x != null) {
-        setState(() {
-          _imageFile = x;
-          _webFile = null;
-        });
+        // Laravel max:2048 KB (~2 MB)
+        const maxBytes = 2048 * 1024;
+        final size = await x.length();
+        if (size > maxBytes) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Ukuran file tidak boleh lebih dari 2 MB.'),
+            ));
+          }
+        } else {
+          setState(() {
+            _imageFile = x;
+            _webFile = null;
+          });
+        }
       }
     }
   }

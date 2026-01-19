@@ -625,6 +625,15 @@
             const file = document.getElementById('m-gambar');
             const hapusFlag = document.getElementById('m-hapus-gambar-flag').value;
 
+            // Client-side size check: max 2 MB (2048 KB) same as backend
+            if (file && file.files && file.files[0]) {
+                const maxBytes = 2048 * 1024;
+                if (file.files[0].size > maxBytes) {
+                    alert('Ukuran file tidak boleh lebih dari 2 MB.');
+                    return;
+                }
+            }
+
             if (file && file.files && file.files[0]) {
                 fd.append('gambar', file.files[0]); // Kalau user upload baru
             } else if (hapusFlag === '1') {

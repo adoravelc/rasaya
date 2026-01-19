@@ -14,9 +14,21 @@ class InputSiswaController extends Controller
 {
     private function publicFileUrl(Request $r, ?string $path): ?string
     {
-        if (!$path)
+        if (!$path) {
             return null;
-        return $r->getSchemeAndHttpHost() . '/storage/' . ltrim($path, '/');
+        }
+
+        // Samakan dengan InputGuru::getGambarUrlAttribute agar konsisten
+        $base = env('PUBLIC_STORAGE_URL');
+        if (!$base) {
+            $base = config('filesystems.disks.public.url');
+        }
+        if (!$base) {
+            $appUrl = config('app.url') ?: $r->getSchemeAndHttpHost();
+            $base = rtrim($appUrl, '/') . '/storage';
+        }
+
+        return rtrim($base, '/') . '/' . ltrim($path, '/');
     }
 
     private function getActiveRosterId(Request $r): int

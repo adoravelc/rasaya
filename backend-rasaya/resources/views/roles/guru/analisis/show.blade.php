@@ -45,7 +45,15 @@
                     $clamped = max(-1, min(1, $sentimenScore));
                     $sentimenMarkerPct = (($clamped + 1) / 2) * 100;
                 @endphp
-                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                @php
+                    $rentangAwal = \Illuminate\Support\Carbon::parse($analisis->tanggal_awal_proses)
+                        ->locale('id')
+                        ->translatedFormat('l, d F Y');
+                    $rentangAkhir = \Illuminate\Support\Carbon::parse($analisis->tanggal_akhir_proses)
+                        ->locale('id')
+                        ->translatedFormat('l, d F Y');
+                @endphp
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
                     <div>
                         <div class="small text-muted">Siswa</div>
                         <div class="fw-semibold">
@@ -57,6 +65,12 @@
                                 Kelas: <strong>{{ optional($analisis->siswaKelas->kelas)->label }}</strong>
                             </div>
                         @endif
+                        <div class="small text-muted mt-1">
+                            Rentang:
+                            <strong>{{ $rentangAwal }}</strong>
+                            -
+                            <strong>{{ $rentangAkhir }}</strong>
+                        </div>
                     </div>
                 </div>
 
@@ -131,10 +145,6 @@
                             {{ $analisis->handling_status === 'handled' ? 'Sedang Ditangani' : 'Selesai' }}
                         </span>
                     @endif
-                </div>
-                <div class="text-muted small mb-3">
-                    Rentang: {{ \Illuminate\Support\Carbon::parse($analisis->tanggal_awal_proses)->toDateString() }} —
-                    {{ \Illuminate\Support\Carbon::parse($analisis->tanggal_akhir_proses)->toDateString() }}
                 </div>
                 @php
                     $user = auth()->user();
@@ -384,24 +394,9 @@
                             @forelse(($refleksisSelf ?? collect()) as $it)
                                 <div class="list-group-item">
                                     <div class="d-flex justify-content-between">
-                                        @php
-                                            $k = strtolower(trim((string) ($it->kondisi_siswa ?? '')));
-                                            if ($k === 'grey') {
-                                                $k = 'gray';
-                                            }
-                                            $pal = [
-                                                'green' => ['bg' => '#c9f2da', 'bd' => '#198754'],
-                                                'yellow' => ['bg' => '#ffefb3', 'bd' => '#ffc107'],
-                                                'orange' => ['bg' => '#ffd8b0', 'bd' => '#fd7e14'],
-                                                'red' => ['bg' => '#ffc9cf', 'bd' => '#dc3545'],
-                                                'blue' => ['bg' => '#cfe7ff', 'bd' => '#0d6efd'],
-                                                'gray' => ['bg' => '#f1f3f5', 'bd' => '#6c757d'],
-                                            ];
-                                            $c = $pal[$k] ?? $pal['gray'];
-                                        @endphp
-                                        <div class="list-group-item"
-                                            style="background-color: {{ $c['bg'] }}; border-left: 4px solid {{ $c['bd'] }};">
-                                            {{ \Illuminate\Support\Carbon::parse($it->tanggal)->toDateString() }}</div>
+                                        <div class="small text-muted">
+                                            {{ \Illuminate\Support\Carbon::parse($it->tanggal)->locale('id')->translatedFormat('l, d F Y') }}
+                                        </div>
                                         @if (!empty($it->avg_emosi))
                                             <div class="small">Mood:
                                                 <strong>{{ number_format($it->avg_emosi, 2) }}</strong>
@@ -428,11 +423,13 @@
                         <div class="list-group">
                             @forelse(($friendReports ?? collect()) as $it)
                                 <div class="list-group-item">
-                                    <div class="d-flex justify-content-between">
+                                    <div>
                                         <div class="small text-muted">
-                                            {{ \Illuminate\Support\Carbon::parse($it->tanggal)->toDateString() }}</div>
+                                            {{ \Illuminate\Support\Carbon::parse($it->tanggal)->locale('id')->translatedFormat('l, d F Y') }}
+                                        </div>
                                         @if ($it->siswaKelas && $it->siswaKelas->siswa && $it->siswaKelas->siswa->user)
-                                            <div class="small">Pelapor:
+                                            <div class="small mt-1">
+                                                Pelapor:
                                                 <strong>{{ $it->siswaKelas->siswa->user->name }}</strong>
                                             </div>
                                         @endif
@@ -479,7 +476,7 @@
                                     style="background-color: {{ $c['bg'] }}; border-left: 4px solid {{ $c['bd'] }};">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <div class="small text-muted">
-                                            {{ \Illuminate\Support\Carbon::parse($it->tanggal)->toDateString() }}</div>
+                                            {{ \Illuminate\Support\Carbon::parse($it->tanggal)->locale('id')->translatedFormat('l, d F Y') }}</div>
                                         <div class="small d-flex align-items-center">
                                             <span class="rounded-circle me-1"
                                                 style="display:inline-block;width:10px;height:10px;background: {{ $c['bd'] }}; border:1px solid #cbd5e1"></span>
