@@ -23,9 +23,9 @@ class AuthController extends Controller
         $user = User::where('identifier', $data['identifier'])->first();
 
         if (!$user || !\Illuminate\Support\Facades\Hash::check($data['password'], $user->password)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'identifier' => ['Identifier atau password salah.'],
-            ]);
+            return response()->json([
+                'message' => 'Username atau Password salah, mohon dicek kembali.',
+            ], 401);
         }
 
         $history = $user->loginHistories()->create([

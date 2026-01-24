@@ -43,6 +43,9 @@ class AuthController extends StateNotifier<AuthState> {
   final Ref _ref; // <— pakai Ref
   AuthController(this._ref) : super(const AuthState());
 
+  static const String _invalidCredentialsMessage =
+      'Username atau Password salah, mohon dicek kembali.';
+
   Future<void> bootstrap() async {
     print('🔐 Auth bootstrap: reading saved token');
     final token = await _ref.read(authRepoProvider).readSavedToken();
@@ -71,14 +74,21 @@ class AuthController extends StateNotifier<AuthState> {
       final me = await _ref.read(authRepoProvider).me(token);
       state = AuthState(loading: false, token: token, me: me);
     } on DioException catch (e) {
-      final msg =
-          e.response?.data is Map && (e.response?.data['message'] != null)
-              ? e.response?.data['message'].toString()
-              : 'Gagal login. Cek NIS/password.';
+      final status = e.response?.statusCode;
+
+      if (status == 401) {
+        state = state.copy(loading: false, error: _invalidCredentialsMessage);
+        return;
+      }
+
+      final data = e.response?.data;
+      final msg = (data is Map && data['message'] != null)
+          ? data['message'].toString()
+          : 'Gagal login. Mohon coba lagi.';
       state = state.copy(loading: false, error: msg);
     } catch (e) {
-      state =
-          state.copy(loading: false, error: 'Terjadi kesalahan tak terduga.');
+      state = state.copy(
+          loading: false, error: 'Terjadi kesalahan. Mohon coba lagi.');
     }
   }
 

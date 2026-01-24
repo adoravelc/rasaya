@@ -50,7 +50,7 @@ class AuthWebController extends Controller
             return redirect('/login');
         }
 
-        return back()->withErrors(['identifier' => 'Kredensial tidak valid.'])->onlyInput('identifier');
+        return back()->withErrors(['identifier' => 'Username atau Password salah, mohon dicek kembali.'])->onlyInput('identifier');
     }
 
     public function logout(Request $request)

@@ -1,5 +1,4 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:dio/dio.dart';
 import '../api/api_client.dart';
 
 class AuthRepository {
@@ -12,22 +11,15 @@ class AuthRepository {
     required String identifier,
     required String password,
   }) async {
-    try {
-      final res = await _client.dio.post('/login', data: {
-        'identifier': identifier,
-        'password': password,
-        'device_name': 'flutter',
-      });
-      final token = res.data['token'] as String;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_kTokenKey, token);
-      return token;
-    } on DioException catch (e) {
-      final msg = e.response?.data is Map && e.response?.data['message'] != null
-          ? e.response!.data['message'].toString()
-          : 'Gagal login. Periksa NIS/password.';
-      throw Exception(msg);
-    }
+    final res = await _client.dio.post('/login', data: {
+      'identifier': identifier,
+      'password': password,
+      'device_name': 'flutter',
+    });
+    final token = res.data['token'] as String;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kTokenKey, token);
+    return token;
   }
 
   Future<Map<String, dynamic>> me(String token) async {
