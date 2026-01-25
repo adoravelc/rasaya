@@ -223,6 +223,75 @@ class AnalisisService
             $avgSent = is_array($summary) ? (float)($summary['avg_sentiment'] ?? 0) : (float) $avg;
             $negRatio = is_array($summary) ? (float)($summary['negative_ratio'] ?? 0) : 0.0;
 
+            // Prefer taxonomy-matched keywords (cat_reasons) for auto summary
+            // This avoids noisy RAKE phrases that are not clinically/semantically meaningful.
+            $taxonomyKwCounts = [];
+            foreach (($itemsRaw ?? []) as $it) {
+                if (!is_array($it)) {
+                    continue;
+                }
+                if (!(bool)($it['negative_flag'] ?? false)) {
+                    continue;
+                }
+
+                $scores = $it['cat_scores'] ?? null;
+                $reasons = $it['cat_reasons'] ?? null;
+
+                if (!is_array($reasons) || empty($reasons)) {
+                    continue;
+                }
+
+                // Try to pick reasons for the best predicted category for this item.
+                $bestKey = null;
+                $bestVal = null;
+                if (is_array($scores) && !empty($scores)) {
+                    foreach ($scores as $k => $v) {
+                        if (!is_numeric($v)) {
+                            continue;
+                        }
+                        $fv = (float) $v;
+                        if ($bestVal === null || $fv > $bestVal) {
+                            $bestVal = $fv;
+                            $bestKey = (string) $k;
+                        }
+                    }
+                }
+
+                $kwList = [];
+                if ($bestKey !== null && isset($reasons[$bestKey]) && is_array($reasons[$bestKey])) {
+                    $kwList = $reasons[$bestKey];
+                } else {
+                    // Fallback: aggregate all reasons if best category not available
+                    foreach ($reasons as $arr) {
+                        if (is_array($arr)) {
+                            $kwList = array_merge($kwList, $arr);
+                        }
+                    }
+                }
+
+                foreach ($kwList as $kw) {
+                    $term = strtolower(trim((string) $kw));
+                    if ($term === '' || mb_strlen($term) < 3) {
+                        continue;
+                    }
+
+                    // Normalize tokens (keep consistent with earlier normalization)
+                    $tokens = collect(preg_split('/\s+/u', $term))->map(function ($tk) use ($dialectMap) {
+                        $base = strtolower((string) $tk);
+                        return $dialectMap[$base] ?? $base;
+                    });
+                    if ($tokens->count() === 1 && in_array($tokens[0], $stopSingles, true)) {
+                        continue;
+                    }
+                    $norm = trim($tokens->join(' '));
+                    if ($norm === '' || mb_strlen($norm) < 3) {
+                        continue;
+                    }
+
+                    $taxonomyKwCounts[$norm] = ($taxonomyKwCounts[$norm] ?? 0) + 1;
+                }
+            }
+
             // map category labels to friendly Indonesian phrases
             $labelMap = [ // map legacy bucket codes to taxonomy topic names; taxonomy topic names are used as-is
                 'EMOSI' => 'Kesehatan Mental & Emosi',
@@ -247,8 +316,16 @@ class AnalisisService
                 ->all();
             $catsTxt = empty($topCatsArr) ? null : implode(' dan ', $topCatsArr);
 
-            // pick 2-3 representative keywords after normalization above
-            $kwList = collect($keywords ?? [])->pluck('term')->take(3)->filter()->values()->all();
+            // pick 2-3 representative keywords:
+            // 1) taxonomy-matched keywords if available; else
+            // 2) fallback to ML RAKE keyphrases (existing behavior)
+            $kwList = [];
+            if (!empty($taxonomyKwCounts)) {
+                arsort($taxonomyKwCounts);
+                $kwList = array_slice(array_keys($taxonomyKwCounts), 0, 3);
+            } else {
+                $kwList = collect($keywords ?? [])->pluck('term')->take(3)->filter()->values()->all();
+            }
             $kwTxt = empty($kwList) ? null : implode(', ', $kwList);
 
             // severity signal from items

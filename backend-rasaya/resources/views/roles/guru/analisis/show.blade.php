@@ -392,7 +392,21 @@
                                 class="badge text-bg-secondary">{{ $refleksisSelf->count() ?? 0 }}</span></h6>
                         <div class="list-group">
                             @forelse(($refleksisSelf ?? collect()) as $it)
-                                <div class="list-group-item">
+                                @php
+                                    $inputModalData = [
+                                        'type' => 'Refleksi Diri',
+                                        'date' => \Illuminate\Support\Carbon::parse($it->tanggal)->locale('id')->translatedFormat('l, d F Y'),
+                                        'text' => (string) ($it->teks ?? ''),
+                                        'mood' => !empty($it->avg_emosi) ? number_format((float) $it->avg_emosi, 2) : null,
+                                        'reporter' => null,
+                                        'condition' => null,
+                                        'categories' => ($it->kategoris ?? collect())->pluck('nama')->filter()->values()->all(),
+                                    ];
+                                @endphp
+                                <div class="list-group-item list-group-item-action" role="button" tabindex="0"
+                                    title="Klik untuk lihat teks lengkap" data-item='@json($inputModalData)'
+                                    onclick="openInputDetail(this)"
+                                    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openInputDetail(this);}">
                                     <div class="d-flex justify-content-between">
                                         <div class="small text-muted">
                                             {{ \Illuminate\Support\Carbon::parse($it->tanggal)->locale('id')->translatedFormat('l, d F Y') }}
@@ -422,7 +436,25 @@
                                 class="badge text-bg-secondary">{{ $friendReports->count() ?? 0 }}</span></h6>
                         <div class="list-group">
                             @forelse(($friendReports ?? collect()) as $it)
-                                <div class="list-group-item">
+                                @php
+                                    $reporterName = null;
+                                    if ($it->siswaKelas && $it->siswaKelas->siswa && $it->siswaKelas->siswa->user) {
+                                        $reporterName = (string) $it->siswaKelas->siswa->user->name;
+                                    }
+                                    $inputModalData = [
+                                        'type' => 'Laporan Teman',
+                                        'date' => \Illuminate\Support\Carbon::parse($it->tanggal)->locale('id')->translatedFormat('l, d F Y'),
+                                        'text' => (string) ($it->teks ?? ''),
+                                        'mood' => null,
+                                        'reporter' => $reporterName,
+                                        'condition' => null,
+                                        'categories' => ($it->kategoris ?? collect())->pluck('nama')->filter()->values()->all(),
+                                    ];
+                                @endphp
+                                <div class="list-group-item list-group-item-action" role="button" tabindex="0"
+                                    title="Klik untuk lihat teks lengkap" data-item='@json($inputModalData)'
+                                    onclick="openInputDetail(this)"
+                                    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openInputDetail(this);}">
                                     <div>
                                         <div class="small text-muted">
                                             {{ \Illuminate\Support\Carbon::parse($it->tanggal)->locale('id')->translatedFormat('l, d F Y') }}
@@ -471,9 +503,21 @@
                                         'grey' => ['bg' => '#f3f4f6', 'bd' => '#9ca3af'],
                                     ];
                                     $c = $pal[$k] ?? $pal['grey'];
+                                    $inputModalData = [
+                                        'type' => 'Observasi Guru',
+                                        'date' => \Illuminate\Support\Carbon::parse($it->tanggal)->locale('id')->translatedFormat('l, d F Y'),
+                                        'text' => (string) ($it->teks ?? ''),
+                                        'mood' => null,
+                                        'reporter' => null,
+                                        'condition' => strtoupper((string) ($it->kondisi_siswa ?? '-')),
+                                        'categories' => ($it->kategoris ?? collect())->pluck('nama')->filter()->values()->all(),
+                                    ];
                                 @endphp
                                 <div class="list-group-item"
-                                    style="background-color: {{ $c['bg'] }}; border-left: 4px solid {{ $c['bd'] }};">
+                                    style="background-color: {{ $c['bg'] }}; border-left: 4px solid {{ $c['bd'] }}; cursor: pointer;"
+                                    role="button" tabindex="0" title="Klik untuk lihat teks lengkap"
+                                    data-item='@json($inputModalData)' onclick="openInputDetail(this)"
+                                    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openInputDetail(this);}">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <div class="small text-muted">
                                             {{ \Illuminate\Support\Carbon::parse($it->tanggal)->locale('id')->translatedFormat('l, d F Y') }}</div>
@@ -505,6 +549,26 @@
 @endsection
 
 @push('modals')
+    <div class="modal fade" id="inputDetailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title" id="inputDetailTitle">Detail Input</h5>
+                        <div id="inputDetailMeta" class="small text-muted">—</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="inputDetailBadges" class="mb-2"></div>
+                    <div id="inputDetailText" class="p-2 rounded-2" style="background:#f8fafc;border:1px solid #e2e8f0;white-space:pre-wrap;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="modal fade" id="rekomDetailModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -586,13 +650,15 @@
 
         let rejModal;
         let rekomDetailModal;
+        let inputDetailModal;
 
         // Init modals on DOM ready
         document.addEventListener('DOMContentLoaded', () => {
             const rejectModalEl = document.getElementById('rejectModal');
             const rekomDetailModalEl = document.getElementById('rekomDetailModal');
+            const inputDetailModalEl = document.getElementById('inputDetailModal');
 
-            if (!rejectModalEl || !rekomDetailModalEl) {
+            if (!rejectModalEl || !rekomDetailModalEl || !inputDetailModalEl) {
                 console.error('Modal elements not found');
                 return;
             }
@@ -603,6 +669,9 @@
             rekomDetailModal = new bootstrap.Modal(rekomDetailModalEl, {
                 backdrop: 'static'
             });
+            inputDetailModal = new bootstrap.Modal(inputDetailModalEl, {
+                backdrop: 'static'
+            });
 
             // Attach event listener for kategori dropdown
             const sel = document.getElementById('rej-kategori');
@@ -610,6 +679,50 @@
         });
 
         // ===== GLOBAL FUNCTIONS =====
+        function openInputDetail(el) {
+            try {
+                const raw = el?.dataset?.item || '{}';
+                const data = JSON.parse(raw);
+
+                const type = (data.type || 'Input').toString();
+                const date = (data.date || '').toString();
+                const reporter = data.reporter ? (data.reporter || '').toString() : '';
+                const mood = data.mood ? (data.mood || '').toString() : '';
+                const cond = data.condition ? (data.condition || '').toString() : '';
+                const text = (data.text || '').toString();
+                const categories = Array.isArray(data.categories) ? data.categories : [];
+
+                document.getElementById('inputDetailTitle').textContent = type;
+
+                const metaParts = [];
+                if (date) metaParts.push(date);
+                if (reporter) metaParts.push(`Pelapor: ${reporter}`);
+                if (mood) metaParts.push(`Mood: ${mood}`);
+                if (cond) metaParts.push(`Kondisi: ${cond}`);
+                document.getElementById('inputDetailMeta').textContent = metaParts.join(' • ') || '—';
+
+                const badgesEl = document.getElementById('inputDetailBadges');
+                badgesEl.innerHTML = '';
+                (categories || []).slice(0, 8).forEach(c => {
+                    const span = document.createElement('span');
+                    span.className = 'badge text-bg-light me-1 mb-1';
+                    span.textContent = c;
+                    badgesEl.appendChild(span);
+                });
+                if (categories.length > 8) {
+                    const more = document.createElement('span');
+                    more.className = 'badge text-bg-secondary me-1 mb-1';
+                    more.textContent = `+${categories.length - 8}`;
+                    badgesEl.appendChild(more);
+                }
+
+                document.getElementById('inputDetailText').textContent = text || '—';
+                inputDetailModal.show();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
         async function openRekomDetail(analisisId, rekomId) {
             try {
                 document.getElementById('rekomDetailTitle').textContent = 'Detail Rekomendasi';
