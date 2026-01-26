@@ -215,11 +215,22 @@
                     <div class="border-top my-3"></div>
                 @endif
                 {{-- Kata kunci disembunyikan sesuai permintaan untuk fokus ke kategori --}}
+                @php
+                    $edaClusters = collect($analisis->clusters ?? [])->filter(fn($c) => is_array($c))->values();
+                    $clusterSizeTotal = (int) $edaClusters->sum(function ($c) {
+                        return (isset($c['size']) && is_numeric($c['size'])) ? (int) $c['size'] : 0;
+                    });
+                @endphp
+
                 @if (!empty($analisis->categories_overview))
                     <div class="mt-3">
                         <h6 class="mb-2">Top Kategori (Ranking)</h6>
-                        <div class="small text-muted mb-2">Ditentukan dari gabungan pernyataan negatif dan tingkat
-                            keparahan.</div>
+                        <div class="small text-muted mb-2">
+                            Ditentukan dari gabungan pernyataan negatif dan tingkat keparahan.
+                            @if ($edaClusters->isNotEmpty())
+                                <span class="ms-1">Arahkan kursor ke kategori untuk melihat ringkasan pola mirip (jika ada).</span>
+                            @endif
+                        </div>
                         @php
                             $allCats = collect($analisis->categories_overview ?? [])
                                 ->sortByDesc(fn($r) => (float) ($r['score'] ?? 0))
@@ -244,23 +255,51 @@
                                         ->values()
                                         ->take(3)
                                         ->all();
+
+                                    // Tooltip dari clustering: cocokkan kategori (taxonomy) dengan hint.name dari cluster.
+                                    $tooltipParts = [];
+                                    if ($edaClusters->isNotEmpty()) {
+                                        $needle = mb_strtolower(trim($name));
+                                        $matches = $edaClusters
+                                            ->filter(function ($c) use ($needle) {
+                                                $hint = is_array($c['hint'] ?? null) ? ($c['hint'] ?? []) : [];
+                                                $hn = mb_strtolower(trim((string)($hint['name'] ?? '')));
+                                                return $hn !== '' && $hn === $needle;
+                                            })
+                                            ->values();
+
+                                        foreach ($matches as $mc) {
+                                            $cid = $mc['cluster'] ?? null;
+                                            $p = null;
+                                            if (isset($mc['ratio']) && is_numeric($mc['ratio'])) {
+                                                $p = (float) $mc['ratio'];
+                                            } elseif (isset($mc['size']) && is_numeric($mc['size']) && $clusterSizeTotal > 0) {
+                                                $p = ((float) $mc['size']) / (float) $clusterSizeTotal;
+                                            }
+                                            if ($cid !== null && $p !== null) {
+                                                $tooltipParts[] = 'Klaster ' . (string) $cid . ': ' . number_format($p * 100, 0) . '%';
+                                            }
+                                        }
+                                    }
+
+                                    $clusterTooltip = '';
+                                    if (!empty($tooltipParts)) {
+                                        $clusterTooltip = 'Pola mirip: ' . implode(' • ', array_slice($tooltipParts, 0, 3));
+                                    }
                                 @endphp
-                                <div class="list-group-item">
+                                <div class="list-group-item" @if ($clusterTooltip !== '') title="{{ $clusterTooltip }}" @endif>
                                     <div class="d-flex justify-content-between align-items-center">
                                         <strong>{{ $name }}</strong>
                                         <span class="small text-muted">{{ $pctTxt }}</span>
                                     </div>
                                     <div class="progress mt-1" style="height:8px;">
-                                        <div class="progress-bar" role="progressbar" style="width: {{ $pct }}%"
-                                            aria-valuenow="{{ $pct }}" aria-valuemin="0" aria-valuemax="100">
-                                        </div>
+                                        <div class="progress-bar" role="progressbar" style="width: {{ $pct }}%" aria-valuenow="{{ $pct }}" aria-valuemin="0" aria-valuemax="100"></div>
                                     </div>
                                     @if (!empty($reasons))
                                         <div class="small text-muted mt-1">
                                             Alasan:
                                             @foreach ($reasons as $i => $r)
-                                                <span
-                                                    class="badge rounded-pill text-bg-light ms-0 me-1 mb-1">{{ $r }}</span>
+                                                <span class="badge rounded-pill text-bg-light ms-0 me-1 mb-1">{{ $r }}</span>
                                             @endforeach
                                         </div>
                                     @endif
@@ -270,7 +309,7 @@
                         @if ($allCats->count() > $cats->count())
                             <div class="form-text mt-1">Kategori dengan porsi di bawah 5% disembunyikan.</div>
                         @endif
-                        
+
                         {{-- REVISI KATEGORI BUTTON --}}
                         @if ($analisis->revised_kategori_id)
                             <div class="alert alert-info mt-3 mb-0">
@@ -322,89 +361,6 @@
                 @endif
             </div>
         @endif
-
-        {{-- Pola Mirip (Clustering / EDA): ringkasan klaster teks negatif dari ML --}}
-        @php
-            $edaClusters = collect($analisis->clusters ?? [])->filter(fn($c) => is_array($c))->values();
-        @endphp
-        @if ($edaClusters->isNotEmpty())
-            <div class="card mt-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <strong>Pola Mirip (Clustering)</strong>
-                    <span class="small text-muted">{{ $edaClusters->count() }} klaster</span>
-                </div>
-                <div class="card-body">
-                    <div class="alert alert-info small mb-3">
-                        Panel ini menampilkan pengelompokan (K-Means) atas teks bernuansa negatif untuk melihat pola/tren secara global.
-                        Hasil ini bersifat insight (EDA) dan tidak mengubah label kategori otomatis.
-                    </div>
-
-                    <div class="accordion" id="clustersAccordion">
-                        @foreach ($edaClusters as $idx => $c)
-                            @php
-                                $cid = (string)($c['cluster'] ?? $idx);
-                                $engine = (string)($c['engine'] ?? '-');
-                                $label = (string)($c['label'] ?? '');
-                                $hint = is_array($c['hint'] ?? null) ? ($c['hint'] ?? []) : [];
-                                $hintName = (string)($hint['name'] ?? '');
-                                $hintType = (string)($hint['type'] ?? '');
-                                $hintBucket = (string)($hint['bucket'] ?? '');
-                                $hintConf = isset($hint['confidence']) ? (float)$hint['confidence'] : null;
-                                $hintKeywords = collect($hint['keywords'] ?? [])->filter()->take(5)->values();
-                                $examples = collect($c['examples'] ?? [])->filter()->take(5)->values();
-                                $headingId = 'clusterHeading' . $idx;
-                                $collapseId = 'clusterCollapse' . $idx;
-                            @endphp
-                            <div class="accordion-item">
-                                <h2 class="accordion-header" id="{{ $headingId }}">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#{{ $collapseId }}" aria-expanded="false" aria-controls="{{ $collapseId }}">
-                                        <span class="me-2">Klaster {{ $cid }}</span>
-                                        @if ($hintName !== '')
-                                            <span class="badge text-bg-primary ms-2">
-                                                Mengarah ke: {{ $hintName }}
-                                                @if (!empty($hintBucket) && $hintType === 'topic')
-                                                    <span class="ms-1">({{ $hintBucket }})</span>
-                                                @endif
-                                                @if (!is_null($hintConf))
-                                                    <span class="ms-1">· {{ number_format($hintConf * 100, 0) }}%</span>
-                                                @endif
-                                            </span>
-                                        @endif
-                                        @if ($label !== '')
-                                            <span class="badge text-bg-light border ms-2">{{ $label }}</span>
-                                        @endif
-                                        <span class="badge text-bg-secondary ms-2">{{ strtoupper($engine) }}</span>
-                                    </button>
-                                </h2>
-                                <div id="{{ $collapseId }}" class="accordion-collapse collapse" aria-labelledby="{{ $headingId }}" data-bs-parent="#clustersAccordion">
-                                    <div class="accordion-body">
-                                        @if ($hintKeywords->isNotEmpty())
-                                            <div class="small text-muted mb-2">Kata kunci yang mendukung:</div>
-                                            <div class="mb-3">
-                                                @foreach ($hintKeywords as $kw)
-                                                    <span class="badge rounded-pill text-bg-light border me-1 mb-1">{{ $kw }}</span>
-                                                @endforeach
-                                            </div>
-                                        @endif
-                                        @if ($examples->isNotEmpty())
-                                            <div class="small text-muted mb-2">Contoh teks (maks 5):</div>
-                                            <ul class="mb-0">
-                                                @foreach ($examples as $ex)
-                                                    <li class="small">{{ \Illuminate\Support\Str::limit((string)$ex, 220) }}</li>
-                                                @endforeach
-                                            </ul>
-                                        @else
-                                            <div class="text-muted small">Tidak ada contoh tersedia.</div>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-        @endif
-
 
         <div class="card mt-4">
             <div class="card-header"><strong>Rekomendasi Sistem</strong></div>

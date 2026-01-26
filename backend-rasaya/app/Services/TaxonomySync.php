@@ -26,6 +26,7 @@ class TaxonomySync
             
             // Load semua kategori kecil (subcategories) dengan master kategori
             $smallCategories = KategoriMasalah::with('topikBesars')
+                ->where('is_active', true)
                 ->orderBy('kode')
                 ->get();
 
@@ -50,7 +51,7 @@ class TaxonomySync
 
             // Load semua master kategori (big categories) sebagai buckets
             $buckets = [];
-            $masterCategories = MasterKategoriMasalah::orderBy('kode')->get();
+            $masterCategories = MasterKategoriMasalah::where('is_active', true)->orderBy('kode')->get();
             
             foreach ($masterCategories as $master) {
                 $buckets[] = [

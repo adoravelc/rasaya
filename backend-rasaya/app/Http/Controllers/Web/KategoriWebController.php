@@ -78,6 +78,14 @@ class KategoriWebController extends Controller
         $kategori->is_active = (bool) $data['is_active'];
         $kategori->save();
 
+        // Sync to taxonomy.json so ML immediately stops/starts using this category
+        try {
+            $sync = new TaxonomySync();
+            $sync->syncAll();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to sync taxonomy after toggle active', ['error' => $e->getMessage()]);
+        }
+
         return ['ok' => true, 'data' => $kategori];
     }
 
@@ -254,6 +262,14 @@ class KategoriWebController extends Controller
         $data = $r->validate(['is_active' => ['required', 'boolean']]);
         $master->is_active = (bool) $data['is_active'];
         $master->save();
+
+        // Sync to taxonomy.json so ML immediately stops/starts using this master bucket
+        try {
+            $sync = new TaxonomySync();
+            $sync->syncAll();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to sync taxonomy after toggle active master', ['error' => $e->getMessage()]);
+        }
 
         return ['ok' => true, 'data' => $master];
     }

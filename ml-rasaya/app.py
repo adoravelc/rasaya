@@ -630,11 +630,43 @@ def negative_gate(aggregate: float, raw_txt: str) -> tuple[bool, float]:
 # Taxonomy (topics/subtopics) for semi-supervised labeling
 # =====================
 TAXONOMY_PATH = os.path.join(os.path.dirname(__file__), "taxonomy.json")
+_TAX_MTIME: float = -1.0
 try:
     with open(TAXONOMY_PATH, "r", encoding="utf-8") as _f:
         _TAX = json.load(_f)
 except Exception:
     _TAX = {"topics": []}
+
+def _reload_taxonomy_if_changed(force: bool = False) -> None:
+    """Reload taxonomy.json if file changed.
+
+    Needed so DB soft-deletes / is_active toggles (synced into taxonomy.json)
+    take effect without restarting the ML service.
+    """
+    global _TAX, _TAX_MTIME, BUCKET_KW, SUBTOPICS
+    try:
+        mtime = os.path.getmtime(TAXONOMY_PATH)
+    except Exception:
+        return
+
+    if (not force) and _TAX_MTIME >= 0 and mtime <= _TAX_MTIME:
+        return
+
+    try:
+        with open(TAXONOMY_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return
+        _TAX = data
+        _TAX_MTIME = mtime
+        # refresh derived indices (best-effort)
+        try:
+            BUCKET_KW, SUBTOPICS = _taxonomy_keywords()
+        except Exception:
+            pass
+        logger.info("taxonomy.json reloaded", extra={"mtime": mtime})
+    except Exception as e:
+        logger.warning(f"Failed reloading taxonomy.json: {e}")
 
 def _taxonomy_keywords():
     buckets = {}
@@ -868,6 +900,9 @@ def analyze():
     if not isinstance(items, list) or not items:
         return jsonify({"error": "items required"}), 422
 
+    # Reload taxonomy if it changed (e.g., admin disabled/restored categories)
+    _reload_taxonomy_if_changed()
+
     # Setup Taxonomy & Feedback (HYBRID APPROACH)
     categories_override = data.get("categories")
     TOPIC_INDEX, TAXONOMY_CATEGORIES, BUCKET_KEYWORDS = build_topic_index_and_categories_map()
@@ -1097,8 +1132,12 @@ def analyze():
         km = KMeans(n_clusters=k, n_init='auto', random_state=42)
         y = km.fit_predict(X)
         
+        n_total = max(1, len(negatives))
         for ci in range(k):
-            ex = [negatives[i] for i in range(len(negatives)) if y[i] == ci][:5]
+            idxs = [i for i in range(len(negatives)) if y[i] == ci]
+            ex = [negatives[i] for i in idxs][:5]
+            size = len(idxs)
+            ratio = float(size) / float(n_total) if n_total else 0.0
             # Simple label for UI hinting: top tokens from examples
             try:
                 toks = extract_core_tokens(ex)
@@ -1148,6 +1187,8 @@ def analyze():
             clusters.append({
                 "cluster": int(ci),
                 "engine": used_engine,
+                "size": int(size),
+                "ratio": round(ratio, 4),
                 "label": label,
                 "hint": hint,
                 "examples": ex
