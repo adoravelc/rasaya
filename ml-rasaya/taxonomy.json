@@ -391,7 +391,13 @@
                 "otak penuh",
                 "capek belajar",
                 "tuntutan",
-                "burnout"
+                "burnout",
+                "tryout",
+                "try out",
+                "SNBP",
+                "snbp",
+                "SNBT",
+                "snbt"
             ],
             "deskripsi": "Tekanan berlebih karena tugas\/ujian\/nilai yang memicu tegang, lelah, dan kesulitan fokus."
         },
@@ -478,7 +484,14 @@
                 "patah hati",
                 "kehilangan",
                 "duka",
-                "meninggal"
+                "meninggal",
+                "putus cinta",
+                "gamon",
+                "gagal move on",
+                "kenangan",
+                "hapus kenangan",
+                "kenangan lama",
+                "memori"
             ],
             "deskripsi": "Kehilangan pasangan memicu sedih\/menarik diri, mengganggu rutinitas sekolah."
         },
@@ -633,7 +646,7 @@
         }
     ],
     "meta": {
-        "last_synced": "2026-01-26T18:29:32+08:00",
+        "last_synced": "2026-01-26T20:03:40+08:00",
         "version": "2.0",
         "source": "database"
     }
