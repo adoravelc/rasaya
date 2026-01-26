@@ -1099,9 +1099,57 @@ def analyze():
         
         for ci in range(k):
             ex = [negatives[i] for i in range(len(negatives)) if y[i] == ci][:5]
+            # Simple label for UI hinting: top tokens from examples
+            try:
+                toks = extract_core_tokens(ex)
+                label = ", ".join(toks[:3]) if toks else ""
+            except Exception:
+                label = ""
+
+            # Taxonomy-based hint: map this cluster to the most likely topic/bucket
+            hint = {}
+            try:
+                joined = " . ".join([t for t in ex if isinstance(t, str) and t.strip()])
+                # Prefer kategori kecil (topic)
+                cc, rr = score_categories_for_text(joined, categories_map, feedback)
+                best_cat = max(cc, key=cc.get) if cc else None
+                if best_cat and cc.get(best_cat, 0.0) < 0.22:
+                    best_cat = None
+
+                best_bucket = None
+                bb = {}
+                br = {}
+                if not best_cat and bucket_map:
+                    bb, br = score_categories_for_text(joined, bucket_map, feedback)
+                    best_bucket = max(bb, key=bb.get) if bb else None
+                    if best_bucket and bb.get(best_bucket, 0.0) < 0.25:
+                        best_bucket = None
+
+                if best_cat:
+                    meta = TOPIC_INDEX.get(str(best_cat).upper()) or {}
+                    hint = {
+                        "type": "topic",
+                        "name": meta.get("name") or str(best_cat),
+                        "bucket": meta.get("bucket") or "",
+                        "confidence": round(float(cc.get(best_cat, 0.0)), 3),
+                        "keywords": (rr.get(best_cat) or [])[:5],
+                    }
+                elif best_bucket:
+                    hint = {
+                        "type": "bucket",
+                        "name": str(best_bucket),
+                        "bucket": str(best_bucket),
+                        "confidence": round(float(bb.get(best_bucket, 0.0)), 3),
+                        "keywords": (br.get(best_bucket) or [])[:5],
+                    }
+            except Exception:
+                hint = {}
+
             clusters.append({
                 "cluster": int(ci),
                 "engine": used_engine,
+                "label": label,
+                "hint": hint,
                 "examples": ex
             })
 

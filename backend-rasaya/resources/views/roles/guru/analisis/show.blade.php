@@ -323,7 +323,87 @@
             </div>
         @endif
 
-        {{-- Klasterisasi disembunyikan sesuai permintaan. Fokus pada ranking kategori dan alasannya. --}}
+        {{-- Pola Mirip (Clustering / EDA): ringkasan klaster teks negatif dari ML --}}
+        @php
+            $edaClusters = collect($analisis->clusters ?? [])->filter(fn($c) => is_array($c))->values();
+        @endphp
+        @if ($edaClusters->isNotEmpty())
+            <div class="card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong>Pola Mirip (Clustering)</strong>
+                    <span class="small text-muted">{{ $edaClusters->count() }} klaster</span>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info small mb-3">
+                        Panel ini menampilkan pengelompokan (K-Means) atas teks bernuansa negatif untuk melihat pola/tren secara global.
+                        Hasil ini bersifat insight (EDA) dan tidak mengubah label kategori otomatis.
+                    </div>
+
+                    <div class="accordion" id="clustersAccordion">
+                        @foreach ($edaClusters as $idx => $c)
+                            @php
+                                $cid = (string)($c['cluster'] ?? $idx);
+                                $engine = (string)($c['engine'] ?? '-');
+                                $label = (string)($c['label'] ?? '');
+                                $hint = is_array($c['hint'] ?? null) ? ($c['hint'] ?? []) : [];
+                                $hintName = (string)($hint['name'] ?? '');
+                                $hintType = (string)($hint['type'] ?? '');
+                                $hintBucket = (string)($hint['bucket'] ?? '');
+                                $hintConf = isset($hint['confidence']) ? (float)$hint['confidence'] : null;
+                                $hintKeywords = collect($hint['keywords'] ?? [])->filter()->take(5)->values();
+                                $examples = collect($c['examples'] ?? [])->filter()->take(5)->values();
+                                $headingId = 'clusterHeading' . $idx;
+                                $collapseId = 'clusterCollapse' . $idx;
+                            @endphp
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="{{ $headingId }}">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#{{ $collapseId }}" aria-expanded="false" aria-controls="{{ $collapseId }}">
+                                        <span class="me-2">Klaster {{ $cid }}</span>
+                                        @if ($hintName !== '')
+                                            <span class="badge text-bg-primary ms-2">
+                                                Mengarah ke: {{ $hintName }}
+                                                @if (!empty($hintBucket) && $hintType === 'topic')
+                                                    <span class="ms-1">({{ $hintBucket }})</span>
+                                                @endif
+                                                @if (!is_null($hintConf))
+                                                    <span class="ms-1">· {{ number_format($hintConf * 100, 0) }}%</span>
+                                                @endif
+                                            </span>
+                                        @endif
+                                        @if ($label !== '')
+                                            <span class="badge text-bg-light border ms-2">{{ $label }}</span>
+                                        @endif
+                                        <span class="badge text-bg-secondary ms-2">{{ strtoupper($engine) }}</span>
+                                    </button>
+                                </h2>
+                                <div id="{{ $collapseId }}" class="accordion-collapse collapse" aria-labelledby="{{ $headingId }}" data-bs-parent="#clustersAccordion">
+                                    <div class="accordion-body">
+                                        @if ($hintKeywords->isNotEmpty())
+                                            <div class="small text-muted mb-2">Kata kunci yang mendukung:</div>
+                                            <div class="mb-3">
+                                                @foreach ($hintKeywords as $kw)
+                                                    <span class="badge rounded-pill text-bg-light border me-1 mb-1">{{ $kw }}</span>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                        @if ($examples->isNotEmpty())
+                                            <div class="small text-muted mb-2">Contoh teks (maks 5):</div>
+                                            <ul class="mb-0">
+                                                @foreach ($examples as $ex)
+                                                    <li class="small">{{ \Illuminate\Support\Str::limit((string)$ex, 220) }}</li>
+                                                @endforeach
+                                            </ul>
+                                        @else
+                                            <div class="text-muted small">Tidak ada contoh tersedia.</div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        @endif
 
 
         <div class="card mt-4">
