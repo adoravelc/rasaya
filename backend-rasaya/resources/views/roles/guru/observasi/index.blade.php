@@ -681,10 +681,59 @@
             });
             if (res.ok) location.reload();
         }
+
+        function prefillFromQuery() {
+            const sp = new URLSearchParams(window.location.search);
+
+            const clearDeepLinkParams = () => {
+                let changed = false;
+                ['open_edit_id', 'open_create', 'siswa_kelas_id'].forEach((k) => {
+                    if (sp.has(k)) {
+                        sp.delete(k);
+                        changed = true;
+                    }
+                });
+                if (!changed) return;
+                const qs = sp.toString();
+                const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+                try {
+                    history.replaceState({}, '', newUrl);
+                } catch (_) {
+                    // ignore
+                }
+            };
+
+            const openEditId = sp.get('open_edit_id');
+            if (openEditId) {
+                const id = Number(openEditId);
+                if (Number.isFinite(id) && id > 0) {
+                    openEdit(id);
+                    clearDeepLinkParams();
+                    return;
+                }
+            }
+
+            const openCreateFlag = sp.get('open_create');
+            const siswaKelasId = sp.get('siswa_kelas_id');
+            if (openCreateFlag && siswaKelasId) {
+                const skId = Number(siswaKelasId);
+                if (Number.isFinite(skId) && skId > 0) {
+                    openCreate();
+                    const sel = document.getElementById('m-siswakelas');
+                    if (sel) sel.value = String(skId);
+
+                    clearDeepLinkParams();
+                }
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             paintKondisi();
             const sel = document.getElementById('m-kondisi');
             if (sel) sel.addEventListener('change', paintKondisi);
+
+            // Support deep-link from Slot Konseling table
+            prefillFromQuery();
         });
     </script>
 @endpush

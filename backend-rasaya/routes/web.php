@@ -235,6 +235,9 @@ Route::prefix('guru')->middleware(['auth', 'role:guru'])->group(function () {
 
         // Update status booking konseling
         Route::patch('/bookings/{bookingId}/status', [GuruBkDashboardController::class, 'updateBookingStatus'])->name('guru.bk.bookings.update-status');
+
+        // Data booking selesai untuk tabel status observasi (JSON)
+        Route::get('/bookings/completed', [GuruBkDashboardController::class, 'completedBookings'])->name('guru.bk.bookings.completed');
     });
 
     // Wali Kelas

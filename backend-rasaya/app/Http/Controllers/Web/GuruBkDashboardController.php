@@ -4,10 +4,14 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\AnalisisEntry;
+use App\Models\InputGuru;
 use App\Models\SlotKonseling;
 use App\Models\SlotBooking;
 use Illuminate\Support\Facades\Auth;
 use App\Models\CounselingReferral;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Carbon\Carbon;
 
 class GuruBkDashboardController extends Controller
 {
@@ -141,5 +145,94 @@ class GuruBkDashboardController extends Controller
         $booking->save();
         
         return redirect()->back()->with('success', "Status booking berhasil diubah menjadi '{$newStatus}'.");
+    }
+
+    /**
+     * JSON: daftar booking yang sudah selesai pada tanggal tertentu,
+     * dilengkapi status observasi (InputGuru) untuk siswa tsb.
+     *
+     * GET /guru/bk/bookings/completed?date=YYYY-MM-DD
+     */
+    public function completedBookings(Request $request): JsonResponse
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $guru = $user->guru;
+
+        if (!$guru) {
+            return response()->json(['message' => 'Anda tidak terdaftar sebagai guru.'], 403);
+        }
+
+        $tz = 'Asia/Makassar';
+        $date = $request->input('date');
+        $targetDate = $date ? Carbon::parse($date, $tz)->toDateString() : now($tz)->toDateString();
+
+        // Ambil semua booking completed milik guru ini pada tanggal slot tsb
+        $bookings = SlotBooking::with([
+                'slot',
+                'siswaKelas.siswa.user',
+                'siswaKelas.kelas.jurusan',
+                'siswaKelas.tahunAjaran',
+            ])
+            ->where('status', 'completed')
+            ->whereHas('slot', function ($q) use ($guru, $targetDate) {
+                $q->where('guru_id', $guru->user_id)
+                  ->whereDate('tanggal', $targetDate);
+            })
+            ->orderByDesc('id')
+            ->get();
+
+        // Map observasi hari itu (unik per guru+siswa_kelas+tanggal)
+        $observasiMap = InputGuru::query()
+            ->where('guru_id', $guru->user_id)
+            ->whereDate('tanggal', $targetDate)
+            ->get()
+            ->keyBy('siswa_kelas_id');
+
+        $rows = $bookings->map(function (SlotBooking $b) use ($observasiMap, $targetDate) {
+            $sk = $b->siswaKelas;
+            $skId = (int) ($b->siswa_kelas_id ?? 0);
+            $siswaNama = data_get($sk, 'siswa.user.name') ?? data_get($sk, 'siswa.nama') ?? '-';
+            $kelasLabel = data_get($sk, 'kelas.label')
+                ?? trim(implode(' ', array_filter([
+                    data_get($sk, 'kelas.tingkat'),
+                    data_get($sk, 'kelas.jurusan.nama'),
+                    data_get($sk, 'kelas.rombel'),
+                ])))
+                ?? '-';
+
+            $slotStart = optional($b->slot)->start_at;
+            $startWita = $slotStart ? $slotStart->copy()->setTimezone('Asia/Makassar')->format('H:i') : '-';
+            $endWita = optional($b->slot)->end_at ? $b->slot->end_at->copy()->setTimezone('Asia/Makassar')->format('H:i') : '-';
+            $jam = ($startWita !== '-' && $endWita !== '-') ? "{$startWita}–{$endWita} WITA" : '-';
+
+            $obs = $observasiMap->get($skId);
+            $obsId = $obs?->id;
+
+            return [
+                'booking_id' => $b->id,
+                'slot_id' => $b->slot_id,
+                'tanggal' => $targetDate,
+                'jam' => $jam,
+                'siswa_kelas_id' => $skId,
+                'siswa_nama' => $siswaNama,
+                'kelas_label' => $kelasLabel,
+                'observasi_filled' => (bool) $obsId,
+                'observasi_id' => $obsId,
+                'observasi_create_url' => route('guru.observasi.index', [
+                    'open_create' => 1,
+                    'siswa_kelas_id' => $skId,
+                ]),
+                'observasi_edit_url' => $obsId ? route('guru.observasi.index', [
+                    'open_edit_id' => $obsId,
+                ]) : null,
+            ];
+        })->values();
+
+        return response()->json([
+            'date' => $targetDate,
+            'total' => $rows->count(),
+            'data' => $rows,
+        ]);
     }
 }

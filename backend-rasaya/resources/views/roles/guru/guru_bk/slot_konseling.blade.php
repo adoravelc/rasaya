@@ -10,6 +10,39 @@
             <button class="btn btn-primary" id="btnPublish">+ Buat Slot</button>
         </div>
 
+        {{-- Ringkasan booking selesai + status observasi (hari tertentu) --}}
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>Booking Selesai</strong>
+                    <div class="small text-muted">Cek siapa yang sudah/belum diisi observasi hari itu</div>
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                    <input type="date" class="form-control form-control-sm" id="completedDate" style="max-width: 180px;">
+                    <button class="btn btn-sm btn-outline-primary" id="btnLoadCompleted">Muat</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 160px;">Waktu</th>
+                            <th>Siswa</th>
+                            <th style="width: 220px;">Kelas</th>
+                            <th style="width: 160px;">Observasi</th>
+                            <th class="text-end" style="width: 180px;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="completedRows">
+                        <tr>
+                            <td colspan="5" class="text-center py-3 text-muted">Memuat…</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer small text-muted" id="completedMeta">—</div>
+        </div>
+
         {{-- Filter --}}
         <div class="card mb-3">
             <div class="card-body row g-2 align-items-end">
@@ -214,6 +247,8 @@
         // BASE route untuk WEB (bukan /api)
         const base = '/guru/bk/slots';
 
+        const completedApi = '/guru/bk/bookings/completed';
+
         const routes = {
             list: (p = '') => `${base}${p}`,
             publish: () => `${base}/publish`,
@@ -241,8 +276,84 @@
             });
             document.getElementById('prev').addEventListener('click', () => paginate('prev'));
             document.getElementById('next').addEventListener('click', () => paginate('next'));
+
+            // Completed table
+            const completedDate = document.getElementById('completedDate');
+            if (completedDate) {
+                const now = new Date();
+                const y = now.getFullYear();
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                const d = String(now.getDate()).padStart(2, '0');
+                completedDate.value = `${y}-${m}-${d}`;
+            }
+            const btnLoadCompleted = document.getElementById('btnLoadCompleted');
+            if (btnLoadCompleted) btnLoadCompleted.addEventListener('click', (e) => {
+                e.preventDefault();
+                loadCompleted();
+            });
+
             load();
+            loadCompleted();
         });
+
+        async function loadCompleted() {
+            const tbody = document.getElementById('completedRows');
+            const meta = document.getElementById('completedMeta');
+            const date = document.getElementById('completedDate')?.value;
+            if (!tbody) return;
+
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-3 text-muted">Memuat…</td></tr>`;
+            if (meta) meta.textContent = '—';
+
+            const qs = new URLSearchParams();
+            if (date) qs.set('date', date);
+
+            try {
+                const res = await fetch(`${completedApi}?${qs.toString()}`, { headers: { 'Accept': 'application/json' } });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const json = await res.json();
+                const rows = Array.isArray(json.data) ? json.data : [];
+
+                if (!rows.length) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-3 text-muted">Belum ada booking selesai pada tanggal tersebut.</td></tr>`;
+                    if (meta) meta.textContent = `Tanggal: ${json.date || (date || '-')}. Total: 0`;
+                    return;
+                }
+
+                tbody.innerHTML = rows.map(r => {
+                    const obsBadge = r.observasi_filled
+                        ? `<span class="badge bg-success">Sudah diisi</span>`
+                        : `<span class="badge bg-warning text-dark">Belum diisi</span>`;
+
+                    const actionUrl = r.observasi_filled ? (r.observasi_edit_url || '#') : (r.observasi_create_url || '#');
+                    const actionText = r.observasi_filled ? 'Lihat/Edit' : 'Isi Observasi';
+                    const actionClass = r.observasi_filled ? 'btn-outline-secondary' : 'btn-primary';
+
+                    return `<tr>
+                        <td>${r.jam || '-'}</td>
+                        <td>${escapeHtml(r.siswa_nama || '-')}</td>
+                        <td>${escapeHtml(r.kelas_label || '-')}</td>
+                        <td>${obsBadge}</td>
+                        <td class="text-end">
+                            <a class="btn btn-sm ${actionClass}" href="${actionUrl}">${actionText}</a>
+                        </td>
+                    </tr>`;
+                }).join('');
+
+                if (meta) meta.textContent = `Tanggal: ${json.date || (date || '-')}. Total: ${json.total ?? rows.length}`;
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-3 text-danger">Gagal memuat data: ${escapeHtml(err.message || String(err))}</td></tr>`;
+            }
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
 
         function q() {
             const p = new URLSearchParams();
