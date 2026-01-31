@@ -162,6 +162,7 @@ LEXICON_DIR = os.environ.get("ML_LEXICON_DIR", os.path.join(os.path.dirname(__fi
 ENABLE_BERT = os.environ.get("ML_ENABLE_BERT", "false").lower() in ("1","true","yes")
 BERT_MODEL_NAME = os.environ.get("ML_BERT_MODEL", "indobenchmark/indobert-base-p1")
 ENABLE_BERT_WARMUP = os.environ.get("ML_BERT_WARMUP", "false").lower() in ("1","true","yes")
+BERT_L2_NORMALIZE = os.environ.get("ML_BERT_L2_NORMALIZE", "true").lower() in ("1", "true", "yes")
 SERVICE_VERSION = os.environ.get("ML_VERSION", "ml-rasaya:2025.11.0")
 
 def check_key():
@@ -826,6 +827,21 @@ def health():
 # =====================
 BERT_CACHE = {"tok": None, "mdl": None, "device": "cpu"}
 
+def _l2_normalize_rows_dense(X: np.ndarray, eps: float = 1e-12) -> np.ndarray:
+    """Row-wise L2 normalization for dense matrices.
+
+    This is used to make IndoBERT embeddings comparable for distance-based
+    clustering (KMeans) and to reduce magnitude effects.
+    """
+    if X is None:
+        return X
+    X = np.asarray(X, dtype=np.float32)
+    if X.ndim != 2 or X.shape[0] == 0:
+        return X
+    norms = np.linalg.norm(X, axis=1, keepdims=True)
+    norms = np.maximum(norms, eps)
+    return X / norms
+
 # --- GLOBAL BERT VARIABLES ---
 _bert_tokenizer = None
 _bert_model = None
@@ -1118,6 +1134,8 @@ def analyze():
                     out = mdl(**enc)
                     cls = out.last_hidden_state[:, 0, :]
                     X = cls.detach().cpu().numpy()
+                    if BERT_L2_NORMALIZE:
+                        X = _l2_normalize_rows_dense(X)
                     used_engine = "bert"
             except Exception as e:
                 print(f"⚠️ BERT error, falling back: {e}")
