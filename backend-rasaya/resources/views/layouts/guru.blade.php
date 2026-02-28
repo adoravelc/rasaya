@@ -122,6 +122,12 @@
 
             {{-- Right side: Notifications & Profile --}}
             <ul class="navbar-nav ms-auto align-items-center">
+                @if(session('guest_mode'))
+                <li class="nav-item me-3">
+                    <span class="badge text-bg-warning">Guest Read-Only</span>
+                </li>
+                @endif
+
                 {{-- Notifications --}}
                 <li class="nav-item dropdown me-3">
                     <a class="nav-link position-relative p-2" href="#" role="button" data-bs-toggle="dropdown" style="color: #64748b; transition: all 0.2s;" onmouseover="this.style.color='#ec4899'" onmouseout="this.style.color='#64748b'">
@@ -218,6 +224,13 @@
             <div id="sidebarBackdrop" class="d-md-none" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1040"></div>
             <x-app-sidebar :role="'guru'" />
             {{-- Content --}}
+            @if(session('guest_mode'))
+                <div class="col-12 col-md-9 col-lg-10 pt-3 px-4">
+                    <div class="alert alert-warning mb-0" role="alert">
+                        Anda berada di mode guest read-only. Semua perubahan data diblokir dan tidak disimpan.
+                    </div>
+                </div>
+            @endif
             <main class="col-12 col-md-9 col-lg-10 p-4">
                 @yield('content')
             </main>

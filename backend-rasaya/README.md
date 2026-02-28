@@ -94,3 +94,24 @@ Use a dedicated Gmail account (e.g. `adminrasaya@gmail.com`) with 2-Step Verific
 - For development without sending: set `MAIL_MAILER=log`.
 - Avoid using your personal Gmail; a fresh dedicated account reduces spam/lock risk.
 - At scale switch to a transactional service (Brevo, SES) for better deliverability.
+
+## Guest Mode (Read-Only)
+
+RASAYA sekarang punya landing page publik di `/` dengan opsi guest:
+- Guest Guru BK
+- Guest Siswa
+
+Semua request ubah data (`POST`, `PUT`, `PATCH`, `DELETE`) akan diblokir saat session guest aktif, jadi data guest tidak tersimpan.
+
+Tambahkan konfigurasi ini di `.env`:
+
+```env
+GUEST_GURU_BK_IDENTIFIER=guest_guru_bk
+GUEST_GURU_BK_PASSWORD=guest12345
+GUEST_SISWA_IDENTIFIER=guest_siswa
+GUEST_SISWA_PASSWORD=guest12345
+```
+
+Pastikan akun demo tersebut memang ada di tabel `users` dengan role yang benar:
+- `guest_guru_bk` => role `guru` dan jenis guru `bk`
+- `guest_siswa` => role `siswa`

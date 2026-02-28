@@ -76,6 +76,8 @@
                 </div>
 
                 <div class="text-center text-muted small mt-3">
+                    <a href="{{ route('home') }}" class="text-decoration-none">Kembali ke Home</a>
+                    <span class="mx-2">•</span>
                     © {{ date('Y') }} RASAYA
                 </div>
             </div>

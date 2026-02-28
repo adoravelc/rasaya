@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\UserLoginHistory;
 
 class AuthWebController extends Controller
 {
@@ -16,6 +15,8 @@ class AuthWebController extends Controller
 
     public function doLogin(Request $request)
     {
+        $request->session()->forget(['guest_mode', 'guest_role']);
+
         $cred = $request->validate([
             'identifier' => ['required', 'string'],
             'password' => ['required', 'string'],
@@ -56,6 +57,8 @@ class AuthWebController extends Controller
     public function logout(Request $request)
     {
         // Logout event listener will handle history update
+
+        $request->session()->forget(['guest_mode', 'guest_role']);
 
         Auth::logout();
         $request->session()->invalidate();

@@ -51,11 +51,13 @@ use App\Http\Controllers\Web\YearRolloverController;
 use App\Http\Controllers\Web\RosterImportController;
 use App\Http\Controllers\Web\NotificationController;
 
-// Redirect landing page straight to login for a focused UX
-Route::redirect('/', '/login');
+Route::get('/', [\App\Http\Controllers\Web\GuestAccessController::class, 'home'])->name('home');
+Route::post('/guest/{role}', [\App\Http\Controllers\Web\GuestAccessController::class, 'enter'])
+    ->whereIn('role', ['guru-bk', 'siswa'])
+    ->name('guest.enter');
 
 Route::get('/login', [AuthWebController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthWebController::class, 'doLogin']);
+Route::post('/login', [AuthWebController::class, 'doLogin'])->name('login.attempt');
 Route::post('/logout', [AuthWebController::class, 'logout'])->name('logout');
 
 // Forgot password (request flow)

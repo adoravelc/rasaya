@@ -15,6 +15,10 @@ class LoginHistoryServiceProvider extends ServiceProvider
         Event::listen(Login::class, function (Login $event) {
             try {
                 $req = request();
+                if ($req && $req->hasSession() && (bool) $req->session()->get('guest_mode', false)) {
+                    return;
+                }
+
                 UserLoginHistory::create([
                     'user_id' => method_exists($event->user, 'getAuthIdentifier') ? $event->user->getAuthIdentifier() : ($event->user->id ?? null),
                     'ip_address' => $req ? $req->ip() : null,
@@ -28,6 +32,11 @@ class LoginHistoryServiceProvider extends ServiceProvider
 
         Event::listen(Logout::class, function (Logout $event) {
             try {
+                $req = request();
+                if ($req && $req->hasSession() && (bool) $req->session()->get('guest_mode', false)) {
+                    return;
+                }
+
                 $uid = method_exists($event->user, 'getAuthIdentifier') ? $event->user->getAuthIdentifier() : ($event->user->id ?? null);
                 $last = UserLoginHistory::where('user_id', $uid)
                     ->whereNull('logged_out_at')
