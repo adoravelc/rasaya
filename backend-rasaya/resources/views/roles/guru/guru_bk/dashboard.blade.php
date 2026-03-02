@@ -14,7 +14,7 @@
                     </div>
                 </div>
 
-                                @if(!auth()->user()->password_changed_at && auth()->user()->initial_password)
+                                @if(!session('guest_mode') && !auth()->user()->password_changed_at && auth()->user()->initial_password)
                                     <div class="alert alert-warning d-flex align-items-center gap-2" role="alert">
                                         <span class="fw-semibold">Segera ubah password anda.</span>
                                         <span class="small">Gunakan token awal sebagai Password lama pada form ubah password.</span>

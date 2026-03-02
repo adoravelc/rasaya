@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Models\UserLoginHistory;
+use App\Services\GuestSandboxService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -12,6 +12,46 @@ use Carbon\Carbon;
 
 class AuthController extends Controller
 {
+    public function loginGuestSiswa(Request $request)
+    {
+        $guestConfig = config('auth.guest_accounts.siswa');
+
+        if (!$guestConfig || empty($guestConfig['identifier']) || empty($guestConfig['password'])) {
+            return response()->json([
+                'message' => 'Akun guest siswa belum dikonfigurasi.',
+            ], 503);
+        }
+
+        $user = User::where('identifier', $guestConfig['identifier'])->first();
+
+        if (!$user || !Hash::check($guestConfig['password'], $user->password) || $user->role !== 'siswa') {
+            return response()->json([
+                'message' => 'Akun guest siswa tidak valid. Hubungi admin.',
+            ], 401);
+        }
+
+        $history = $user->loginHistories()->create([
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'logged_in_at' => Carbon::now(),
+        ]);
+
+        $token = $user->createToken($request->input('device_name', 'flutter-guest'))->plainTextToken;
+
+        return response()->json([
+            'token' => $token,
+            'guest_mode' => true,
+            'user' => [
+                'id' => $user->id,
+                'identifier' => $user->identifier,
+                'role' => $user->role,
+                'name' => $user->name,
+                'email' => $user->email,
+                'jenis_kelamin' => $user->jenis_kelamin,
+            ]
+        ]);
+    }
+
     public function login(Request $request)
     {
         $data = $request->validate([
@@ -87,6 +127,11 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        $sandbox = app(GuestSandboxService::class);
+        if ($sandbox->isGuestSiswa($request)) {
+            $sandbox->clearForRequest($request);
+        }
+
         $user = $request->user();
 
         // tandai waktu logout pada history terakhir

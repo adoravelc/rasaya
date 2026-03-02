@@ -2,9 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../auth/auth_controller.dart';
+import '../utils/external_navigation.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
-  const LoginPage({super.key});
+  final bool isGuestContext;
+  final bool autoGuestLogin;
+  final String? returnHomeUrl;
+
+  const LoginPage({
+    super.key,
+    this.isGuestContext = false,
+    this.autoGuestLogin = false,
+    this.returnHomeUrl,
+  });
 
   @override
   ConsumerState<LoginPage> createState() => _LoginPageState();
@@ -16,12 +26,45 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _pwCtrl = TextEditingController();
   bool _obscure = true;
   bool _remember = false;
+  bool _guestAutoLoginTriggered = false;
+  late final bool _isGuestContext;
+  late final bool _autoGuestLogin;
+  late final String? _returnHomeUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final qp = Uri.base.queryParameters;
+    _isGuestContext = widget.isGuestContext || qp['guest'] == '1';
+    _autoGuestLogin = widget.autoGuestLogin || qp['auto_guest'] == '1';
+    _returnHomeUrl = widget.returnHomeUrl ?? qp['home_url'];
+
+    if (_isGuestContext && _autoGuestLogin) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _triggerGuestAutoLogin();
+      });
+    }
+  }
 
   @override
   void dispose() {
     _idCtrl.dispose();
     _pwCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _triggerGuestAutoLogin() async {
+    if (_guestAutoLoginTriggered) return;
+    _guestAutoLoginTriggered = true;
+    await ref
+        .read(authControllerProvider.notifier)
+        .loginGuestSiswa(guestHomeUrl: _returnHomeUrl);
+  }
+
+  Future<void> _goBackToHome() async {
+    final target = _returnHomeUrl?.trim();
+    if (target == null || target.isEmpty) return;
+    await openExternalUrl(target);
   }
 
   @override
@@ -55,6 +98,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  if (_isGuestContext)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _goBackToHome,
+                          icon: const Icon(Icons.arrow_back),
+                          label: const Text('Kembali ke Home'),
+                        ),
+                      ),
+                    ),
 
                   // Error alert (if any)
                   if (state.error != null)
@@ -165,6 +220,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     : const Text('Masuk'),
                               ),
                             ),
+                            if (_isGuestContext) ...[
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton(
+                                  onPressed: state.loading
+                                      ? null
+                                      : _triggerGuestAutoLogin,
+                                  child: const Text('Masuk sebagai Guest'),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

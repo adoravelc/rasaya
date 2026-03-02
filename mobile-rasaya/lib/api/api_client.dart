@@ -23,12 +23,19 @@ class ApiClient {
 // === UBAH BAGIAN INI JADI LINK LIVE KAMU ===
   // Kita samakan semua karena sekarang targetnya Server IDCloudHost
   static const String _webBase = 'https://rasaya.my.id/api';
+  static const String _webLocalBase = 'http://127.0.0.1:8000/api';
   static const String _androidEmuBase = 'https://rasaya.my.id/api';
   static const String _iosSimBase = 'https://rasaya.my.id/api';
 
   static String _resolveBaseUrl() {
     if (_envBase.isNotEmpty) return _envBase;
-    if (kIsWeb) return _webBase;
+    if (kIsWeb) {
+      final host = Uri.base.host.toLowerCase();
+      if (host == 'localhost' || host == '127.0.0.1') {
+        return _webLocalBase;
+      }
+      return _webBase;
+    }
     if (defaultTargetPlatform == TargetPlatform.android) return _androidEmuBase;
     return _iosSimBase;
   }

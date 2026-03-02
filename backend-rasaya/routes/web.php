@@ -55,6 +55,7 @@ Route::get('/', [\App\Http\Controllers\Web\GuestAccessController::class, 'home']
 Route::post('/guest/{role}', [\App\Http\Controllers\Web\GuestAccessController::class, 'enter'])
     ->whereIn('role', ['guru-bk', 'siswa'])
     ->name('guest.enter');
+Route::get('/guest/exit', [\App\Http\Controllers\Web\GuestAccessController::class, 'exit'])->name('guest.exit');
 
 Route::get('/login', [AuthWebController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthWebController::class, 'doLogin'])->name('login.attempt');
@@ -69,15 +70,24 @@ Route::get('/forgot-password/done', [\App\Http\Controllers\Web\ForgotPasswordCon
 Route::get('/reset-password/{token}', [\App\Http\Controllers\Web\PasswordResetController::class, 'show'])->name('password.reset.show');
 Route::post('/reset-password', [\App\Http\Controllers\Web\PasswordResetController::class, 'submit'])->name('password.reset.submit');
 
-Route::get('/dashboard', function (Request $request) {
-    $user = $request->user(); // ✅ clean
-    if (!$user)
-        return redirect()->route('login');
+Route::get('/dashboard', function (\Illuminate\Http\Request $request) {
+    $user = $request->user();
 
-    if ($user->hasRole('admin'))
+    if (!$user) {
+        return redirect()->route('login');
+    }
+
+    if ($user->role === 'admin') {
         return redirect()->route('admin.dashboard');
-    if ($user->hasRole('guru'))
+    }
+
+    if ($user->role === 'guru') {
         return redirect()->route('guru.dashboard');
+    }
+
+    if ($user->role === 'siswa') {
+        return redirect()->route('siswa.dashboard');
+    }
 
     return redirect('/');
 })->name('dashboard')->middleware('auth');

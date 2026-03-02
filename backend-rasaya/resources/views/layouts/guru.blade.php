@@ -84,7 +84,7 @@
         }
         /* Desktop: keep sidebar static (does not scroll with main content) */
         @media (min-width: 768px){
-            aside.sidebar{ position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto; }
+            aside.sidebar{ position: sticky; top: 0; height: 100vh; overflow-y: auto; }
             /* Ensure main content scrolls independently and layout stays aligned */
             main.col-md-9, main.col-lg-10{ min-height: 100vh; }
         }
@@ -224,14 +224,12 @@
             <div id="sidebarBackdrop" class="d-md-none" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1040"></div>
             <x-app-sidebar :role="'guru'" />
             {{-- Content --}}
-            @if(session('guest_mode'))
-                <div class="col-12 col-md-9 col-lg-10 pt-3 px-4">
-                    <div class="alert alert-warning mb-0" role="alert">
+            <main class="col-12 col-md-9 col-lg-10 p-4">
+                @if(session('guest_mode'))
+                    <div class="alert alert-warning mb-3" role="alert">
                         Anda berada di mode guest read-only. Semua perubahan data diblokir dan tidak disimpan.
                     </div>
-                </div>
-            @endif
-            <main class="col-12 col-md-9 col-lg-10 p-4">
+                @endif
                 @yield('content')
             </main>
         </div>

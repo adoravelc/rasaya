@@ -15,19 +15,32 @@ class AuthState {
   final String? token;
   final Map<String, dynamic>? me;
   final String? error;
+  final bool isGuestMode;
+  final String? guestHomeUrl;
 
-  const AuthState({this.loading = false, this.token, this.me, this.error});
+  const AuthState({
+    this.loading = false,
+    this.token,
+    this.me,
+    this.error,
+    this.isGuestMode = false,
+    this.guestHomeUrl,
+  });
 
   AuthState copy(
           {bool? loading,
           String? token,
           Map<String, dynamic>? me,
-          String? error}) =>
+          String? error,
+          bool? isGuestMode,
+          String? guestHomeUrl}) =>
       AuthState(
         loading: loading ?? this.loading,
         token: token ?? this.token,
         me: me ?? this.me,
         error: error,
+        isGuestMode: isGuestMode ?? this.isGuestMode,
+        guestHomeUrl: guestHomeUrl ?? this.guestHomeUrl,
       );
 }
 
@@ -48,6 +61,8 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> bootstrap() async {
     print('🔐 Auth bootstrap: reading saved token');
+    final guestCtx =
+        await _ref.read(authRepoProvider).readGuestSessionContext();
     final token = await _ref.read(authRepoProvider).readSavedToken();
     if (token == null) {
       print('📭 No saved token found');
@@ -58,7 +73,12 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       final me = await _ref.read(authRepoProvider).me(token);
       print('👤 User data fetched: ${me['name']}');
-      state = state.copy(loading: false, me: me);
+      state = state.copy(
+        loading: false,
+        me: me,
+        isGuestMode: guestCtx.isGuestMode,
+        guestHomeUrl: guestCtx.guestHomeUrl,
+      );
     } catch (e) {
       print('❌ Auth bootstrap failed: $e');
       state = const AuthState(); // invalid token, reset
@@ -72,7 +92,13 @@ class AuthController extends StateNotifier<AuthState> {
           .read(authRepoProvider)
           .login(identifier: identifier, password: password);
       final me = await _ref.read(authRepoProvider).me(token);
-      state = AuthState(loading: false, token: token, me: me);
+      await _ref.read(authRepoProvider).clearGuestSessionContext();
+      state = AuthState(
+          loading: false,
+          token: token,
+          me: me,
+          isGuestMode: false,
+          guestHomeUrl: null);
     } on DioException catch (e) {
       final status = e.response?.statusCode;
 
@@ -89,6 +115,36 @@ class AuthController extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copy(
           loading: false, error: 'Terjadi kesalahan. Mohon coba lagi.');
+    }
+  }
+
+  Future<void> loginGuestSiswa({String? guestHomeUrl}) async {
+    state = state.copy(loading: true, error: null);
+    try {
+      final token = await _ref.read(authRepoProvider).loginGuestSiswa();
+      final me = await _ref.read(authRepoProvider).me(token);
+      await _ref.read(authRepoProvider).saveGuestSessionContext(
+            isGuestMode: true,
+            guestHomeUrl: guestHomeUrl,
+          );
+      state = AuthState(
+        loading: false,
+        token: token,
+        me: me,
+        isGuestMode: true,
+        guestHomeUrl: guestHomeUrl,
+      );
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      final msg = (data is Map && data['message'] != null)
+          ? data['message'].toString()
+          : 'Gagal login guest. Mohon coba lagi.';
+      state = state.copy(loading: false, error: msg);
+    } catch (_) {
+      state = state.copy(
+        loading: false,
+        error: 'Terjadi kesalahan. Mohon coba lagi.',
+      );
     }
   }
 

@@ -7,7 +7,6 @@ use App\Http\Controllers\Api\KelasController;
 use App\Http\Controllers\Api\GuruController;
 use App\Http\Controllers\Api\SiswaController;
 use App\Http\Controllers\Api\SiswaKelasController;
-use App\Http\Controllers\Api\KategoriMasalahController;
 use App\Http\Controllers\Api\InputSiswaController;
 use App\Http\Controllers\Api\MoodController;
 use App\Http\Controllers\Api\SlotKonselingController;
@@ -20,6 +19,7 @@ use App\Http\Controllers\Api\BookingKonselingController;
 */
 Route::get('/health', fn() => response()->json(['ok' => true, 'ts' => now()]));
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login/guest-siswa', [AuthController::class, 'loginGuestSiswa']);
 // Forgot password request (public)
 Route::post('/forgot-password', [\App\Http\Controllers\Api\ForgotPasswordController::class, 'requestReset']);
 
@@ -52,9 +52,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('input-siswa', [InputSiswaController::class, 'index']);
     Route::get('input-siswa/today-status', [InputSiswaController::class, 'todayStatus']);
     Route::post('input-siswa', [InputSiswaController::class, 'store']);
-    Route::get('input-siswa/{inputSiswa}', [InputSiswaController::class, 'show']);
-    Route::post('input-siswa/{inputSiswa}', [InputSiswaController::class, 'update']);
-    Route::delete('input-siswa/{inputSiswa}', [InputSiswaController::class, 'destroy']);
+    Route::get('input-siswa/{inputSiswaId}', [InputSiswaController::class, 'show'])->whereNumber('inputSiswaId');
+    Route::post('input-siswa/{inputSiswaId}', [InputSiswaController::class, 'update'])->whereNumber('inputSiswaId');
+    Route::delete('input-siswa/{inputSiswaId}', [InputSiswaController::class, 'destroy'])->whereNumber('inputSiswaId');
 
 
     // Mood tracker (siswa, guru, admin)

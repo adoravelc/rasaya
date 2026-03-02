@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../auth/auth_controller.dart';
 import '../widgets/app_scaffold.dart';
+import '../utils/external_navigation.dart';
+import '../utils/guest_logout_url.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
@@ -76,7 +78,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final me = ref.watch(authControllerProvider).me ?? {};
+    final authState = ref.watch(authControllerProvider);
+    final me = authState.me ?? {};
+    final isGuestMode = authState.isGuestMode;
     final name = (me['name'] ?? me['nama'] ?? '-').toString();
     final email = (me['email'] ?? '-').toString();
     final nis = (me['nis'] ?? me['identifier'] ?? '-').toString();
@@ -103,6 +107,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           SliverToBoxAdapter(child: const SizedBox(height: 12)),
           SliverToBoxAdapter(
             child: _ActionGrid(
+              isGuestMode: isGuestMode,
               onChangePassword: () => context.push('/profile/change-password'),
               onChangeEmail: () => _showChangeEmailDialog(context),
               onHistory: () => context.push('/history'),
@@ -130,7 +135,23 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   ),
                 );
                 if (confirm == true) {
+                  final auth = ref.read(authControllerProvider);
+                  final guestHomeUrl = auth.guestHomeUrl;
+                  final isGuestMode = auth.isGuestMode;
+
                   await ref.read(authControllerProvider.notifier).logout();
+
+                  if (isGuestMode &&
+                      guestHomeUrl != null &&
+                      guestHomeUrl.isNotEmpty) {
+                    final target = buildGuestResetUrl(
+                      guestHomeUrl: guestHomeUrl,
+                      flutterOrigin: Uri.base.origin,
+                    );
+                    await openExternalUrl(target);
+                    return;
+                  }
+
                   if (context.mounted) {
                     GoRouter.of(context).go('/');
                   }
@@ -292,12 +313,14 @@ class _InfoTile extends StatelessWidget {
 
 class _ActionGrid extends StatelessWidget {
   const _ActionGrid({
+    required this.isGuestMode,
     required this.onChangePassword,
     required this.onChangeEmail,
     required this.onHistory,
     required this.onSchedule,
     required this.onLogout,
   });
+  final bool isGuestMode;
   final VoidCallback onChangePassword;
   final VoidCallback onChangeEmail;
   final VoidCallback onHistory;
@@ -320,18 +343,20 @@ class _ActionGrid extends StatelessWidget {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             children: [
-              _SmallActionButton(
-                label: 'Ubah Password',
-                icon: Icons.lock_reset,
-                fg: cs.primary,
-                onTap: onChangePassword,
-              ),
-              _SmallActionButton(
-                label: 'Ubah Email',
-                icon: Icons.alternate_email,
-                fg: cs.primary,
-                onTap: onChangeEmail,
-              ),
+              if (!isGuestMode)
+                _SmallActionButton(
+                  label: 'Ubah Password',
+                  icon: Icons.lock_reset,
+                  fg: cs.primary,
+                  onTap: onChangePassword,
+                ),
+              if (!isGuestMode)
+                _SmallActionButton(
+                  label: 'Ubah Email',
+                  icon: Icons.alternate_email,
+                  fg: cs.primary,
+                  onTap: onChangeEmail,
+                ),
               _SmallActionButton(
                 label: 'Riwayat Input',
                 icon: Icons.history,

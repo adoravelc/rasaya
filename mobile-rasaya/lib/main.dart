@@ -70,7 +70,14 @@ class _AppState extends ConsumerState<App> {
     _router = GoRouter(
       routes: [
         GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
-        GoRoute(path: '/', builder: (_, __) => const LoginPage()),
+        GoRoute(
+          path: '/',
+          builder: (_, state) => LoginPage(
+            isGuestContext: state.uri.queryParameters['guest'] == '1',
+            autoGuestLogin: state.uri.queryParameters['auto_guest'] == '1',
+            returnHomeUrl: state.uri.queryParameters['home_url'],
+          ),
+        ),
         GoRoute(
             path: '/forgot-password',
             builder: (_, __) => const ForgotPasswordPage()),

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../auth/auth_controller.dart';
 import '../widgets/app_scaffold.dart';
 import 'package:intl/intl.dart';
+import '../utils/external_navigation.dart';
+import '../utils/guest_logout_url.dart';
 
 String _fmtTanggal(BuildContext context, String? raw) {
   if (raw == null || raw.isEmpty) return '-';
@@ -171,6 +173,8 @@ class HomePage extends ConsumerWidget {
     final nis = (me['nis'] ?? me['identifier'] ?? '-').toString();
     final kelasLabel = (me['kelas_label'] ?? me['role'] ?? '-').toString();
     final needsPwdUpdate = me['needs_password_update'] == true;
+    final isGuestMode = state.isGuestMode;
+    final guestHomeUrl = state.guestHomeUrl;
     // Hide alert if user just changed password (password_changed_at exists)
     final hasChangedPwd = me['password_changed_at'] != null;
 
@@ -199,7 +203,28 @@ class HomePage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _IdentityHeader(name: name, nis: nis, kelasLabel: kelasLabel),
+          _IdentityHeader(
+            name: name,
+            nis: nis,
+            kelasLabel: kelasLabel,
+            isGuestMode: isGuestMode,
+            onGuestLogout: isGuestMode
+                ? () async {
+                    await ref.read(authControllerProvider.notifier).logout();
+                    if (guestHomeUrl != null && guestHomeUrl.isNotEmpty) {
+                      final target = buildGuestResetUrl(
+                        guestHomeUrl: guestHomeUrl,
+                        flutterOrigin: Uri.base.origin,
+                      );
+                      await openExternalUrl(target);
+                      return;
+                    }
+                    if (context.mounted) {
+                      context.go('/');
+                    }
+                  }
+                : null,
+          ),
           const SizedBox(height: 12),
           if (showMoodShortcut)
             moodToday.when(
@@ -211,7 +236,7 @@ class HomePage extends ConsumerWidget {
               error: (_, __) => const SizedBox.shrink(),
             ),
           if (showMoodShortcut) const SizedBox(height: 12),
-          if (needsPwdUpdate && !hasChangedPwd) ...[
+          if (!isGuestMode && needsPwdUpdate && !hasChangedPwd) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Card(
@@ -441,11 +466,18 @@ class HomePage extends ConsumerWidget {
 }
 
 class _IdentityHeader extends StatelessWidget {
-  const _IdentityHeader(
-      {required this.name, required this.nis, required this.kelasLabel});
+  const _IdentityHeader({
+    required this.name,
+    required this.nis,
+    required this.kelasLabel,
+    this.isGuestMode = false,
+    this.onGuestLogout,
+  });
   final String name;
   final String nis;
   final String kelasLabel;
+  final bool isGuestMode;
+  final Future<void> Function()? onGuestLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -518,18 +550,40 @@ class _IdentityHeader extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 14,
-                      runSpacing: -8,
-                      children: [
-                        _IdentityChip(label: 'NIS: $nis'),
-                        _IdentityChip(label: kelasLabel),
-                      ],
-                    ),
+                    if (isGuestMode)
+                      IntrinsicWidth(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _IdentityChip(label: 'NIS: $nis'),
+                                if (kelasLabel.isNotEmpty) ...[
+                                  const SizedBox(width: 14),
+                                  _IdentityChip(label: kelasLabel),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            _GuestLogoutButton(onPressed: onGuestLogout),
+                          ],
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 14,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          _IdentityChip(label: 'NIS: $nis'),
+                          if (kelasLabel.isNotEmpty)
+                            _IdentityChip(label: kelasLabel),
+                        ],
+                      ),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
             ],
           ),
         ],
@@ -557,6 +611,35 @@ class _IdentityChip extends StatelessWidget {
               fontSize: 12,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.2)),
+    );
+  }
+}
+
+class _GuestLogoutButton extends StatelessWidget {
+  const _GuestLogoutButton({this.onPressed});
+
+  final Future<void> Function()? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return FilledButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.logout, size: 14),
+      label: const Text(
+        'Logout Guest',
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+      ),
+      style: FilledButton.styleFrom(
+        backgroundColor: cs.secondary,
+        foregroundColor: cs.primary,
+        minimumSize: const Size(0, 32),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
     );
   }
 }
@@ -595,7 +678,7 @@ class _BigMenuGrid extends StatelessWidget {
           label: 'Cerita Teman',
           icon: Icons.group_rounded,
           fg: cs.primary,
-          accent: cs.primary,
+          accent: cs.secondary,
           onTap: onRefleksiTeman,
         ),
         _SmallTile(

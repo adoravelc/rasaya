@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../auth/auth_controller.dart';
+import '../utils/external_navigation.dart';
+import '../utils/guest_logout_url.dart';
 
 class AppDrawer extends ConsumerWidget {
   const AppDrawer({super.key});
@@ -54,7 +56,22 @@ class AppDrawer extends ConsumerWidget {
               icon: Icons.logout,
               label: 'Logout',
               onTap: () async {
+                final auth = ref.read(authControllerProvider);
+                final guestHomeUrl = auth.guestHomeUrl;
+                final isGuestMode = auth.isGuestMode;
+
                 await ref.read(authControllerProvider.notifier).logout();
+                if (isGuestMode &&
+                    guestHomeUrl != null &&
+                    guestHomeUrl.isNotEmpty) {
+                  final target = buildGuestResetUrl(
+                    guestHomeUrl: guestHomeUrl,
+                    flutterOrigin: Uri.base.origin,
+                  );
+                  await openExternalUrl(target);
+                  return;
+                }
+
                 if (context.mounted) context.go('/');
               },
             ),

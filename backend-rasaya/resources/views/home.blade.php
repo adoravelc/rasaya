@@ -30,6 +30,12 @@
                     </div>
                 @endif
 
+                @if (session('status'))
+                    <div class="alert alert-success" role="alert">
+                        {{ session('status') }}
+                    </div>
+                @endif
+
                 <div class="card shadow-sm border-0">
                     <div class="card-body p-4 p-md-5">
                         <h5 class="mb-3">Masuk ke RASAYA</h5>
@@ -37,6 +43,7 @@
 
                         <div class="d-grid gap-2 mb-3">
                             <a href="{{ route('login') }}" class="btn btn-primary">Masuk Akun Utama</a>
+                            <a href="{{ route('guest.exit') }}" class="btn btn-outline-danger">Reset Sesi Browser</a>
                         </div>
 
                         <div class="border rounded-3 p-3">

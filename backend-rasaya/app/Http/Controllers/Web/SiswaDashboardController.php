@@ -11,12 +11,23 @@ class SiswaDashboardController extends Controller
      * Redirect siswa to Flutter Web app
      * Flutter web will be hosted separately and siswa will access it from there
      */
-    public function index()
+    public function index(Request $request)
     {
-        // Get Flutter Web URL from config (set in .env: FLUTTER_WEB_URL)
         $flutterWebUrl = config('app.flutter_web_url', 'http://localhost:8080');
-        
-        // Redirect to Flutter Web with token
-        return redirect()->away($flutterWebUrl);
+
+        $isGuestSiswa = (bool) $request->session()->get('guest_mode', false)
+            && $request->session()->get('guest_role') === 'siswa';
+
+        if (!$isGuestSiswa) {
+            return redirect()->away($flutterWebUrl);
+        }
+
+        $query = http_build_query([
+            'guest' => 1,
+            'auto_guest' => 1,
+            'home_url' => route('guest.exit'),
+        ]);
+
+        return redirect()->away(rtrim($flutterWebUrl, '/') . '/?' . $query);
     }
 }

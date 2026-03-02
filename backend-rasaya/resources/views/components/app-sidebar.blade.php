@@ -94,9 +94,11 @@
                         <a class="nav-link {{ $is('guru.bk.dashboard') }} {{ $is('guru.wk.dashboard') }}" href="{{ url('/guru') }}">
                             <i class="bi bi-grid me-2"></i> Dashboard
                         </a>
-                        <a class="nav-link {{ $is('guru.profile.*') }}" href="{{ route('guru.profile.index') }}">
-                            <i class="bi bi-person-circle me-2"></i> Profil Saya
-                        </a>
+                        @if (!(session('guest_mode') && session('guest_role') === 'guru-bk'))
+                            <a class="nav-link {{ $is('guru.profile.*') }}" href="{{ route('guru.profile.index') }}">
+                                <i class="bi bi-person-circle me-2"></i> Profil Saya
+                            </a>
+                        @endif
                     </nav>
                 </div>
 
@@ -126,14 +128,16 @@
 
                 {{-- Riwayat Data (Hanya BK) --}}
                 @if ($guruJenis === 'bk')
-                    <div class="mb-3">
-                        <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Riwayat Data</div>
-                        <nav class="nav nav-pills flex-column gap-1">
-                            <a class="nav-link {{ $is('guru.bk.refleksi-history') }}" href="{{ route('guru.bk.refleksi-history') }}">
-                                <i class="bi bi-clock-history me-2"></i> Riwayat Refleksi
-                            </a>
-                        </nav>
-                    </div>
+                    @if (!(session('guest_mode') && session('guest_role') === 'guru-bk'))
+                        <div class="mb-3">
+                            <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Riwayat Data</div>
+                            <nav class="nav nav-pills flex-column gap-1">
+                                <a class="nav-link {{ $is('guru.bk.refleksi-history') }}" href="{{ route('guru.bk.refleksi-history') }}">
+                                    <i class="bi bi-clock-history me-2"></i> Riwayat Refleksi
+                                </a>
+                            </nav>
+                        </div>
+                    @endif
 
                     <div class="mb-3">
                         <div class="small fw-bold text-uppercase text-muted mb-2 ps-3" style="font-size: 0.75rem;">Konseling (BK)</div>
@@ -142,6 +146,14 @@
                                 <i class="bi bi-calendar-check me-2"></i> Slot Konseling
                             </a>
                         </nav>
+                    </div>
+                @endif
+
+                @if (session('guest_mode') && session('guest_role') === 'guru-bk')
+                    <div class="mt-4 pt-3 border-top">
+                        <a href="{{ route('guest.exit') }}" class="btn btn-outline-danger w-100">
+                            <i class="bi bi-box-arrow-right me-2"></i>Keluar dari Guest Guru
+                        </a>
                     </div>
                 @endif
             @break

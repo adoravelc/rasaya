@@ -1,11 +1,23 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api/api_client.dart';
 
+class GuestSessionContext {
+  final bool isGuestMode;
+  final String? guestHomeUrl;
+
+  const GuestSessionContext({
+    required this.isGuestMode,
+    this.guestHomeUrl,
+  });
+}
+
 class AuthRepository {
   final ApiClient _client;
   AuthRepository(this._client);
 
   static const _kTokenKey = 'token';
+  static const _kGuestModeKey = 'guest_mode';
+  static const _kGuestHomeUrlKey = 'guest_home_url';
 
   Future<String> login({
     required String identifier,
@@ -19,7 +31,46 @@ class AuthRepository {
     final token = res.data['token'] as String;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kTokenKey, token);
+    await prefs.setBool(_kGuestModeKey, false);
+    await prefs.remove(_kGuestHomeUrlKey);
     return token;
+  }
+
+  Future<String> loginGuestSiswa() async {
+    final res = await _client.dio.post('/login/guest-siswa', data: {
+      'device_name': 'flutter-web-guest',
+    });
+    final token = res.data['token'] as String;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kTokenKey, token);
+    return token;
+  }
+
+  Future<void> saveGuestSessionContext({
+    required bool isGuestMode,
+    String? guestHomeUrl,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kGuestModeKey, isGuestMode);
+    if (guestHomeUrl != null && guestHomeUrl.isNotEmpty) {
+      await prefs.setString(_kGuestHomeUrlKey, guestHomeUrl);
+    } else {
+      await prefs.remove(_kGuestHomeUrlKey);
+    }
+  }
+
+  Future<GuestSessionContext> readGuestSessionContext() async {
+    final prefs = await SharedPreferences.getInstance();
+    return GuestSessionContext(
+      isGuestMode: prefs.getBool(_kGuestModeKey) ?? false,
+      guestHomeUrl: prefs.getString(_kGuestHomeUrlKey),
+    );
+  }
+
+  Future<void> clearGuestSessionContext() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kGuestModeKey, false);
+    await prefs.remove(_kGuestHomeUrlKey);
   }
 
   Future<Map<String, dynamic>> me(String token) async {
@@ -35,6 +86,8 @@ class AuthRepository {
     } catch (_) {}
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kTokenKey);
+    await prefs.setBool(_kGuestModeKey, false);
+    await prefs.remove(_kGuestHomeUrlKey);
   }
 
   Future<String?> readSavedToken() async {

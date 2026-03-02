@@ -6,14 +6,19 @@ use App\Http\Controllers\Controller;
 use App\Models\SlotKonseling;
 use App\Models\SlotBooking;
 use App\Models\SiswaKelas;
+use App\Services\GuestSandboxService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
-use Carbon\CarbonTimeZone;
 
 class BookingKonselingController extends Controller
 {
+    private function sandbox(): GuestSandboxService
+    {
+        return app(GuestSandboxService::class);
+    }
+
     /**
      * Helper: ambil siswa_kelas_id aktif milik user siswa.
      * - Asumsi relasi: User -> siswa (user_id) -> siswa_kelass (is_active=true).
@@ -119,6 +124,53 @@ class BookingKonselingController extends Controller
             ], 422);
         }
 
+        if ($this->sandbox()->isGuestSiswa($r)) {
+            $slot = SlotKonseling::with(['guru.user'])->findOrFail($slotId);
+            abort_if($slot->status !== 'published', 422, 'Slot tidak tersedia.');
+            abort_if($slot->start_at->isPast(), 422, 'Slot sudah berlalu.');
+
+            $items = $this->sandbox()->getBooking($r);
+            $already = collect($items)->contains(fn(array $x) =>
+                (int) ($x['slot_id'] ?? 0) === $slotId
+                && (string) ($x['status'] ?? 'booked') === 'booked'
+            );
+            if ($already) {
+                return response()->json(['message' => 'Slot sudah kamu booking.'], 422);
+            }
+
+            $booking = [
+                'id' => $this->sandbox()->nextBookingId($r),
+                'slot_id' => $slotId,
+                'siswa_kelas_id' => $rosterId,
+                'status' => 'booked',
+                'cancel_reason' => null,
+                'canceled_by_user_id' => null,
+                'created_at' => now()->toISOString(),
+                'updated_at' => now()->toISOString(),
+                'slot' => [
+                    'id' => $slot->id,
+                    'guru_id' => $slot->guru_id,
+                    'status' => $slot->status,
+                    'start_at' => $slot->start_at?->toIso8601String(),
+                    'end_at' => $slot->end_at?->toIso8601String(),
+                    'booked_count' => 1,
+                    'lokasi' => $slot->lokasi,
+                    'notes' => $slot->notes,
+                    'guru' => [
+                        'id' => $slot->guru_id,
+                        'user' => [
+                            'name' => optional(optional($slot->guru)->user)->name ?? '-',
+                        ],
+                    ],
+                ],
+            ];
+
+            $items[] = $booking;
+            $this->sandbox()->putBooking($r, $items);
+
+            return response()->json($booking, 201);
+        }
+
         // Cegah double-book overlap untuk siswa pada waktu yang sama (opsional kuat)
         // Bisa ditingkatkan: cek overlap terhadap slot->start_at/end_at.
         $already = SlotBooking::where('siswa_kelas_id', $rosterId)
@@ -178,6 +230,25 @@ class BookingKonselingController extends Controller
      */
     public function myBookings(Request $r)
     {
+        if ($this->sandbox()->isGuestSiswa($r)) {
+            $rosterId = $this->getActiveRosterId($r);
+            $rows = collect($this->sandbox()->getBooking($r))
+                ->filter(fn(array $x) => (int) ($x['siswa_kelas_id'] ?? 0) === $rosterId)
+                ->sortByDesc('created_at')
+                ->values()
+                ->all();
+
+            return response()->json([
+                'current_page' => 1,
+                'data' => $rows,
+                'from' => count($rows) > 0 ? 1 : null,
+                'last_page' => 1,
+                'per_page' => count($rows),
+                'to' => count($rows),
+                'total' => count($rows),
+            ]);
+        }
+
         $rosterId = $this->getActiveRosterId($r);
 
         $rows = SlotBooking::with(['slot.guru.user', 'siswaKelas.siswa.user', 'canceledBy'])
@@ -194,6 +265,28 @@ class BookingKonselingController extends Controller
      */
     public function cancelMine(Request $r, int $id)
     {
+        if ($this->sandbox()->isGuestSiswa($r)) {
+            $rosterId = $this->getActiveRosterId($r);
+            $items = $this->sandbox()->getBooking($r);
+            $index = collect($items)->search(fn(array $x) =>
+                (int) ($x['id'] ?? 0) === $id
+                && (int) ($x['siswa_kelas_id'] ?? 0) === $rosterId
+            );
+
+            abort_if($index === false, 404);
+            if (($items[$index]['status'] ?? '') !== 'booked') {
+                return response()->json(['message' => 'Booking tidak bisa dibatalkan.'], 422);
+            }
+
+            $items[$index]['status'] = 'canceled';
+            $items[$index]['cancel_reason'] = (string) ($r->input('reason') ?: 'Tidak ada alasan');
+            $items[$index]['canceled_by_user_id'] = $r->user()->id;
+            $items[$index]['updated_at'] = now()->toISOString();
+            $this->sandbox()->putBooking($r, $items);
+
+            return response()->json(['ok' => true]);
+        }
+
         $rosterId = $this->getActiveRosterId($r);
 
         /** @var SlotBooking $booking */

@@ -77,6 +77,30 @@ class GuestAccessController extends Controller
             ]);
         }
 
-        return redirect()->route($guestConfig['redirect_route'] ?? 'dashboard');
+        $targetRoute = match ($role) {
+            'guru-bk' => 'guru.bk.dashboard',
+            'siswa' => 'siswa.dashboard',
+            default => ($guestConfig['redirect_route'] ?? 'dashboard'),
+        };
+
+        return redirect()->route($targetRoute);
+    }
+
+    public function exit(Request $request)
+    {
+        $next = (string) $request->query('next', '');
+
+        $request->session()->forget(['guest_mode', 'guest_role']);
+
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        $flutterWebUrl = rtrim((string) config('app.flutter_web_url', ''), '/');
+        if ($next !== '' && $flutterWebUrl !== '' && str_starts_with($next, $flutterWebUrl)) {
+            return redirect()->away($next);
+        }
+
+        return redirect()->route('home')->with('status', 'Sesi guest berhasil direset. Silakan login ulang.');
     }
 }
