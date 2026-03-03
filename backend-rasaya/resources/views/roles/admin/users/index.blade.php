@@ -140,7 +140,7 @@
                                     ],
                                     JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP,
                                 ) }}"
-                                data-decrypted="{{ $u->initial_password ? \Illuminate\Support\Facades\Crypt::decryptString($u->initial_password) : '' }}">
+                                data-decrypted="{{ $u->initial_password ? rescue(fn() => \Illuminate\Support\Facades\Crypt::decryptString($u->initial_password), '') : '' }}">
                                 Detail
                             </button>
                         </td>
