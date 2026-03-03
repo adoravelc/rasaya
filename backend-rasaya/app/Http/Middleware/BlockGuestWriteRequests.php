@@ -24,6 +24,20 @@ class BlockGuestWriteRequests
             return $next($request);
         }
 
+        $isGuestGuruBk = $request->session()->get('guest_role') === 'guru-bk';
+        if ($isGuestGuruBk && (
+            $request->routeIs('guru.analisis.attention')
+            ||
+            $request->routeIs('guru.observasi.store')
+            || $request->routeIs('guru.observasi.update')
+            || $request->routeIs('guru.observasi.destroy')
+            || $request->routeIs('guru.guru_bk.slots.publish')
+            || $request->routeIs('guru.guru_bk.slots.destroy')
+            || $request->routeIs('guru.bk.bookings.update-status')
+        )) {
+            return $next($request);
+        }
+
         $message = 'Mode guest hanya bisa read-only. Perubahan data tidak disimpan.';
 
         if ($request->expectsJson()) {

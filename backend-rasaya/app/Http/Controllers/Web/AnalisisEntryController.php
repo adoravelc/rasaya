@@ -22,6 +22,24 @@ class AnalisisEntryController extends Controller
     {
     }
 
+    private function isGuestGuruBk(Request $request): bool
+    {
+        return $request->hasSession()
+            && (bool) $request->session()->get('guest_mode', false)
+            && $request->session()->get('guest_role') === 'guru-bk';
+    }
+
+    private function guestAnalisisReadOnlyResponse(Request $request)
+    {
+        $message = 'Mode guest analisis: hanya boleh menandai butuh perhatian. Aksi review/revisi/rekomendasi dinonaktifkan.';
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json(['message' => $message], 403);
+        }
+
+        return back()->with('warning', $message);
+    }
+
     public function index(Request $r)
     {
         // daftar hasil analisis; wali kelas hanya melihat siswanya sendiri
@@ -367,6 +385,10 @@ class AnalisisEntryController extends Controller
 
     public function decide(Request $r, AnalisisEntry $analisis, int $rekomId)
     {
+        if ($this->isGuestGuruBk($r)) {
+            return $this->guestAnalisisReadOnlyResponse($r);
+        }
+
         $validated = $r->validate([
             'action' => ['required', Rule::in(['accept', 'reject'])],
             'kategori_id' => ['nullable', 'integer'],
@@ -556,6 +578,10 @@ class AnalisisEntryController extends Controller
     // Finalize an analysis: auto-reject any remaining suggested recommendations
     public function finalize(Request $r, AnalisisEntry $analisis)
     {
+        if ($this->isGuestGuruBk($r)) {
+            return $this->guestAnalisisReadOnlyResponse($r);
+        }
+
         $remaining = $analisis->rekomendasis()->where('status', 'suggested')->get();
         if ($remaining->isEmpty()) {
             return response()->json(['ok' => true]);
@@ -598,6 +624,10 @@ class AnalisisEntryController extends Controller
     // Accept analysis review (set review_status → accepted)
     public function acceptReview(Request $r, AnalisisEntry $analisis)
     {
+        if ($this->isGuestGuruBk($r)) {
+            return $this->guestAnalisisReadOnlyResponse($r);
+        }
+
         // Idempotent: jika sudah accepted, kembalikan status sekarang
         if ($analisis->review_status === 'accepted') {
             return response()->json([
@@ -624,6 +654,10 @@ class AnalisisEntryController extends Controller
     // Mark analysis as under revision (review_status → revised)
     public function markRevised(Request $r, AnalisisEntry $analisis)
     {
+        if ($this->isGuestGuruBk($r)) {
+            return $this->guestAnalisisReadOnlyResponse($r);
+        }
+
         if ($analisis->review_status === 'revised') {
             return response()->json([
                 'review_status' => $analisis->review_status,
@@ -679,6 +713,10 @@ class AnalisisEntryController extends Controller
 
     public function handlingStatus(Request $r, AnalisisEntry $analisis)
     {
+        if ($this->isGuestGuruBk($r)) {
+            return $this->guestAnalisisReadOnlyResponse($r);
+        }
+
         $r->validate(['handling_status' => ['required', 'in:handled,resolved']]);
         $user = $r->user();
         if (!$user || $user->role !== 'guru') {
@@ -719,6 +757,10 @@ class AnalisisEntryController extends Controller
      */
     public function reviseCategory(Request $r, AnalisisEntry $analisis)
     {
+        if ($this->isGuestGuruBk($r)) {
+            return $this->guestAnalisisReadOnlyResponse($r);
+        }
+
         $validated = $r->validate([
             'new_kategori_id' => ['required', 'integer', 'exists:kategori_masalahs,id'],
             'revision_reason' => ['required', 'string', 'max:1000'],

@@ -2,6 +2,9 @@
 @section('title', 'Hasil Analisis')
 
 @section('content')
+    @php
+        $isGuestGuruBk = (bool) session('guest_mode') && session('guest_role') === 'guru-bk';
+    @endphp
     <div class="container py-4">
         <a href="{{ route('guru.analisis.index') }}" class="btn btn-sm btn-outline-secondary mb-3">← Kembali</a>
 
@@ -85,7 +88,7 @@
                 @endphp
                 <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
                     <span id="review-badge" class="badge {{ $reviewBadge['class'] }}">{{ $reviewBadge['text'] }}</span>
-                    @if ($reviewStatus === 'pending_review')
+                    @if (!$isGuestGuruBk && $reviewStatus === 'pending_review')
                         <div class="btn-group" role="group" aria-label="Review actions">
                             <button type="button" class="btn btn-sm btn-success" onclick="acceptReview({{ $analisis->id }});">
                                 <i class="bi bi-check2-circle"></i> Accept
@@ -125,7 +128,7 @@
                     </form>
                 </div>
 
-                <div id="handling-block" class="mb-2" style="{{ $analisis->needs_attention ? '' : 'display:none;' }}">
+                <div id="handling-block" class="mb-2 {{ $isGuestGuruBk ? 'd-none' : '' }}" style="{{ $analisis->needs_attention ? '' : 'display:none;' }}">
                     <div class="small text-muted mb-1">Status Penanganan</div>
                     <div class="btn-group btn-group-sm" role="group">
                         <button type="button"
@@ -155,7 +158,9 @@
                     style="background:#f1f5f9;border:1px solid #e2e8f0;">
                     <div class="small fw-semibold text-danger me-2"><i class="bi bi-exclamation-circle me-1"></i>Perlu
                         Tindak Lanjut</div>
-                    @if ($guru && $guru->jenis === 'bk')
+                    @if ($isGuestGuruBk)
+                        <span class="small text-muted">Mode guest: fitur jadwalkan konseling privat dinonaktifkan.</span>
+                    @elseif ($guru && $guru->jenis === 'bk')
                         <form method="post" action="{{ route('guru.referrals.analysis.direct', $analisis->id) }}"
                             class="d-inline">
                             @csrf
@@ -319,7 +324,7 @@
                                 @endif
                                 <br><small class="text-muted">Oleh: {{ $analisis->revisedBy->name ?? '-' }} pada {{ $analisis->revised_at?->format('d M Y H:i') }}</small>
                             </div>
-                        @else
+                        @elseif (!$isGuestGuruBk)
                             <div id="revision-actions" class="{{ $reviewStatus === 'pending_review' ? 'd-none' : '' }}">
                                 <button type="button" class="btn btn-warning btn-sm mt-3" data-bs-toggle="modal" data-bs-target="#revisiKategoriModal">
                                     <i class="bi bi-pencil-square"></i> Revisi Kategori
@@ -393,7 +398,7 @@
                         </div>
                         <div class="text-end">
                             <div class="small text-muted mb-1">Status: <strong>{{ $r->status }}</strong></div>
-                            @if ($r->status === 'suggested')
+                            @if (!$isGuestGuruBk && $r->status === 'suggested')
                                 <form class="d-inline" method="post"
                                     action="{{ route('guru.analisis.decide', [$analisis->id, $r->id]) }}">
                                     @csrf
@@ -682,6 +687,7 @@
     <script>
         // ===== GLOBAL SCOPE - Accessible from inline handlers =====
         const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        const isGuestGuruBk = @json($isGuestGuruBk);
         if (!csrf) console.warn('CSRF token tidak ditemukan');
 
         let rejModal;
@@ -794,6 +800,10 @@
         }
 
         function openReject(analisisId, rekomId) {
+            if (isGuestGuruBk) {
+                alert('Mode guest: aksi accept/reject/revisi analisis dinonaktifkan.');
+                return;
+            }
             document.getElementById('rej-analisis-id').value = analisisId;
             document.getElementById('rej-rekom-id').value = rekomId;
             document.getElementById('rej-kategori').value = '';
@@ -847,6 +857,10 @@
         }
 
         async function submitReject() {
+            if (isGuestGuruBk) {
+                alert('Mode guest: aksi accept/reject/revisi analisis dinonaktifkan.');
+                return;
+            }
             const analisisId = document.getElementById('rej-analisis-id').value;
             const rekomId = document.getElementById('rej-rekom-id').value;
             const kategoriId = document.getElementById('rej-kategori').value;
@@ -893,6 +907,10 @@
         }
 
         async function acceptReview(analisisId) {
+            if (isGuestGuruBk) {
+                alert('Mode guest: aksi accept/reject/revisi analisis dinonaktifkan.');
+                return;
+            }
             const url = `${location.origin}/guru/analisis/${analisisId}/review-accept`;
             const fd = new FormData();
             fd.append('_token', csrf);
@@ -917,6 +935,10 @@
         }
 
         async function startRevision(analisisId) {
+            if (isGuestGuruBk) {
+                alert('Mode guest: aksi accept/reject/revisi analisis dinonaktifkan.');
+                return;
+            }
             const url = `${location.origin}/guru/analisis/${analisisId}/review-revise`;
             const fd = new FormData();
             fd.append('_token', csrf);
@@ -948,6 +970,10 @@
         }
 
         async function updateHandlingStatus(analisisId, status) {
+            if (isGuestGuruBk) {
+                alert('Mode guest: status penanganan tidak bisa diubah. Hanya tanda butuh perhatian yang diizinkan.');
+                return;
+            }
             const url = `${location.origin}/guru/analisis/${analisisId}/handling-status`;
             const fd = new FormData();
             fd.append('_token', csrf);
@@ -1002,7 +1028,7 @@
                         statusSpan.classList.remove('text-muted');
                         statusSpan.classList.add('text-danger');
                         statusSpan.textContent = 'Butuh perhatian';
-                        if (handlingBlock) handlingBlock.style.display = '';
+                        if (handlingBlock && !isGuestGuruBk) handlingBlock.style.display = '';
                         if (actionsBlock) actionsBlock.classList.remove('d-none');
                     } else {
                         statusSpan.classList.remove('text-danger');

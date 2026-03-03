@@ -9,6 +9,13 @@ class GuestSandboxService
 {
     private const TTL_SECONDS = 14400; // 4 jam
 
+    public function isGuestGuruBk(Request $request): bool
+    {
+        return $request->hasSession()
+            && (bool) $request->session()->get('guest_mode', false)
+            && $request->session()->get('guest_role') === 'guru-bk';
+    }
+
     public function isGuestSiswa(Request $request): bool
     {
         $user = $request->user();
@@ -22,9 +29,77 @@ class GuestSandboxService
 
     public function clearForRequest(Request $request): void
     {
-        foreach (['refleksi', 'refleksi_seq', 'mood', 'mood_seq', 'booking', 'booking_seq'] as $bucket) {
+        foreach ([
+            'refleksi',
+            'refleksi_seq',
+            'mood',
+            'mood_seq',
+            'booking',
+            'booking_seq',
+            'guru_bk_observasi',
+            'guru_bk_observasi_seq',
+            'guru_bk_slots',
+            'guru_bk_slots_seq',
+            'guru_bk_deleted_slot_ids',
+            'guru_bk_booking_status',
+        ] as $bucket) {
             Cache::forget($this->key($request, $bucket));
         }
+    }
+
+    public function getGuruBkObservasi(Request $request): array
+    {
+        return Cache::get($this->key($request, 'guru_bk_observasi'), []);
+    }
+
+    public function putGuruBkObservasi(Request $request, array $items): void
+    {
+        Cache::put($this->key($request, 'guru_bk_observasi'), array_values($items), self::TTL_SECONDS);
+    }
+
+    public function nextGuruBkObservasiId(Request $request): int
+    {
+        $id = (int) Cache::increment($this->key($request, 'guru_bk_observasi_seq'));
+        Cache::put($this->key($request, 'guru_bk_observasi_seq'), $id, self::TTL_SECONDS);
+        return $id;
+    }
+
+    public function getGuruBkSlots(Request $request): array
+    {
+        return Cache::get($this->key($request, 'guru_bk_slots'), []);
+    }
+
+    public function putGuruBkSlots(Request $request, array $items): void
+    {
+        Cache::put($this->key($request, 'guru_bk_slots'), array_values($items), self::TTL_SECONDS);
+    }
+
+    public function nextGuruBkSlotId(Request $request): int
+    {
+        $id = (int) Cache::increment($this->key($request, 'guru_bk_slots_seq'));
+        Cache::put($this->key($request, 'guru_bk_slots_seq'), $id, self::TTL_SECONDS);
+        return $id;
+    }
+
+    public function getGuruBkDeletedSlotIds(Request $request): array
+    {
+        return Cache::get($this->key($request, 'guru_bk_deleted_slot_ids'), []);
+    }
+
+    public function putGuruBkDeletedSlotIds(Request $request, array $ids): void
+    {
+        $normalized = array_values(array_unique(array_map('intval', $ids)));
+        Cache::put($this->key($request, 'guru_bk_deleted_slot_ids'), $normalized, self::TTL_SECONDS);
+    }
+
+    public function getGuruBkBookingStatus(Request $request): array
+    {
+        return Cache::get($this->key($request, 'guru_bk_booking_status'), []);
+    }
+
+    public function putGuruBkBookingStatus(Request $request, array $items): void
+    {
+        Cache::put($this->key($request, 'guru_bk_booking_status'), $items, self::TTL_SECONDS);
     }
 
     public function getRefleksi(Request $request): array

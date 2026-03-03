@@ -227,7 +227,7 @@
             <main class="col-12 col-md-9 col-lg-10 p-4">
                 @if(session('guest_mode'))
                     <div class="alert alert-warning mb-3" role="alert">
-                        Anda berada di mode guest read-only. Semua perubahan data diblokir dan tidak disimpan.
+                        Anda berada di mode guest demo. Perubahan hanya disimpan sementara di sesi ini dan tidak masuk database utama.
                     </div>
                 @endif
                 @yield('content')

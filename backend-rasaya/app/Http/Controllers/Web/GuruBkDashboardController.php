@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\AnalisisEntry;
 use App\Models\InputGuru;
-use App\Models\SlotKonseling;
 use App\Models\SlotBooking;
+use App\Services\GuestSandboxService;
 use Illuminate\Support\Facades\Auth;
 use App\Models\CounselingReferral;
 use Illuminate\Http\Request;
@@ -15,6 +15,16 @@ use Carbon\Carbon;
 
 class GuruBkDashboardController extends Controller
 {
+    private function sandbox(): GuestSandboxService
+    {
+        return app(GuestSandboxService::class);
+    }
+
+    private function isGuestGuruBk(Request $request): bool
+    {
+        return $this->sandbox()->isGuestGuruBk($request);
+    }
+
     public function index(){
         /** @var \App\Models\User $user */
         $user = Auth::user();
@@ -127,6 +137,18 @@ class GuruBkDashboardController extends Controller
             return redirect()->back()->with('error', 'Alasan pembatalan wajib diisi.');
         }
 
+        if ($this->isGuestGuruBk($request)) {
+            $overrides = $this->sandbox()->getGuruBkBookingStatus($request);
+            $overrides[(string) $booking->id] = [
+                'status' => $newStatus,
+                'cancel_reason' => $newStatus === 'canceled' ? $request->input('cancel_reason') : null,
+                'updated_at' => now()->toISOString(),
+            ];
+            $this->sandbox()->putGuruBkBookingStatus($request, $overrides);
+
+            return redirect()->back()->with('success', "(Demo) Status booking disimpan sementara: '{$newStatus}'.");
+        }
+
         // Update status
         $booking->status = $newStatus;
 
@@ -167,20 +189,35 @@ class GuruBkDashboardController extends Controller
         $date = $request->input('date');
         $targetDate = $date ? Carbon::parse($date, $tz)->toDateString() : now($tz)->toDateString();
 
-        // Ambil semua booking completed milik guru ini pada tanggal slot tsb
-        $bookings = SlotBooking::with([
+        $baseQuery = SlotBooking::with([
                 'slot',
                 'siswaKelas.siswa.user',
                 'siswaKelas.kelas.jurusan',
                 'siswaKelas.tahunAjaran',
             ])
-            ->where('status', 'completed')
             ->whereHas('slot', function ($q) use ($guru, $targetDate) {
                 $q->where('guru_id', $guru->user_id)
                   ->whereDate('tanggal', $targetDate);
-            })
-            ->orderByDesc('id')
-            ->get();
+            });
+
+        $isGuestGuruBk = $this->isGuestGuruBk($request);
+        if (!$isGuestGuruBk) {
+            $baseQuery->where('status', 'completed');
+        }
+
+        $bookings = $baseQuery->orderByDesc('id')->get();
+
+        if ($isGuestGuruBk) {
+            $overrides = $this->sandbox()->getGuruBkBookingStatus($request);
+            $bookings = $bookings->map(function (SlotBooking $b) use ($overrides) {
+                $ov = $overrides[(string) $b->id] ?? null;
+                if (is_array($ov) && !empty($ov['status'])) {
+                    $b->status = (string) $ov['status'];
+                    $b->cancel_reason = $ov['cancel_reason'] ?? $b->cancel_reason;
+                }
+                return $b;
+            })->filter(fn(SlotBooking $b) => $b->status === 'completed')->values();
+        }
 
         // Map observasi hari itu (unik per guru+siswa_kelas+tanggal)
         $observasiMap = InputGuru::query()

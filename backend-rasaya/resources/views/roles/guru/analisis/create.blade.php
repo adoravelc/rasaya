@@ -13,7 +13,7 @@
             </div>
         @endif
         
-        <form method="post" action="{{ route('guru.analisis.store') }}" class="card p-3">
+        <form id="create-analisis-form" method="post" action="{{ route('guru.analisis.store') }}" class="card p-3">
             @csrf
             <div class="row g-3">
                 <div class="col-md-6">
@@ -56,8 +56,17 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const isGuestMode = @json((bool) session('guest_mode'));
+    const createForm = document.getElementById('create-analisis-form');
     const search = document.getElementById('siswa-search');
     const select = document.getElementById('siswa-select');
+    if (isGuestMode && createForm) {
+        createForm.addEventListener('submit', function(ev) {
+            ev.preventDefault();
+            window.alert('Mode guest hanya read-only. Fitur create analisis dinonaktifkan.');
+        });
+    }
+
     if (!search || !select) return;
 
     const options = Array.from(select.options);

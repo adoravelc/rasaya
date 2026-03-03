@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Services\GuestSandboxService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -48,6 +49,8 @@ class GuestAccessController extends Controller
         }
 
         $request->session()->regenerate();
+
+        app(GuestSandboxService::class)->clearForRequest($request);
 
         $user = Auth::user();
         if (!$user) {

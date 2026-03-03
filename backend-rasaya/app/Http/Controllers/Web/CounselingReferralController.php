@@ -9,17 +9,27 @@ use App\Models\SlotKonseling;
 use App\Models\SlotBooking;
 use App\Helpers\NotificationHelper;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class CounselingReferralController extends Controller
 {
+    private function isGuestGuruBk(Request $request): bool
+    {
+        return $request->hasSession()
+            && (bool) $request->session()->get('guest_mode', false)
+            && $request->session()->get('guest_role') === 'guru-bk';
+    }
+
     /**
      * Store a new referral (wali kelas or non-BK guru marks student needs attention).
      */
     public function store(Request $request)
     {
+        if ($this->isGuestGuruBk($request)) {
+            return redirect()->back()->with('warning', 'Mode guest: pengajuan/jadwal konseling privat dinonaktifkan.');
+        }
+
         try {
             $data = $request->validate([
                 'siswa_kelas_id' => ['required','integer','exists:siswa_kelass,id'],
@@ -79,6 +89,10 @@ class CounselingReferralController extends Controller
      */
     public function accept(Request $request, int $id)
     {
+        if ($this->isGuestGuruBk($request)) {
+            return redirect()->back()->with('warning', 'Mode guest: pengajuan/jadwal konseling privat dinonaktifkan.');
+        }
+
         $ref = CounselingReferral::pending()->findOrFail($id);
         $user = $request->user();
         if ($user->role !== 'guru' || !$user->guru || $user->guru->jenis !== 'bk') {
@@ -100,6 +114,10 @@ class CounselingReferralController extends Controller
      */
     public function createPrivateSlot(Request $request, int $referralId)
     {
+        if ($this->isGuestGuruBk($request)) {
+            return redirect()->route('guru.guru_bk.slots.view')->with('warning', 'Mode guest: pengajuan/jadwal konseling privat dinonaktifkan.');
+        }
+
         $ref = CounselingReferral::findOrFail($referralId);
         $user = $request->user();
         if ($user->role !== 'guru' || !$user->guru || $user->guru->jenis !== 'bk') {
@@ -140,6 +158,10 @@ class CounselingReferralController extends Controller
      */
     public function schedule(Request $request, int $referralId)
     {
+        if ($this->isGuestGuruBk($request)) {
+            return redirect()->back()->with('warning', 'Mode guest: pengajuan/jadwal konseling privat dinonaktifkan.');
+        }
+
         $ref = CounselingReferral::findOrFail($referralId);
         $user = $request->user();
         if ($user->role !== 'guru' || !$user->guru || $user->guru->jenis !== 'bk') {
@@ -231,6 +253,10 @@ class CounselingReferralController extends Controller
      */
     public function createFromAnalysis(Request $request, int $analisisId)
     {
+        if ($this->isGuestGuruBk($request)) {
+            return redirect()->back()->with('warning', 'Mode guest: pengajuan/jadwal konseling privat dinonaktifkan.');
+        }
+
         try {
             $user = $request->user();
             if ($user->role !== 'guru' || !$user->guru || $user->guru->jenis !== 'bk') {

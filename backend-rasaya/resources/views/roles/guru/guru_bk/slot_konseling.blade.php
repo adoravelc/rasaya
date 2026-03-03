@@ -255,6 +255,7 @@
             destroy: (id) => `${base}/${id}`,
         };
 
+
     let modal, pageUrl = '';
     let detailModal;
 

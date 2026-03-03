@@ -12,6 +12,13 @@ use App\Helpers\NotificationHelper;
 
 class AnalisisReviewController extends Controller
 {
+    private function isGuestGuruBk(Request $request): bool
+    {
+        return $request->hasSession()
+            && (bool) $request->session()->get('guest_mode', false)
+            && $request->session()->get('guest_role') === 'guru-bk';
+    }
+
     /**
      * Get analisis entry with pending review status for teacher review
      */
@@ -41,6 +48,12 @@ class AnalisisReviewController extends Controller
      */
     public function acceptAnalysis(Request $request, int $id)
     {
+        if ($this->isGuestGuruBk($request)) {
+            return response()->json([
+                'message' => 'Mode guest analisis: aksi review/revisi dinonaktifkan.'
+            ], 403);
+        }
+
         $entry = AnalisisEntry::findOrFail($id);
         
         $entry->update([
@@ -66,6 +79,12 @@ class AnalisisReviewController extends Controller
      */
     public function flexibleEditAnalysis(Request $request, int $id)
     {
+        if ($this->isGuestGuruBk($request)) {
+            return response()->json([
+                'message' => 'Mode guest analisis: aksi review/revisi dinonaktifkan.'
+            ], 403);
+        }
+
         $request->validate([
             'kategori_masalah_id' => 'nullable|exists:kategori_masalahs,id',
             'master_rekomendasi_id' => 'nullable|exists:master_rekomendasis,id',
