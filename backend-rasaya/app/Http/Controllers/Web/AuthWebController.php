@@ -10,11 +10,21 @@ class AuthWebController extends Controller
 {
     public function showLogin()
     {
+        if ((bool) config('auth.guest_only_mode', false)) {
+            return redirect()->route('home');
+        }
+
         return view('auth.login');
     }
 
     public function doLogin(Request $request)
     {
+        if ((bool) config('auth.guest_only_mode', false)) {
+            return redirect()->route('home')->withErrors([
+                'guest' => 'Mode demo hanya mendukung login guest.',
+            ]);
+        }
+
         $request->session()->forget(['guest_mode', 'guest_role']);
 
         $cred = $request->validate([

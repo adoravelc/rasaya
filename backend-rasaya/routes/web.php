@@ -54,21 +54,28 @@ use App\Http\Controllers\Web\NotificationController;
 Route::get('/', [\App\Http\Controllers\Web\GuestAccessController::class, 'home'])->name('home');
 Route::post('/guest/{role}', [\App\Http\Controllers\Web\GuestAccessController::class, 'enter'])
     ->whereIn('role', ['guru-bk', 'siswa'])
+    ->middleware('throttle:guest-enter')
     ->name('guest.enter');
 Route::get('/guest/exit', [\App\Http\Controllers\Web\GuestAccessController::class, 'exit'])->name('guest.exit');
 
 Route::get('/login', [AuthWebController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthWebController::class, 'doLogin'])->name('login.attempt');
+Route::post('/login', [AuthWebController::class, 'doLogin'])->middleware('throttle:web-login')->name('login.attempt');
 Route::post('/logout', [AuthWebController::class, 'logout'])->name('logout');
 
-// Forgot password (request flow)
-Route::get('/forgot-password', [\App\Http\Controllers\Web\ForgotPasswordController::class, 'showForm'])->name('password.forgot');
-Route::post('/forgot-password', [\App\Http\Controllers\Web\ForgotPasswordController::class, 'requestReset'])->name('password.forgot.request');
-Route::get('/forgot-password/done', [\App\Http\Controllers\Web\ForgotPasswordController::class, 'done'])->name('password.forgot.done');
+if (!(bool) config('auth.guest_only_mode', false)) {
+    // Forgot password (request flow)
+    Route::get('/forgot-password', [\App\Http\Controllers\Web\ForgotPasswordController::class, 'showForm'])->name('password.forgot');
+    Route::post('/forgot-password', [\App\Http\Controllers\Web\ForgotPasswordController::class, 'requestReset'])
+        ->middleware('throttle:forgot-password')
+        ->name('password.forgot.request');
+    Route::get('/forgot-password/done', [\App\Http\Controllers\Web\ForgotPasswordController::class, 'done'])->name('password.forgot.done');
 
-// Email reset link flow (public)
-Route::get('/reset-password/{token}', [\App\Http\Controllers\Web\PasswordResetController::class, 'show'])->name('password.reset.show');
-Route::post('/reset-password', [\App\Http\Controllers\Web\PasswordResetController::class, 'submit'])->name('password.reset.submit');
+    // Email reset link flow (public)
+    Route::get('/reset-password/{token}', [\App\Http\Controllers\Web\PasswordResetController::class, 'show'])->name('password.reset.show');
+    Route::post('/reset-password', [\App\Http\Controllers\Web\PasswordResetController::class, 'submit'])
+        ->middleware('throttle:reset-password')
+        ->name('password.reset.submit');
+}
 
 Route::get('/dashboard', function (\Illuminate\Http\Request $request) {
     $user = $request->user();

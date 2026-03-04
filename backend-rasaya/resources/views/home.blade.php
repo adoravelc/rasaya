@@ -42,7 +42,9 @@
                         <p class="text-muted mb-4">Pilih mode akses yang ingin digunakan.</p>
 
                         <div class="d-grid gap-2 mb-3">
-                            <a href="{{ route('login') }}" class="btn btn-primary">Masuk Akun Utama</a>
+                            @if (!config('auth.guest_only_mode', false))
+                                <a href="{{ route('login') }}" class="btn btn-primary">Masuk Akun Utama</a>
+                            @endif
                             <a href="{{ route('guest.exit') }}" class="btn btn-outline-danger">Reset Sesi Browser</a>
                         </div>
 

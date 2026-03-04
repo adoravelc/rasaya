@@ -100,10 +100,64 @@ class GuestAccessController extends Controller
         $request->session()->regenerateToken();
 
         $flutterWebUrl = rtrim((string) config('app.flutter_web_url', ''), '/');
-        if ($next !== '' && $flutterWebUrl !== '' && str_starts_with($next, $flutterWebUrl)) {
+        if ($this->isAllowedNextUrl($next, $flutterWebUrl)) {
             return redirect()->away($next);
         }
 
         return redirect()->route('home')->with('status', 'Sesi guest berhasil direset. Silakan login ulang.');
+    }
+
+    private function isAllowedNextUrl(string $next, string $allowedBaseUrl): bool
+    {
+        if ($next === '' || $allowedBaseUrl === '') {
+            return false;
+        }
+
+        $nextParts = parse_url($next);
+        $baseParts = parse_url($allowedBaseUrl);
+
+        if (!is_array($nextParts) || !is_array($baseParts)) {
+            return false;
+        }
+
+        $nextScheme = strtolower((string) ($nextParts['scheme'] ?? ''));
+        $baseScheme = strtolower((string) ($baseParts['scheme'] ?? ''));
+        $nextHost = strtolower((string) ($nextParts['host'] ?? ''));
+        $baseHost = strtolower((string) ($baseParts['host'] ?? ''));
+
+        if ($nextScheme === '' || $baseScheme === '' || $nextHost === '' || $baseHost === '') {
+            return false;
+        }
+
+        if ($nextScheme !== $baseScheme || $nextHost !== $baseHost) {
+            return false;
+        }
+
+        $nextPort = (int) ($nextParts['port'] ?? $this->defaultPortForScheme($nextScheme));
+        $basePort = (int) ($baseParts['port'] ?? $this->defaultPortForScheme($baseScheme));
+
+        if ($nextPort !== $basePort) {
+            return false;
+        }
+
+        $basePath = rtrim((string) ($baseParts['path'] ?? ''), '/');
+        $nextPath = (string) ($nextParts['path'] ?? '');
+
+        if ($basePath !== '') {
+            if ($nextPath !== $basePath && !str_starts_with($nextPath, $basePath . '/')) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function defaultPortForScheme(string $scheme): int
+    {
+        return match (strtolower($scheme)) {
+            'https' => 443,
+            'http' => 80,
+            default => 0,
+        };
     }
 }

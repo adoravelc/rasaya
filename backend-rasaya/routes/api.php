@@ -18,10 +18,14 @@ use App\Http\Controllers\Api\BookingKonselingController;
 |--------------------------------------------------------------------------
 */
 Route::get('/health', fn() => response()->json(['ok' => true, 'ts' => now()]));
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/login/guest-siswa', [AuthController::class, 'loginGuestSiswa']);
-// Forgot password request (public)
-Route::post('/forgot-password', [\App\Http\Controllers\Api\ForgotPasswordController::class, 'requestReset']);
+Route::post('/login/guest-siswa', [AuthController::class, 'loginGuestSiswa'])->middleware('throttle:api-guest-login');
+
+if (!(bool) config('auth.guest_only_mode', false)) {
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:api-login');
+    // Forgot password request (public)
+    Route::post('/forgot-password', [\App\Http\Controllers\Api\ForgotPasswordController::class, 'requestReset'])
+        ->middleware('throttle:api-forgot-password');
+}
 
 /*
 |--------------------------------------------------------------------------

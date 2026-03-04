@@ -102,16 +102,19 @@ return [
     // Feature flag: enable/disable email-based password reset links
     'reset_email_enabled' => env('AUTH_RESET_EMAIL_ENABLED', false),
 
+    // Feature flag: restrict app to guest/demo access only
+    'guest_only_mode' => env('AUTH_GUEST_ONLY_MODE', false),
+
     // Demo guest access (read-only)
     'guest_accounts' => [
         'guru-bk' => [
-            'identifier' => env('GUEST_GURU_BK_IDENTIFIER', 'guest_guru_bk'),
-            'password' => env('GUEST_GURU_BK_PASSWORD', 'guest12345'),
+            'identifier' => env('GUEST_GURU_BK_IDENTIFIER', ''),
+            'password' => env('GUEST_GURU_BK_PASSWORD', ''),
             'redirect_route' => 'guru.bk.dashboard',
         ],
         'siswa' => [
-            'identifier' => env('GUEST_SISWA_IDENTIFIER', 'guest_siswa'),
-            'password' => env('GUEST_SISWA_PASSWORD', 'guest12345'),
+            'identifier' => env('GUEST_SISWA_IDENTIFIER', ''),
+            'password' => env('GUEST_SISWA_PASSWORD', ''),
             'redirect_route' => 'siswa.dashboard',
         ],
     ],
