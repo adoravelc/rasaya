@@ -12,7 +12,6 @@ class GuestAccountSeeder extends Seeder
     public function run(): void
     {
         $guestAccounts = config('auth.guest_accounts', []);
-
         $this->seedGuestGuruBk($guestAccounts['guru-bk'] ?? []);
         $this->seedGuestSiswa($guestAccounts['siswa'] ?? []);
     }
