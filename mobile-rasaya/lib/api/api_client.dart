@@ -24,7 +24,7 @@ class ApiClient {
   // Kita samakan semua karena sekarang targetnya Server IDCloudHost
   static const String _webBase = 'https://rasaya.my.id/api';
   static const String _webLocalBase = 'http://127.0.0.1:8000/api';
-  static const String _androidEmuBase = 'https://rasaya.my.id/api';
+  static const String _androidEmuBase = 'http://10.0.2.2:8000/api';
   static const String _iosSimBase = 'https://rasaya.my.id/api';
 
   static String _resolveBaseUrl() {
